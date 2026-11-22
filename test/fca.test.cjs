@@ -444,7 +444,8 @@ test("MQTT stop APIs are safe when called through the legacy API and cancel queu
     listenMqttCore: () => { connectCalls += 1; },
     getSeqIDFactory: async () => {}
   });
-  listener({}, api, ctx, { cycleMs: 0, reconnectDelayMs: 15, reconnectAfterStop: true });
+  const listen = listener({}, api, ctx, { cycleMs: 0, reconnectDelayMs: 15, reconnectAfterStop: true });
+  listen();
   assert.equal(connectCalls, 1);
   assert.equal(typeof api.stopListening, "function");
   assert.equal(typeof api.stopListeningAsync, "function");
