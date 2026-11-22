@@ -201,6 +201,7 @@ function createGetSeqID(deps: GetSeqDeps) {
   ) {
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
+    if (ctx._stopRequested || ctx._ending) return Promise.resolve();
     ctx.t_mqttCalled = false;
 
     return defaultFuncs
@@ -226,6 +227,7 @@ function createGetSeqID(deps: GetSeqDeps) {
         const syncSeqId = resData[0]?.o0?.data?.viewer?.message_threads?.sync_sequence_id;
         if (syncSeqId) {
           ctx.lastSeqId = syncSeqId;
+          if (ctx._stopRequested || ctx._ending) return;
           logger("mqtt getSeqID ok -> listenMqtt()", "info");
           listenMqtt(defaultFuncs, api, ctx, globalCallback);
         } else {
@@ -237,6 +239,7 @@ function createGetSeqID(deps: GetSeqDeps) {
         const msg = ((err && err.error) || (err && err.message) || String(err || "")) + detail;
 
         const isAuthError = /Not logged in|no sync_sequence_id found|blocked the login|401|403/i.test(msg);
+        if (ctx._stopRequested || ctx._ending) return;
         if (isAuthError) {
           if (retryCount < MAX_RETRIES) {
             const delay = RETRY_DELAY * (retryCount + 1);
