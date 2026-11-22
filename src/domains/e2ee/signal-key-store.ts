@@ -32,6 +32,8 @@ interface SignalStoreState {
   registrationId?: number;
   signedPreKeys: Record<string, SignalSignedPreKeyRecord>;
   oneTimePreKeys: Record<string, SignalKeyPairRecord>;
+  kyberPreKeys: Record<string, string>;
+  usedKyberPreKeys: Record<string, string[]>;
   sessions: Record<string, string>;
   trustedIdentities: Record<string, string>;
 }
@@ -49,6 +51,8 @@ const emptyState = (accountId: string): SignalStoreState => ({
   accountId,
   signedPreKeys: {},
   oneTimePreKeys: {},
+  kyberPreKeys: {},
+  usedKyberPreKeys: {},
   sessions: {},
   trustedIdentities: {}
 });
@@ -141,6 +145,10 @@ export interface SignalKeyStore {
   storePreKey(keyId: number, record: SignalKeyPairRecord): Promise<void>;
   loadPreKey(keyId: number): SignalKeyPairRecord | undefined;
   removePreKey(keyId: number): Promise<void>;
+  storeKyberPreKey(keyId: number, serializedRecord: string): Promise<void>;
+  loadKyberPreKey(keyId: number): string | undefined;
+  markKyberPreKeyUsed(keyId: number, signedPreKeyId: number, baseKey: string): Promise<void>;
+  hasKyberPreKeyBeenUsed(keyId: number): boolean;
   storeSession(address: SignalSessionAddress, serializedRecord: string): Promise<void>;
   loadSession(address: SignalSessionAddress): string | undefined;
   removeSession(address: SignalSessionAddress): Promise<void>;
@@ -242,6 +250,20 @@ export async function createSignalKeyStore(options: SignalStoreOptions): Promise
     }),
     loadPreKey: (keyId) => snapshot().oneTimePreKeys[String(requireId(keyId, "keyId"))],
     removePreKey: (keyId) => mutate((draft) => { delete draft.oneTimePreKeys[String(requireId(keyId, "keyId"))]; }),
+    storeKyberPreKey: (keyId, serializedRecord) => mutate((draft) => {
+      draft.kyberPreKeys[String(requireId(keyId, "kyberPreKeyId"))] = requireBytes(serializedRecord, "Kyber pre-key record");
+    }),
+    loadKyberPreKey: (keyId) => snapshot().kyberPreKeys[String(requireId(keyId, "kyberPreKeyId"))],
+    markKyberPreKeyUsed: (keyId, signedPreKeyId, baseKey) => mutate((draft) => {
+      const id = String(requireId(keyId, "kyberPreKeyId"));
+      const signedId = requireId(signedPreKeyId, "signedPreKeyId");
+      const normalizedBaseKey = requireBytes(baseKey, "baseKey");
+      const existing = draft.usedKyberPreKeys[id] || [];
+      const marker = `${signedId}:${normalizedBaseKey}`;
+      if (existing.includes(marker)) throw new Error("Kyber pre-key base key reuse detected");
+      draft.usedKyberPreKeys[id] = [...existing, marker];
+    }),
+    hasKyberPreKeyBeenUsed: (keyId) => Boolean(snapshot().usedKyberPreKeys[String(requireId(keyId, "kyberPreKeyId"))]?.length),
     storeSession: (address, serializedRecord) => mutate((draft) => {
       draft.sessions[addressKey(address)] = requireBytes(serializedRecord, "session record");
     }),
