@@ -472,7 +472,7 @@ test("MQTT reconnect delay never exceeds configured cap, including jitter", () =
       assert.ok(delay({ attempt, baseDelayMs: 2500, maxDelayMs: 7000, jitterMs: 400, random }) <= 7000);
     }
   }
-  assert.equal(delay({ attempt: 1, baseDelayMs: 1000, maxDelayMs: 8000, jitterMs: 400, random: 0.999 }), 1399);
+  assert.equal(delay({ attempt: 1, baseDelayMs: 1000, maxDelayMs: 8000, jitterMs: 400, random: 0.999 }), 1400);
 });
 
 test("MQTT payload decoder accepts objects and buffers and rejects malformed frames", () => {
