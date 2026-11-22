@@ -1,4 +1,4 @@
-# Architecture — @dongdev/fca-unofficial (4.x)
+# OmegA-FCA — Architecture (0.2.0)
 
 This document describes the internal architecture of the library. The overarching goal is to **separate session management, HTTP transport, and MQTT realtime** from **business-logic domains**, while preserving full **backward compatibility** with the flat FCA API and offering a **modern event-driven bot** interface on top.
 
