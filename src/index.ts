@@ -48,3 +48,5 @@ export { buildMqttWebSocketUrl, getMqttWebSocketHost, type MqttWebSocketUrlOptio
 export { validateMqttSubscriptionAck, normalizeMqttSyncState, buildInitialMqttSyncQueue } from "./transport/realtime/sync-protocol";
 
 export { consumeMqttTaskResponse } from "./transport/realtime/task-registry";
+
+export { publishLsRequestWithAck, type PublishLsRequestOptions } from "./transport/realtime/ls-requests";
