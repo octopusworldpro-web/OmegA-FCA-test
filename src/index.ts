@@ -57,3 +57,32 @@ export { createUnsendMessageCommand, type UnsendMessageCommandDeps } from "./dom
 
 export { createUploadAttachmentCommand, type UploadAttachmentCommandDeps } from "./domains/messages/commands/upload-attachment";
 export { createAttachmentUploadTransport, type UploadAttachmentTransportDeps, type UploadAttachmentTransportResult } from "./transport/http/upload-attachment";
+
+export {
+  createCreateNewGroupCommand,
+  type CreateNewGroupCommandDeps
+} from "./domains/threads/commands/create-new-group";
+export {
+  createAddUsersToGroupCommand,
+  type AddUsersToGroupCommandDeps
+} from "./domains/threads/commands/add-users-to-group";
+export {
+  createRemoveUserFromGroupCommand,
+  type RemoveUserFromGroupCommandDeps
+} from "./domains/threads/commands/remove-user-from-group";
+export {
+  createChangeAdminStatusCommand,
+  type ChangeAdminStatusCommandDeps
+} from "./domains/threads/commands/change-admin-status";
+export {
+  createSetTitleCommand,
+  type SetTitleCommandDeps
+} from "./domains/threads/commands/set-title";
+export {
+  createChangeThreadEmojiCommand,
+  type ChangeThreadEmojiCommandDeps
+} from "./domains/threads/commands/change-thread-emoji";
+export {
+  createChangeGroupImageCommand,
+  type ChangeGroupImageCommandDeps
+} from "./domains/threads/commands/change-group-image";
