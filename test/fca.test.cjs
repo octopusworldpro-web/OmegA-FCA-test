@@ -1685,3 +1685,41 @@ test("Signal encrypted media upload sends only ciphertext bytes", async () => {
   assert.equal(result.upload.attachmentId, "opaque-1");
   assert.equal("ciphertext" in result, false);
 });
+
+
+test("Signal E2EE read receipts are encrypted application actions and never call normal mark-read", async () => {
+  const sent = [];
+  const actions = fca.createSignalE2EEActions({
+    encrypt: async (remote, plaintext, now) => {
+      sent.push({ remote, plaintext: Buffer.from(plaintext), now });
+      return { type: 2, body: Buffer.from("encrypted-receipt").toString("base64") };
+    },
+    decrypt: async (_remote, ciphertext) => {
+      assert.equal(ciphertext.type, 2);
+      return sent[0].plaintext;
+    }
+  });
+  const remote = { name: "peer-user", deviceId: 3 };
+  const encrypted = await actions.sendReadReceipt(remote, "thread-123", ["m-1", "m-2", "m-1"], new Date(1700000000000));
+  assert.deepEqual(encrypted, { type: 2, body: Buffer.from("encrypted-receipt").toString("base64") });
+  assert.equal(sent.length, 1);
+  const payload = JSON.parse(sent[0].plaintext.toString("utf8"));
+  assert.deepEqual(payload, { version: 1, kind: "read_receipt", threadID: "thread-123", messageIDs: ["m-1", "m-2"], readAt: 1700000000000 });
+  const decoded = await actions.decryptReadReceipt(remote, encrypted);
+  assert.deepEqual(decoded, payload);
+  await assert.rejects(actions.sendReadReceipt(remote, "thread-123", []), /non-empty array/);
+  await assert.rejects(actions.sendReadReceipt(remote, "", ["m-1"]), /threadID/);
+});
+
+test("Signal E2EE action decoder rejects malformed and non-receipt payloads", async () => {
+  const actions = fca.createSignalE2EEActions({
+    encrypt: async () => ({ type: 2, body: "eA==" }),
+    decrypt: async () => Buffer.from(JSON.stringify({ version: 1, kind: "typing", threadID: "t", messageIDs: ["m"], readAt: 1 }))
+  });
+  await assert.rejects(actions.decryptReadReceipt({ name: "peer", deviceId: 1 }, { type: 2, body: "eA==" }), /Invalid E2EE read receipt/);
+  const malformed = fca.createSignalE2EEActions({
+    encrypt: async () => ({ type: 2, body: "eA==" }),
+    decrypt: async () => Buffer.from("not-json")
+  });
+  await assert.rejects(malformed.decryptReadReceipt({ name: "peer", deviceId: 1 }, { type: 2, body: "eA==" }), /not valid JSON/);
+});
