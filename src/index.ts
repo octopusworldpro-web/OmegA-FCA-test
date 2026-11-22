@@ -44,3 +44,5 @@ export { getMqttReconnectDelay, parseMqttJsonPayload, type MqttReconnectDelayOpt
 export { saveCookies, getAppState } from "./utils/cookies";
 export { requestWithRetry } from "./utils/request/retry";
 export { buildMqttWebSocketUrl, getMqttWebSocketHost, type MqttWebSocketUrlOptions } from "./transport/realtime/mqtt-url";
+
+export { validateMqttSubscriptionAck, normalizeMqttSyncState, buildInitialMqttSyncQueue } from "./transport/realtime/sync-protocol";
