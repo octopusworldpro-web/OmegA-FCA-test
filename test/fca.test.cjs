@@ -1080,6 +1080,8 @@ test("sendMessage preserves text and reply metadata with monotonic request/task 
   });
   assert.equal(envelope.tasks[0].task_id, 71);
   assert.equal(envelope.tasks[1].task_id, 72);
+  assert.equal(readTask.thread_id, "thread-123");
+  assert.equal(readTask.sync_group, 1);
   assert.equal(sent.request_id, 41);
   assert.equal(ctx.wsReqNumber, 41);
   assert.equal(ctx.wsTaskNumber, 72);
