@@ -93,3 +93,12 @@ The current GoatBot main login flow depends on the following FCA contract:
 - The test suite now verifies the callback-compatible API's session getters, database backup accessors, and EventEmitter methods used by the GoatBot login/recovery path.
 
 This is a synthetic API-contract check; an actual account login, MQTT-ready transition, account replacement and rollback still require an authorized runtime test in the GoatBot deployment.
+
+
+## Native HTTP transport and cookie management
+
+- Response `Set-Cookie` persistence accepts both single and multi-value headers, resolves relative request URLs against `baseURL`, and isolates malformed cookie failures so one bad cookie does not discard the rest of the response.
+- AppState collection queries the supported Facebook web/mobile host variants and deduplicates cookies by name, domain and path, preserving host-scoped cookies.
+- HTTP 4xx/5xx responses now enter the request retry handler instead of being treated as successful Axios responses. The retry policy can retry 429 and transient 5xx/network failures while returning ordinary non-retryable 4xx responses to legacy callers.
+- Added synthetic tests for Set-Cookie handling, relative URL resolution, multi-host AppState collection, deduplication, and 429 retry behavior.
+- These tests validate the local transport contract; authenticated Facebook requests and proxy behavior still require authorized runtime testing.
