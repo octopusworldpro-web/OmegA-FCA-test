@@ -1314,3 +1314,16 @@ test("getThreadHistory rejects invalid pagination before issuing a request", asy
   await assert.rejects(getHistory("thread-1", 0, null), /amount must be a positive integer/);
   await assert.rejects(getHistory("", 10, null), /threadID is required/);
 });
+
+
+test("getThreadInfo returns empty values without querying for blank IDs", async () => {
+  let calls = 0;
+  const getInfo = fca.createGetThreadInfoQuery({
+    defaultFuncs: { post: async () => { calls += 1; throw new Error("must not call transport"); } },
+    api: {},
+    ctx: { jar: {} }
+  });
+  assert.equal(await getInfo(""), null);
+  assert.deepEqual(await getInfo(["", "  "]), {});
+  assert.equal(calls, 0);
+});
