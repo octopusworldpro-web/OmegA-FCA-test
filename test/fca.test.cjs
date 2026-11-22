@@ -1723,3 +1723,50 @@ test("Signal E2EE action decoder rejects malformed and non-receipt payloads", as
   });
   await assert.rejects(malformed.decryptReadReceipt({ name: "peer", deviceId: 1 }, { type: 2, body: "eA==" }), /not valid JSON/);
 });
+
+
+test("Signal Sender Keys creates and processes SKDM then encrypts and decrypts group payloads", async () => {
+  const records = new Map();
+  const keyOf = (name) => name.groupId() + "|" + name.sender().name() + "." + name.sender().deviceId();
+  class SenderKeyStore {}
+  class SenderKeyRecord { static deserialize(bytes) { return { serialize: () => Buffer.from(bytes) }; } }
+  class GroupSessionBuilder {
+    constructor(store) { this.store = store; }
+    async createSenderKeyDistributionMessage(name) {
+      await this.store.storeSenderKey(name, { serialize: () => Buffer.from("sender-key-record") });
+      return { serialize: () => Buffer.from("distribution:" + keyOf(name)) };
+    }
+    async processSenderKeyDistributionMessage(name, message) {
+      await this.store.storeSenderKey(name, { serialize: () => Buffer.from("processed:" + message.bytes.toString()) });
+    }
+  }
+  class GroupCipher {
+    constructor(name, store) { this.name = name; this.store = store; }
+    async encrypt(bytes) { return Buffer.concat([Buffer.from("cipher:"), Buffer.from(bytes)]); }
+    async decrypt(message) {
+      assert.ok(await this.store.loadSenderKey(this.name));
+      return message.bytes.subarray(Buffer.from("cipher:").length);
+    }
+  }
+  const signal = {
+    SenderKeyStore, SenderKeyRecord, GroupSessionBuilder, GroupCipher,
+    ProtocolAddress: { new: (name, deviceId) => ({ name: () => name, deviceId: () => deviceId }) },
+    SenderKeyName: { new: (group, address) => ({ groupId: () => group, sender: () => address }) },
+    SenderKeyDistributionMessage: { deserialize: (bytes) => ({ bytes: Buffer.from(bytes) }) },
+    SenderKeyMessage: { deserialize: (bytes) => ({ bytes: Buffer.from(bytes) }) }
+  };
+  const store = {
+    storeSenderKey: async (address, group, value) => records.set(group + "|" + address.name + "." + address.deviceId, value),
+    loadSenderKey: (address, group) => records.get(group + "|" + address.name + "." + address.deviceId)
+  };
+  const groups = fca.createSignalSenderKeyGroups(signal, store);
+  const sender = { name: "alice", deviceId: 1 };
+  const distribution = await groups.createDistribution("group-1", sender);
+  assert.equal(distribution.groupId, "group-1");
+  await groups.processDistribution(distribution);
+  const encrypted = await groups.encrypt("group-1", sender, "group secret");
+  const clear = await groups.decrypt(encrypted);
+  assert.equal(Buffer.from(clear).toString("utf8"), "group secret");
+  await assert.rejects(groups.processDistribution({ ...distribution, body: "!" }), /valid base64/);
+  await assert.rejects(groups.encrypt("", sender, "x"), /groupId/);
+});
