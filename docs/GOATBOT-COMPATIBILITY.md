@@ -189,3 +189,13 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - Facebook profile fields, thread history and shared photos still require authenticated live-session checks for current server response parity.
 
 - Thread-info lookups now trim and deduplicate IDs, and return the legacy empty result (`null` for one ID, `{}` for a list) without making a network request when no usable ID is supplied.
+
+## Task 17 — Facebook post, comment, share and read/delivery parity audit
+
+- Audited the exported legacy API surface and the message/account command implementations for post creation, comments, link/contact sharing, reactions, read receipts and delivery receipts.
+- `markAsRead`, `markAsReadAll`, `markAsSeen` and `markAsDelivered` are present on the legacy API and grouped message namespace. Read status uses the existing Mercury/page transport when selected, otherwise the Messenger realtime mark-thread transport; seen/delivered use the Mercury transport.
+- Contact sharing is now request/response correlated: it allocates monotonic request/task IDs from the FCA context and waits for its matching `/ls_resp`, with timeout/error cleanup inherited from the shared acknowledgement helper. Blank contact/thread identifiers are rejected before publish.
+- Added synthetic tests for the contact-share payload, request/task ID progression, matching ACK, listener cleanup and invalid identifiers.
+- **Remaining parity gap:** the current source tree does not contain a post-creation command, comment-creation command or share-link command, and the legacy API does not expose `createPost`, `comment` or `shareLink`. These operations are not implemented or verified; no guessed Facebook mutation IDs or payloads were added. Therefore Task 17 is not fully complete until these three operations are implemented against a verified FCA-compatible transport contract.
+- CI verifies the local command contract only; real Facebook read/delivery/contact-share operations still require an authorized runtime test.
+
