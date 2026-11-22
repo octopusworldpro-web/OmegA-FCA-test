@@ -222,3 +222,12 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - Added tests for persistence/reopen, encrypted-at-rest output, account isolation, wrong-key rejection, prekey removal, session removal and trust identity updates.
 - The Signal library currently published by Signal is `@signalapp/libsignal-client`; it is an official-client library whose APIs are subject to change and whose upstream project explicitly says use outside Signal is unsupported. OmegA-FCA has not yet integrated or validated its Node bindings against Messenger's private provisioning and device protocol.
 - **Validation boundary:** this task delivers encrypted key/session storage only. Signal key generation, prekey bundle exchange, session establishment, encrypt/decrypt interoperability, device sync and Facebook live acceptance remain open for later E2EE tasks.
+
+
+### Task 19 protocol adapter update
+
+- Added `createLibsignalStores(signal, store)`, implementing the current official TypeScript libsignal abstract stores: SessionStore, IdentityKeyStore, PreKeyStore, SignedPreKeyStore and KyberPreKeyStore.
+- Added `ensureSignalIdentity`, `createSignalSignedPreKey`, `createSignalPreKey` and `createSignalKyberPreKey`. All cryptographic key generation and signatures are delegated to the injected libsignal implementation; OmegA-FCA does not implement Signal primitives itself.
+- Session records and prekey records are persisted as libsignal-serialized bytes inside the encrypted account store. Kyber prekey usage records include signed-prekey ID and base key to detect reuse.
+- The libsignal package is deliberately not bundled as a mandatory dependency: the official npm package is AGPL-3.0-only and Signal documents that use outside official Signal clients is unsupported. Applications must review the license and explicitly install/inject a compatible version.
+- This adapter provides the local protocol state and native libsignal store boundary. Messenger-specific device discovery, key-bundle retrieval/publication, provisioning, sealed-sender certificates and message envelope transport remain outside this task and are required before Facebook E2EE interoperability can be claimed.
