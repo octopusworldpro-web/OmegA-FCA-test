@@ -1,5 +1,5 @@
 export const DEFAULT_REGIONS = [
-  { code: "PRN", name: "Pacific Northwest Region", location: "Khu vá»±c TÃ¢y Báº¯c ThÃ¡i BÃ¬nh DÆ°Æ¡ng" },
+  { code: "PRN", name: "Pacific Northwest Region", location: "Pacific Northwest" },
   { code: "VLL", name: "Valley Region", location: "Valley" },
   { code: "ASH", name: "Ashburn Region", location: "Ashburn" },
   { code: "DFW", name: "Dallas/Fort Worth Region", location: "Dallas/Fort Worth" },
@@ -9,7 +9,7 @@ export const DEFAULT_REGIONS = [
   { code: "NRT", name: "Tokyo", location: "Japan" },
   { code: "HKG", name: "Hong Kong", location: "Hong Kong" },
   { code: "SYD", name: "Sydney", location: "Sydney" },
-  { code: "PNB", name: "Pacific Northwest - Beta", location: "Pacific Northwest " }
+  { code: "PNB", name: "Pacific Northwest - Beta", location: "Pacific Northwest" }
 ];
 
 import axios from "axios";
@@ -62,13 +62,28 @@ export function createAuthCore(opts: {
     apiKey: string | null = null
   ) {
     try {
-      const baseUrl = apiBaseUrl || config.apiServer || "https://minhdong.site";
-      const endpoint = `${baseUrl}/api/v1/facebook/login_ios`;
+      const configuredBaseUrl = apiBaseUrl || config.apiServer;
+      if (typeof configuredBaseUrl !== "string" || !configuredBaseUrl.trim()) {
+        return {
+          ok: false,
+          message: "External credential login is disabled. Configure a trusted HTTPS apiServer explicitly."
+        };
+      }
+
+      const parsedBaseUrl = new URL(configuredBaseUrl);
+      if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password) {
+        return {
+          ok: false,
+          message: "Credential login API must be an HTTPS URL without embedded credentials."
+        };
+      }
+
+      const endpoint = `${parsedBaseUrl.origin}${parsedBaseUrl.pathname.replace(/\\/+$/, "")}/api/v1/facebook/login_ios`;
       const xApiKey = apiKey || config.apiKey || null;
 
       const body: Record<string, string> = { email, password };
       if (twoFactor && typeof twoFactor === "string" && twoFactor.trim()) {
-        body.twoFactor = twoFactor.replace(/\s+/g, "").toUpperCase();
+        body.twoFactor = twoFactor.replace(/\\s+/g, "").toUpperCase();
       }
 
       const headers: Record<string, string> = {
@@ -80,7 +95,7 @@ export function createAuthCore(opts: {
         headers["x-api-key"] = xApiKey;
       }
 
-      log(`API-LOGIN: Attempting login for ${mask(email, 2)} via iOS API`, "info");
+      log(`API-LOGIN: Attempting login for ${mask(email, 2)} via explicitly configured HTTPS API`, "info");
 
       const response = await axiosBase({
         method: "POST",
@@ -94,8 +109,8 @@ export function createAuthCore(opts: {
       if (response.status === 200 && response.data) {
         const data = response.data;
         if (data.error) {
-          log(`API-LOGIN: Login failed - ${data.error}`, "error");
-          return { ok: false, message: data.error };
+          log("API-LOGIN: Login failed (provider returned an error)", "error");
+          return { ok: false, message: String(data.error) };
         }
 
         const uid = data.uid || data.user_id || data.userId || null;
@@ -107,7 +122,7 @@ export function createAuthCore(opts: {
           return { ok: false, message: "Invalid response from API" };
         }
 
-        log(`API-LOGIN: Login successful for UID: ${uid || "Loose"}`, "info");
+        log(`API-LOGIN: Login successful for UID: ${uid || "unknown"}`, "info");
 
         let cookies: Array<Record<string, string>> = [];
         if (typeof cookie === "string") {
@@ -148,8 +163,8 @@ export function createAuthCore(opts: {
           ? response.data.message
           : `HTTP ${response.status}`;
 
-      log(`API-LOGIN: Login failed - ${errorMsg}`, "error");
-      return { ok: false, message: errorMsg };
+      log("API-LOGIN: Login failed (provider request was rejected)", "error");
+      return { ok: false, message: String(errorMsg) };
     } catch (error: Loose) {
       const errMsg = error && error.message ? error.message : String(error);
       log(`API-LOGIN: Request failed - ${errMsg}`, "error");
@@ -193,8 +208,8 @@ export function createAuthCore(opts: {
   function normalizeCookieHeaderString(s: string) {
     let str = String(s || "").trim();
     if (!str) return [];
-    if (/^cookie\s*:/i.test(str)) str = str.replace(/^cookie\s*:/i, "").trim();
-    str = str.replace(/\r?\n/g, " ").replace(/\s*;\s*/g, ";");
+    if (/^cookie\\s*:/i.test(str)) str = str.replace(/^cookie\\s*:/i, "").trim();
+    str = str.replace(/\\r?\\n/g, " ").replace(/\\s*;\\s*/g, ";");
     const parts = str.split(";").map((v) => v.trim()).filter(Boolean);
     const out: string[] = [];
     for (const p of parts) {
@@ -242,5 +257,3 @@ export function createAuthCore(opts: {
     setJarFromPairs
   };
 }
-
-
