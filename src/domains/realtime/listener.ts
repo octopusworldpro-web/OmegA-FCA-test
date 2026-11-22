@@ -216,7 +216,15 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
           ctx._rTimeout = null;
         }
         if (ctx.tasks && ctx.tasks instanceof Map) {
+          const pendingTasks = Array.from(ctx.tasks.values());
           ctx.tasks.clear();
+          for (const task of pendingTasks) {
+            if (!task || task.completed || typeof task.callback !== "function") continue;
+            task.completed = true;
+            try { task.callback(new Error("MQTT listener stopped before response"), null); } catch (error: Loose) {
+              logger("pending MQTT task cleanup error: " + String(error), "warn");
+            }
+          }
         }
         if (ctx._userInfoIntervals && Array.isArray(ctx._userInfoIntervals)) {
           ctx._userInfoIntervals.forEach((interval: NodeJS.Timeout) => {
