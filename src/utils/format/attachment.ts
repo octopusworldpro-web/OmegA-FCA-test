@@ -363,7 +363,7 @@ function formatAttachment(
 }
 
 
-function formatIncomingAttachment(input: Loose): Loose {
+export function formatIncomingAttachment(input: Loose): Loose {
   if (!input || typeof input !== "object") {
     return { type: "unknown", ID: "", url: null, raw: input ?? null };
   }
@@ -420,7 +420,7 @@ function formatIncomingAttachment(input: Loose): Loose {
   }
 }
 
-export = {
+export default {
   _formatAttachment,
   formatAttachment,
   formatIncomingAttachment
