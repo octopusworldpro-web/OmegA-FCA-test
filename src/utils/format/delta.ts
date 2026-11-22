@@ -3,7 +3,7 @@
 import attachment from "./attachment";
 import { formatID } from "./utils";
 
-const { _formatAttachment } = attachment;
+const { formatIncomingAttachment } = attachment;
 
 function getAdminTextMessageType(m: Loose) {
   const type = m && (m.type || m);
@@ -154,44 +154,48 @@ function getMentionsFromDeltaMessage(m: Loose) {
   return mentions;
 }
 
+function formatDeltaQuotedMessage(m: Loose, fallbackThreadID?: string): Loose {
+  const metadata = m?.messageMetadata || {};
+  const threadKey = metadata.threadKey || {};
+  const threadID = String(
+    threadKey.threadFbId || threadKey.otherUserFbId || fallbackThreadID || ""
+  );
+  const body = String(m?.body || "");
+  const mentions = getMentionsFromDeltaMessage(m || {});
+  return {
+    type: "Message",
+    threadID: threadID ? formatID(threadID) : "",
+    messageID: String(metadata.messageId || ""),
+    senderID: String(metadata.actorFbId || ""),
+    attachments: (Array.isArray(m?.attachments) ? m.attachments : []).map(formatIncomingAttachment),
+    args: body.trim() ? body.trim().split(/\\s+/) : [],
+    body,
+    isGroup: !!threadKey.threadFbId,
+    mentions,
+    timestamp: Number.parseInt(String(metadata.timestamp || 0), 10) || 0,
+    participantIDs: (Array.isArray(m?.participants) ? m.participants : []).map((id: Loose) => formatID(String(id)))
+  };
+}
+
 function formatDeltaMessage(m: Loose) {
-  var md = m.messageMetadata;
-  var body = m.body || "";
-  var mentions = getMentionsFromDeltaMessage(m);
-  var args = body === "" ? [] : body.trim().split(/\s+/);
-  return {
+  const md = m?.messageMetadata || {};
+  const threadKey = md.threadKey || {};
+  const body = String(m?.body || "");
+  const event: Loose = {
     type: "message",
-    senderID: formatID(md.actorFbId.toString()),
-    threadID: formatID(
-      (md.threadKey.threadFbId || md.threadKey.otherUserFbId).toString(),
-    ),
-    messageID: md.messageId,
-    args: args,
-    body: body,
-    attachments: (m.attachments || []).map((v: Loose) => _formatAttachment(v, undefined)),
-    mentions: mentions,
+    senderID: formatID(String(md.actorFbId || "")),
+    threadID: formatID(String(threadKey.threadFbId || threadKey.otherUserFbId || "")),
+    messageID: String(md.messageId || ""),
+    args: body.trim() ? body.trim().split(/\\s+/) : [],
+    body,
+    attachments: (Array.isArray(m?.attachments) ? m.attachments : []).map(formatIncomingAttachment),
+    mentions: getMentionsFromDeltaMessage(m || {}),
     timestamp: md.timestamp,
-    isGroup: !!md.threadKey.threadFbId,
-    participantIDs: (m.participants || []).map((p: Loose) => formatID(p.toString())),
-    isUnread: md.isUnread !== undefined ? md.isUnread : false,
+    isGroup: !!threadKey.threadFbId,
+    participantIDs: (Array.isArray(m?.participants) ? m.participants : []).map((p: Loose) => formatID(String(p))),
+    isUnread: md.isUnread !== undefined ? md.isUnread : false
   };
+  const quoted = m?.repliedToMessage || m?.replied_to_message?.message;
+  if (quoted) event.messageReply = formatDeltaQuotedMessage(quoted, event.threadID);
+  return event;
 }
-
-function formatDeltaReadReceipt(delta: Loose) {
-  return {
-    reader: (delta.threadKey.otherUserFbId || delta.actorFbId).toString(),
-    time: delta.actionTimestampMs,
-    threadID: formatID(
-      (delta.threadKey.otherUserFbId || delta.threadKey.threadFbId).toString(),
-    ),
-    type: "read_receipt",
-  };
-}
-
-export = {
-  getAdminTextMessageType,
-  formatDeltaEvent,
-  formatDeltaMessage,
-  getMentionsFromDeltaMessage,
-  formatDeltaReadReceipt,
-};
