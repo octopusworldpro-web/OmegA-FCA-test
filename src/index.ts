@@ -54,3 +54,6 @@ export { publishLsRequestWithAck, type PublishLsRequestOptions } from "./transpo
 export { createSendMessageCommand, type SendMessageCommandDeps } from "./domains/messages/commands/send-message";
 export { createEditMessageCommand, type EditMessageCommandDeps } from "./domains/messages/commands/edit-message";
 export { createUnsendMessageCommand, type UnsendMessageCommandDeps } from "./domains/messages/commands/unsend-message";
+
+export { createUploadAttachmentCommand, type UploadAttachmentCommandDeps } from "./domains/messages/commands/upload-attachment";
+export { createAttachmentUploadTransport, type UploadAttachmentTransportDeps, type UploadAttachmentTransportResult } from "./transport/http/upload-attachment";
