@@ -10,7 +10,7 @@ import loginHelper from "./login-helper";
 const { getType } = format;
 
 export interface LoginCredentials {
-  appState?: Loose[];
+  appState?: Loose[] | string;
   email?: string;
   password?: string;
   Cookie?: string | string[] | Record<string, string>;
@@ -86,24 +86,77 @@ if (!g.fca._errorHandlersInstalled) {
   });
 }
 
-function appStateToCookieString(appState: Loose[] | undefined): string {
-  if (!Array.isArray(appState)) return "";
-  return appState
-    .map((c) => {
-      const key = c?.key || c?.name;
-      const value = c?.value;
-      if (!key || value === undefined || value === null) return null;
-      return `${key}=${value}`;
-    })
-    .filter(Boolean)
-    .join("; ");
+function cookiePairsFromInput(input: Loose): string[] {
+  if (!input) return [];
+  if (typeof input === "string") return loginHelper.normalizeCookieHeaderString(input);
+  if (Array.isArray(input)) {
+    const pairs: string[] = [];
+    for (const entry of input) {
+      if (typeof entry === "string") {
+        pairs.push(...loginHelper.normalizeCookieHeaderString(entry));
+      } else if (entry && typeof entry === "object") {
+        const key = entry.key || entry.name;
+        if (key && entry.value !== undefined && entry.value !== null) {
+          pairs.push(`${String(key).trim()}=${String(entry.value)}`);
+        }
+      }
+    }
+    return pairs;
+  }
+  if (typeof input === "object") {
+    const nested = input.Cookie || input.cookie || input.cookies;
+    if (nested) return cookiePairsFromInput(nested);
+    if (input.key || input.name) {
+      return input.value === undefined || input.value === null
+        ? []
+        : [`${String(input.key || input.name).trim()}=${String(input.value)}`];
+    }
+    return Object.entries(input)
+      .filter(([, value]) => value !== undefined && value !== null && typeof value !== "object")
+      .map(([key, value]) => `${key}=${String(value)}`);
+  }
+  return [];
 }
 
-function appStateToFbid(appState: Loose[] | undefined): string {
-  if (!Array.isArray(appState)) return "";
-  const cUser = appState.find((c) => c?.key === "c_user" || c?.name === "c_user");
-  const iUser = appState.find((c) => c?.key === "i_user" || c?.name === "i_user");
-  return String((cUser && cUser.value) || (iUser && iUser.value) || "");
+function dedupeCookiePairs(pairs: string[]): string[] {
+  const byName = new Map<string, string>();
+  for (const pair of pairs) {
+    const eq = pair.indexOf("=");
+    if (eq <= 0) continue;
+    const name = pair.slice(0, eq).trim();
+    if (name) byName.set(name, `${name}=${pair.slice(eq + 1)}`);
+  }
+  return [...byName.values()];
+}
+
+export function normalizeLoginCredentials(credentials: LoginCredentials): LoginCredentials {
+  let appState: Loose[] | undefined;
+  let cookieInput: Loose = credentials.Cookie;
+
+  if (typeof credentials.appState === "string") {
+    let parsed: Loose = null;
+    try { parsed = JSON.parse(credentials.appState); } catch { }
+    if (Array.isArray(parsed)) appState = parsed;
+    else cookieInput = [credentials.appState, ...(cookieInput ? [cookieInput] : [])];
+  } else if (Array.isArray(credentials.appState)) {
+    appState = credentials.appState;
+  }
+
+  const appStatePairs = appState ? cookiePairsFromInput(appState) : [];
+  const explicitCookiePairs = cookiePairsFromInput(cookieInput);
+  const Cookie = dedupeCookiePairs([...appStatePairs, ...explicitCookiePairs]).join("; ");
+  return { appState, Cookie: Cookie || undefined };
+}
+
+function appStateToCookieString(appState: Loose[] | string | undefined): string {
+  return cookiePairsFromInput(appState).join("; ");
+}
+
+function appStateToFbid(appState: Loose[] | string | undefined): string {
+  const pairs = cookiePairsFromInput(appState);
+  const uid = pairs.find((pair) => /^c_user=/i.test(pair)) ||
+    pairs.find((pair) => /^i_user=/i.test(pair));
+  return uid ? uid.slice(uid.indexOf("=") + 1) : "";
 }
 
 const DEFAULT_LOGIN_OPTIONS: Required<Pick<
@@ -150,15 +203,17 @@ export async function loginAsync(
   setOptions(globalOptions, customOptions || {});
   ctx.options = { ...ctx.options, ...globalOptions };
   ctx.globalOptions = globalOptions;
-  ctx.cookieString = appStateToCookieString(credentials.appState);
-  ctx.fbid = appStateToFbid(credentials.appState);
+  const normalizedCredentials = normalizeLoginCredentials(credentials);
+  ctx.cookieString = [appStateToCookieString(normalizedCredentials.appState), appStateToCookieString(normalizedCredentials.Cookie)]
+    .filter(Boolean).join("; ");
+  ctx.fbid = appStateToFbid(ctx.cookieString);
   (ctx as Loose)._request = createRequestHelper(ctx);
 
   const runLogin = () =>
     new Promise<Loose>((resolve, reject) => {
       loginHelper(
-        credentials.appState,
-        credentials.Cookie,
+        normalizedCredentials.appState,
+        normalizedCredentials.Cookie,
         credentials.email,
         credentials.password,
         globalOptions,
