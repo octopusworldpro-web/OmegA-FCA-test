@@ -176,3 +176,14 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - These mutations allocate monotonically increasing request/task IDs from the FCA context; admin batches use a distinct task ID per member.
 - Added synthetic tests for remove-member callback-once/ACK cleanup, admin batch IDs/ACK, title and emoji ACK, and group-creation participant validation.
 - Group creation and other thread mutations still require an authenticated Facebook runtime test to verify current server-side GraphQL/MQTT protocol acceptance.
+
+
+## Task 16 — User, friend and thread information
+
+- User profile cache entries are now reused only while their database `updatedAt` is within a 10-minute freshness window; missing/invalid timestamps trigger a refresh. Empty and duplicate profile IDs are normalized before lookup.
+- Typeahead user-ID lookup returns an empty list for blank names, validates the response shape, and skips records without a usable UID. Partial entries are normalized with stable defaults instead of throwing.
+- Friend-list formatting skips malformed records without IDs and validates the payload container before mapping. Existing FCA output fields are retained.
+- Thread-history pagination now validates thread ID, positive message count and integer/null cursor before transport. The GraphQL batch envelope and `message_thread.messages.nodes` are checked before parsing; optional mention/reaction structures are handled without failing the whole response.
+- Shared thread-photo pagination validates offset/limit and safely handles missing nested photo detail structures.
+- Added synthetic tests for friend/profile normalization, malformed thread-history response, empty history and invalid pagination.
+- Facebook profile fields, thread history and shared photos still require authenticated live-session checks for current server response parity.
