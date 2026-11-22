@@ -300,15 +300,17 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
       ctx._getSeqRetryAttempts = 0;
 
       const stopListening = (callback2?: () => void): void => {
-        const cb = callback2 || function () { };
+        const cb = typeof callback2 === "function" ? callback2 : function () { };
+        if (ctx._stopPromise) {
+          ctx._stopPromise.then(() => cb(), () => cb());
+          return;
+        }
         logger("mqtt stop requested", "info");
         globalCallback = identity;
         ctx._stopRequested = true;
-
         if (ctx._autoCycleTimer) {
           clearInterval(ctx._autoCycleTimer);
           ctx._autoCycleTimer = null;
-          logger("mqtt auto-cycle cleared", "info");
         }
         if (ctx._reconnectTimer) {
           clearTimeout(ctx._reconnectTimer);
@@ -319,19 +321,26 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
           ctx._getSeqRetryTimer = null;
         }
         ctx._getSeqRetryAttempts = 0;
-
         ctx._ending = true;
-        unsubAll(() =>
-          endQuietly(() => {
+        const stopped = new Promise<void>((resolve) => {
+          unsubAll(() => endQuietly(() => {
             logger("mqtt stopped", "info");
-            cb();
             conf = mqttConf(ctx, conf);
             if (conf.reconnectAfterStop) {
               ctx._stopRequested = false;
               delayedReconnect();
             }
-          })
-        );
+            resolve();
+          }));
+        });
+        ctx._stopPromise = stopped;
+        stopped.then(() => {
+          if (ctx._stopPromise === stopped) ctx._stopPromise = null;
+          cb();
+        }, () => {
+          if (ctx._stopPromise === stopped) ctx._stopPromise = null;
+          cb();
+        });
       };
 
       const stopListeningAsync = (): Promise<void> =>
