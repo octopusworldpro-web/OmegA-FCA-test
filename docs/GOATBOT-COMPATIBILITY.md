@@ -268,3 +268,12 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - Sender identity is scoped by group ID plus the sender's Signal ProtocolAddress/device ID. Distribution and ciphertext payloads carry the group ID and sender address for routing; malformed base64 and missing group/sender fields are rejected.
 - Tests cover SKDM creation/processing, group encrypt/decrypt, invalid inputs and encrypted persistence/reopen/removal of sender-key records.
 - **Validation boundary:** this is the libsignal Sender Keys protocol layer and local persistence, not Messenger's full group-device fanout. Messenger-specific distribution fanout to every device, membership/epoch changes, sender-key rotation/revocation, SKDM envelope transport and live Facebook group E2EE acceptance remain unverified and require authorized runtime integration.
+
+
+## Task 24 — Encrypted group messaging and media
+
+- Group text/binary payload encryption and decryption use the Task 23 libsignal Sender Keys group cipher; each payload is scoped to a group ID and sender device. SKDM distribution must be processed before decrypting messages from a sender.
+- Added `createSignalEncryptedGroupMedia`. Each attachment receives a fresh random 64-byte key; media bytes are encrypted locally with AES-256-CBC and authenticated with truncated HMAC-SHA256 plus a SHA-256 ciphertext digest. The attachment key is wrapped inside a Sender Keys group ciphertext.
+- The upload helper sends only encrypted bytes as `application/octet-stream`, using an `.enc` filename, and returns the group-safe descriptor separately. Decryption validates group/sender routing, dimensions, digest and MAC before returning plaintext.
+- Tests cover group key wrapping, media round-trip, upload ciphertext isolation, routing mismatch and tampering.
+- **Validation boundary:** this is a reusable Signal Sender Keys and encrypted-media layer. It does not claim Messenger-compatible private E2EE group envelope or media CDN interoperability. Per-device SKDM fanout, group membership/epoch lifecycle, Messenger's attachment metadata and transport, and live Facebook group E2EE acceptance remain unverified.
