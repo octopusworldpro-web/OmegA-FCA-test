@@ -358,6 +358,42 @@ function loadIntegrationCredentials() {
   return null;
 }
 
+test("AppState and Cookie inputs normalize into consistent login credentials", () => {
+  const fromAppState = fca.normalizeLoginCredentials({
+    appState: [
+      { name: "c_user", value: "12345" },
+      { key: "xs", value: "token=with=equals" }
+    ]
+  });
+  assert.strictEqual(fromAppState.appState.length, 2);
+  assert.strictEqual(fromAppState.Cookie, undefined);
+
+  const fromCookieHeader = fca.normalizeLoginCredentials({
+    Cookie: "Cookie: c_user=67890; xs=token=with=equals"
+  });
+  assert.strictEqual(fromCookieHeader.Cookie, "c_user=67890; xs=token=with=equals");
+
+  const fromCookieObjects = fca.normalizeLoginCredentials({
+    Cookie: [
+      { name: "c_user", value: "24680" },
+      { key: "xs", value: "object-token" }
+    ]
+  });
+  assert.strictEqual(fromCookieObjects.Cookie, "c_user=24680; xs=object-token");
+
+  const fromAppStateHeader = fca.normalizeLoginCredentials({
+    appState: "c_user=13579; xs=header-token"
+  });
+  assert.strictEqual(fromAppStateHeader.appState, undefined);
+  assert.strictEqual(fromAppStateHeader.Cookie, "c_user=13579; xs=header-token");
+
+  const fromJsonAppState = fca.normalizeLoginCredentials({
+    appState: JSON.stringify([{ key: "c_user", value: "11223" }])
+  });
+  assert.strictEqual(fromJsonAppState.appState[0].value, "11223");
+  assert.strictEqual(fromJsonAppState.Cookie, undefined);
+});
+
 test("public exports are available", () => {
   assert.strictEqual(typeof fca.login, "function");
   assert.strictEqual(typeof fca.createFcaClient, "function");
