@@ -227,9 +227,9 @@ export function createSocialDomain(deps: SocialDomainDeps) {
     const { callback: done, promise } = callbackPromise<Loose>(callback as unknown as CallbackResult);
     try {
       const link = String(url || "").trim();
-      if (!/^https?:\\/\\//i.test(link)) throw new Error("shareLink requires an http(s) URL");
+      if (!/^https?:\/\//i.test(link)) throw new Error("shareLink requires an http(s) URL");
       if (!String(threadID || "").trim()) throw new Error("threadID is required");
-      const body = [String(text || "").trim(), link].filter(Boolean).join("\\n");
+      const body = [String(text || "").trim(), link].filter(Boolean).join("\n");
       deps.sendMessage({ body }, String(threadID)).then(result => done(null, result)).catch(error => {
         deps.logError?.("shareLink", error);
         done(error);
