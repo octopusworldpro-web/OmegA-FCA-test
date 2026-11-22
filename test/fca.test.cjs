@@ -1582,3 +1582,25 @@ test("fetched getMessage output keeps quoted-reply event type and legacy fields"
   assert.equal(result.isGroup, false);
 });
 
+test("GoatBot client facade exposes getMessage and incoming media helpers", () => {
+  const api = {
+    getMessage(threadID, messageID) {
+      return { owner: this === api, threadID, messageID };
+    },
+    uploadAttachment(value) {
+      return { uploaded: value };
+    },
+    forwardAttachment(value) {
+      return { forwarded: value };
+    }
+  };
+  const client = fca.createFcaClient(api);
+  assert.deepEqual(client.messages.get("thread-1", "message-1"), {
+    owner: true,
+    threadID: "thread-1",
+    messageID: "message-1"
+  });
+  assert.deepEqual(client.messages.uploadAttachment("photo"), { uploaded: "photo" });
+  assert.deepEqual(client.messages.forwardAttachment("attachment-1"), { forwarded: "attachment-1" });
+});
+
