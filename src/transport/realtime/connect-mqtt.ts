@@ -23,20 +23,26 @@ function createListenMqtt(deps: Loose) {
   return function listenMqtt(defaultFuncs: Loose, api: Loose, ctx: Loose, globalCallback: Loose) {
 
     function scheduleReconnect(delayMs?: number) {
-      const d = (ctx._mqttOpt && ctx._mqttOpt.reconnectDelayMs) || DEFAULT_RECONNECT_DELAY_MS;
-      const base = typeof delayMs === "number" ? delayMs : d;
-      const attempt = (ctx._mqttReconnectAttempts || 0) + 1;
-      ctx._mqttReconnectAttempts = attempt;
-      const ms = getMqttReconnectDelay({ attempt, baseDelayMs: base, maxDelayMs: (ctx._mqttOpt && ctx._mqttOpt.maxReconnectDelayMs) || 30000, jitterMs: RECONNECT_JITTER_MS, random: Math.random() });
-      if (ctx._reconnectTimer) {
-        logger("mqtt reconnect already scheduled", "warn");
-        return; // debounce
-      }
       if (ctx._ending || ctx._stopRequested) {
         logger("mqtt reconnect skipped - ending/stopped", "warn");
         return;
       }
-      logger(`mqtt will reconnect in ~${ms}ms`, "warn");
+      if (ctx._reconnectTimer) {
+        logger("mqtt reconnect already scheduled", "warn");
+        return;
+      }
+      const configuredBase = (ctx._mqttOpt && ctx._mqttOpt.reconnectDelayMs) || DEFAULT_RECONNECT_DELAY_MS;
+      const base = typeof delayMs === "number" && delayMs > 0 ? delayMs : configuredBase;
+      const attempt = (ctx._mqttReconnectAttempts || 0) + 1;
+      const ms = getMqttReconnectDelay({
+        attempt,
+        baseDelayMs: base,
+        maxDelayMs: (ctx._mqttOpt && ctx._mqttOpt.maxReconnectDelayMs) || 30000,
+        jitterMs: RECONNECT_JITTER_MS,
+        random: Math.random()
+      });
+      ctx._mqttReconnectAttempts = attempt;
+      logger(`mqtt will reconnect in ~${ms}ms (attempt ${attempt})`, "warn");
       ctx._reconnectTimer = setTimeout(() => {
         ctx._reconnectTimer = null;
         if (!ctx._ending && !ctx._stopRequested) {
