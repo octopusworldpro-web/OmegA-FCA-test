@@ -1040,3 +1040,76 @@ main().catch((error) => {
   console.error(error && error.stack ? error.stack : error);
   process.exitCode = 1;
 });
+
+
+test("sendMessage preserves text and reply metadata with monotonic request/task IDs", async () => {
+  const { EventEmitter } = require("events");
+  const client = new EventEmitter();
+  let sent;
+  client.publish = (_topic, raw, _options, callback) => {
+    callback();
+    sent = JSON.parse(raw);
+    queueMicrotask(() => client.emit("message", "/ls_resp", Buffer.from(JSON.stringify({
+      request_id: sent.request_id,
+      payload: {}
+    }))));
+  };
+  const ctx = { mqttClient: client, wsReqNumber: 40, wsTaskNumber: 70 };
+  const send = fca.createSendMessageCommand({
+    ctx,
+    uploadAttachment: async () => [],
+    generateOfflineThreadingID: () => "offline-thread-id",
+    isReadableStream: () => false
+  });
+  let callbackCalls = 0;
+  const result = await send("hello omega", "thread-123", (error, value) => {
+    assert.equal(error, undefined);
+    assert.equal(value.body, "hello omega");
+    callbackCalls += 1;
+  }, "reply-message-9");
+
+  const envelope = JSON.parse(sent.payload);
+  const sendTask = JSON.parse(envelope.tasks[0].payload);
+  const readTask = JSON.parse(envelope.tasks[1].payload);
+  assert.equal(sendTask.thread_id, "thread-123");
+  assert.equal(sendTask.text, "hello omega");
+  assert.deepEqual(sendTask.reply_metadata, {
+    reply_source_id: "reply-message-9",
+    reply_source_type: 1,
+    reply_type: 0
+  });
+  assert.equal(envelope.tasks[0].task_id, 71);
+  assert.equal(envelope.tasks[1].task_id, 72);
+  assert.equal(sent.request_id, 41);
+  assert.equal(ctx.wsReqNumber, 41);
+  assert.equal(ctx.wsTaskNumber, 72);
+  assert.equal(result.threadID, null);
+  assert.equal(callbackCalls, 1);
+  for (const event of ["message", "error", "close", "offline", "end"]) {
+    assert.equal(client.listenerCount(event), 0);
+  }
+});
+
+test("sendMessage accepts replyToMessage from the payload object", async () => {
+  const { EventEmitter } = require("events");
+  const client = new EventEmitter();
+  let sent;
+  client.publish = (_topic, raw, _options, callback) => {
+    callback();
+    sent = JSON.parse(raw);
+    queueMicrotask(() => client.emit("message", "/ls_resp", Buffer.from(JSON.stringify({
+      request_id: sent.request_id, payload: {}
+    }))));
+  };
+  const send = fca.createSendMessageCommand({
+    ctx: { mqttClient: client },
+    uploadAttachment: async () => [],
+    generateOfflineThreadingID: () => "offline-id",
+    isReadableStream: () => false
+  });
+  await send({ body: "reply body", replyToMessage: "quoted-id" }, "thread-2");
+  const envelope = JSON.parse(sent.payload);
+  const payload = JSON.parse(envelope.tasks[0].payload);
+  assert.equal(payload.text, "reply body");
+  assert.equal(payload.reply_metadata.reply_source_id, "quoted-id");
+});
