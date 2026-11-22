@@ -13,6 +13,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -24,8 +25,8 @@ jobs:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
 
       - name: Run lint
         run: npm run lint
@@ -36,8 +37,19 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Publish to npm with provenance
+      - name: Verify package contents
+        run: npm pack --dry-run
+
+      - name: Verify npm publishing credential
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::NPM_TOKEN is missing. Add a granular npm token with publish access as the NPM_TOKEN repository secret."
+            exit 1
+          fi
+
+      - name: Publish public package with provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance --access public
-
