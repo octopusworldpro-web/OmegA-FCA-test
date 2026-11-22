@@ -26,7 +26,7 @@ function required<T>(value: T | undefined | null, label: string): T {
  */
 export function createLibsignalStores(signal: Dynamic, store: SignalKeyStore) {
   if (!signal?.SessionStore || !signal?.IdentityKeyStore || !signal?.PreKeyStore ||
-      !signal?.SignedPreKeyStore || !signal?.KyberPreKeyStore || !signal?.SenderKeyStore) {
+      !signal?.SignedPreKeyStore || !signal?.KyberPreKeyStore) {
     throw new TypeError("A compatible @signalapp/libsignal-client module is required");
   }
 
@@ -105,22 +105,6 @@ export function createLibsignalStores(signal: Dynamic, store: SignalKeyStore) {
         signal.PrivateKey.deserialize(fromBase64(record.privateKey)),
         fromBase64(record.signature)
       );
-    }
-  }
-
-  class SenderKeyStoreAdapter extends signal.SenderKeyStore {
-    async storeSenderKey(senderKeyName: Dynamic, record: Dynamic): Promise<void> {
-      const address = senderKeyName.sender();
-      await store.storeSenderKey(
-        addressOf(address),
-        senderKeyName.groupId(),
-        bytesToBase64(record.serialize())
-      );
-    }
-    async loadSenderKey(senderKeyName: Dynamic): Promise<Dynamic> {
-      const address = senderKeyName.sender();
-      const serialized = store.loadSenderKey(addressOf(address), senderKeyName.groupId());
-      return serialized ? signal.SenderKeyRecord.deserialize(fromBase64(serialized)) : null;
     }
   }
 
@@ -211,4 +195,23 @@ export async function createSignalKyberPreKey(
   const record = signal.KyberPreKeyRecord.new(keyId, timestamp, keyPair, signature);
   await store.storeKyberPreKey(keyId, bytesToBase64(record.serialize()));
   return { keyId, publicKey: bytesToBase64(publicKey.serialize()), signature: bytesToBase64(signature) };
+}
+
+
+/** Creates the optional libsignal SenderKeyStore adapter used by group sessions. */
+export function createLibsignalSenderKeyStore(signal: Dynamic, store: SignalKeyStore) {
+  if (!signal?.SenderKeyStore || !signal?.SenderKeyRecord) {
+    throw new TypeError("A compatible libsignal SenderKeyStore and SenderKeyRecord implementation is required");
+  }
+  return new (class extends signal.SenderKeyStore {
+    async storeSenderKey(senderKeyName: Dynamic, record: Dynamic): Promise<void> {
+      const address = senderKeyName.sender();
+      await store.storeSenderKey(addressOf(address), senderKeyName.groupId(), bytesToBase64(record.serialize()));
+    }
+    async loadSenderKey(senderKeyName: Dynamic): Promise<Dynamic> {
+      const address = senderKeyName.sender();
+      const serialized = store.loadSenderKey(addressOf(address), senderKeyName.groupId());
+      return serialized ? signal.SenderKeyRecord.deserialize(fromBase64(serialized)) : null;
+    }
+  })();
 }
