@@ -1604,3 +1604,33 @@ test("GoatBot client facade exposes getMessage and incoming media helpers", () =
   assert.deepEqual(client.messages.forwardAttachment("attachment-1"), { forwarded: "attachment-1" });
 });
 
+
+
+test("Signal direct-message helpers establish sessions, encrypt and decrypt prekey/whisper messages", async () => {
+  const calls = [];
+  class Address { constructor(name, deviceId) { this.value = { name, deviceId }; } }
+  const signal = {
+    ProtocolAddress: { new: (name, deviceId) => new Address(name, deviceId) },
+    CiphertextMessageType: { Whisper: 2, PreKey: 3 },
+    PreKeySignalMessage: { deserialize: (data) => ({ kind: "prekey", data }) },
+    SignalMessage: { deserialize: (data) => ({ kind: "whisper", data }) },
+    processPreKeyBundle: async (...args) => { calls.push(["bundle", ...args]); },
+    signalEncrypt: async (...args) => ({ type: () => 2, serialize: () => Buffer.from("cipher") , args }),
+    signalDecrypt: async (...args) => { calls.push(["decrypt", ...args]); return Buffer.from("plain"); },
+    signalDecryptPreKey: async (...args) => { calls.push(["decrypt-prekey", ...args]); return Buffer.from("first message"); }
+  };
+  const stores = { sessionStore: {}, identityKeyStore: {}, preKeyStore: {}, signedPreKeyStore: {}, kyberPreKeyStore: {} };
+  const deps = { signal, stores, localAddress: { name: "local-user", deviceId: 1 } };
+  await fca.establishSignalDirectSession(deps, { name: "remote-user", deviceId: 2 }, { registrationId: 99 });
+  const encrypted = await fca.encryptSignalDirectMessage(deps, { name: "remote-user", deviceId: 2 }, "hello");
+  assert.deepEqual(encrypted, { type: 2, body: Buffer.from("cipher").toString("base64") });
+  const first = await fca.decryptSignalDirectMessage(deps, { name: "remote-user", deviceId: 2 }, { type: 3, body: Buffer.from("prekey").toString("base64") });
+  assert.equal(Buffer.from(first).toString(), "first message");
+  const next = await fca.decryptSignalDirectMessage(deps, { name: "remote-user", deviceId: 2 }, { type: 2, body: Buffer.from("whisper").toString("base64") });
+  assert.equal(Buffer.from(next).toString(), "plain");
+  assert.deepEqual(calls.map((entry) => entry[0]), ["bundle", "decrypt-prekey", "decrypt"]);
+  assert.equal(calls[0][1].value.name, "remote-user");
+  assert.equal(calls[0][2].value.name, "local-user");
+  assert.throws(() => fca.encryptSignalDirectMessage({ ...deps, localAddress: { name: "", deviceId: 1 } }, { name: "remote-user", deviceId: 2 }, "x"), /local/);
+  await assert.rejects(fca.decryptSignalDirectMessage(deps, { name: "remote-user", deviceId: 2 }, { type: 7, body: Buffer.from("x").toString("base64") }), /Unsupported direct-message/);
+});
