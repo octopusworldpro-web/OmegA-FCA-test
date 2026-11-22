@@ -263,7 +263,15 @@ export function createGetThreadInfoQuery(deps: GetThreadInfoQueryDeps) {
   ) {
     const { callback: cb, promise } =
       createLegacyPromise<ThreadInfo | ThreadInfoMap | null>(callback, null);
-    const ids = Array.isArray(threadID) ? threadID.map((value) => String(value)) : [String(threadID)];
+    const isList = Array.isArray(threadID);
+    const ids = [...new Set((isList ? threadID : [threadID])
+      .map((value) => String(value).trim())
+      .filter(Boolean))];
+
+    if (ids.length === 0) {
+      cb(null, isList ? {} : null);
+      return promise;
+    }
 
     (async () => {
       const { fresh, stale } = await loadFromDb(ids);
@@ -278,7 +286,7 @@ export function createGetThreadInfoQuery(deps: GetThreadInfoQueryDeps) {
         resultMap[id] = fresh[id] || fetched[id] || null;
       }
 
-      const result: ThreadInfo | ThreadInfoMap | null = Array.isArray(threadID)
+      const result: ThreadInfo | ThreadInfoMap | null = isList
         ? resultMap
         : resultMap[ids[0]];
 
