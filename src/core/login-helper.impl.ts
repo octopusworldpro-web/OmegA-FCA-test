@@ -206,9 +206,14 @@ async function setJarCookies(j: Loose, appstate: Loose[]) {
     const cookieValue = c.value;
     if (!cookieName || cookieValue === undefined) continue;
 
-    const cookieDomain = c.domain || ".facebook.com";
+    const cookieDomain = String(c.domain || ".facebook.com").toLowerCase();
+    const normalizedDomain = cookieDomain.replace(/^\./, "");
+    if (normalizedDomain !== "facebook.com" && !normalizedDomain.endsWith(".facebook.com")) {
+      logger("Skipped imported cookie with a non-Facebook domain", "warn");
+      continue;
+    }
     const cookiePath = c.path || "/";
-    const dom = cookieDomain.replace(/^\./, "");
+    const dom = normalizedDomain;
 
     // Handle expirationDate (can be in seconds or milliseconds)
     let expiresStr = "";
