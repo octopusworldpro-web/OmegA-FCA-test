@@ -1634,3 +1634,55 @@ test("Signal direct-message helpers establish sessions, encrypt and decrypt prek
   await assert.rejects(fca.encryptSignalDirectMessage({ ...deps, localAddress: { name: "", deviceId: 1 } }, { name: "remote-user", deviceId: 2 }, "x"), /local/);
   await assert.rejects(fca.decryptSignalDirectMessage(deps, { name: "remote-user", deviceId: 2 }, { type: 7, body: Buffer.from("x").toString("base64") }), /Unsupported direct-message/);
 });
+
+
+test("Signal encrypted media encrypts bytes, wraps key, verifies integrity and decrypts", async () => {
+  const encryptedMessages = [];
+  const deps = {
+    signal: {}, stores: { sessionStore: {}, identityKeyStore: {}, preKeyStore: {}, signedPreKeyStore: {}, kyberPreKeyStore: {} },
+    localAddress: { name: "local", deviceId: 1 }
+  };
+  const remote = { name: "peer", deviceId: 2 };
+  const originalEncrypt = fca.encryptSignalDirectMessage;
+  const originalDecrypt = fca.decryptSignalDirectMessage;
+  const media = Buffer.from("private image bytes \\u0000 and more");
+  const key = Buffer.alloc(64, 7);
+  const descriptor = await fca.encryptSignalMedia({ ...deps, signal: {
+    ProtocolAddress: { new: (name, deviceId) => ({ name, deviceId }) },
+    signalEncrypt: async (plain) => { encryptedMessages.push(Buffer.from(plain)); return { type: () => 2, serialize: () => Buffer.from("wrapped-key") }; }
+  } }, remote, media, { fileName: "photo.jpg", contentType: "image/jpeg" });
+  assert.equal(descriptor.algorithm, "AES-256-CBC-HMAC-SHA256");
+  assert.equal(descriptor.fileName, "photo.jpg");
+  assert.notDeepEqual(Buffer.from(descriptor.ciphertext), media);
+  assert.equal(encryptedMessages.length, 1);
+  assert.equal(encryptedMessages[0].length, 64);
+  assert.equal(descriptor.encryptedKey.type, 2);
+  const decryptDeps = { ...deps, signal: {
+    ProtocolAddress: { new: (name, deviceId) => ({ name, deviceId }) },
+    CiphertextMessageType: { Whisper: 2 },
+    SignalMessage: { deserialize: () => ({}) },
+    signalDecrypt: async () => key
+  } };
+  const roundTripDescriptor = { ...descriptor, encryptedKey: { type: 2, body: Buffer.from("cipher").toString("base64") } };
+  const clear = await fca.decryptSignalMedia(decryptDeps, remote, roundTripDescriptor);
+  assert.deepEqual(clear, media);
+  await assert.rejects(fca.decryptSignalMedia(decryptDeps, remote, { ...roundTripDescriptor, digest: "00" }), /digest mismatch/);
+  const changed = Buffer.from(roundTripDescriptor.ciphertext); changed[0] ^= 1;
+  await assert.rejects(fca.decryptSignalMedia(decryptDeps, remote, { ...roundTripDescriptor, ciphertext: changed, digest: require("crypto").createHash("sha256").update(changed).digest("hex") }), /MAC verification/);
+  assert.equal(typeof originalEncrypt, "function"); assert.equal(typeof originalDecrypt, "function");
+});
+
+test("Signal encrypted media upload sends only ciphertext bytes", async () => {
+  let uploaded;
+  const deps = {
+    signal: { ProtocolAddress: { new: (name, deviceId) => ({ name, deviceId }) }, signalEncrypt: async () => ({ type: () => 2, serialize: () => Buffer.from("key-envelope") }) },
+    stores: { sessionStore: {}, identityKeyStore: {}, preKeyStore: {}, signedPreKeyStore: {}, kyberPreKeyStore: {} },
+    localAddress: { name: "local", deviceId: 1 }
+  };
+  const result = await fca.encryptAndUploadSignalMedia(deps, { name: "peer", deviceId: 2 }, Buffer.from("file-data"), async (bytes, metadata) => { uploaded = { bytes, metadata }; return { attachmentId: "opaque-1" }; }, { fileName: "report.pdf", contentType: "application/pdf" });
+  assert.ok(Buffer.isBuffer(uploaded.bytes));
+  assert.equal(uploaded.metadata.contentType, "application/octet-stream");
+  assert.equal(uploaded.metadata.fileName, "report.pdf.enc");
+  assert.equal(result.upload.attachmentId, "opaque-1");
+  assert.equal("ciphertext" in result, false);
+});
