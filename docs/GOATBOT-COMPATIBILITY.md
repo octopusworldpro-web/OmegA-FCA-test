@@ -80,3 +80,16 @@ A source-level method match is not a live Facebook acceptance result. Do not mar
 - When the connection closes or disconnects while auto-reconnect is disabled, the listener receives a `stop_listen` event with a useful reason.
 - Added deterministic tests for backoff growth/cap/jitter and valid/invalid payload decoding. CI passed build/tests, TypeScript, lint, and package dry-run.
 - Live broker reconnect and real Messenger event-shape behavior still require authorized runtime validation.
+
+
+## GoatBot login and recovery compatibility
+
+The current GoatBot main login flow depends on the following FCA contract:
+
+- Callback login: `login({ appState }, options, callback)` returns the flat legacy API as the callback's second argument.
+- Account identity and session access: `getCurrentUserID()`, `getAppState()`, and `getCookies()` are available on the legacy API.
+- Session persistence: `sessionGuard(accountFilePath, { interval, debounce })` and `stopSessionGuard()` support the existing periodic AppState save and account-switch lifecycle.
+- Listener readiness and recovery: `listenMqtt(callback)` returns a listener handle; `stopListening()` and `stopListeningAsync()` can stop it. The listener callback accepts both the classic two-argument `(error, event)` form and the one-argument event form used by readiness notifications.
+- The test suite now verifies the callback-compatible API's session getters, database backup accessors, and EventEmitter methods used by the GoatBot login/recovery path.
+
+This is a synthetic API-contract check; an actual account login, MQTT-ready transition, account replacement and rollback still require an authorized runtime test in the GoatBot deployment.
