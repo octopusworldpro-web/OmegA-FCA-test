@@ -961,6 +961,53 @@ test("MQTT response registry consumes known tasks once and ignores expired IDs",
   assert.equal(calls, 1);
 });
 
+
+test("MQTT request acknowledgement matches request ID and removes all listeners", async () => {
+  const { EventEmitter } = require("events");
+  const client = new EventEmitter();
+  client.publish = (_topic, raw, _options, callback) => {
+    callback();
+    const request = JSON.parse(raw);
+    queueMicrotask(() => {
+      client.emit("message", "/ls_resp", Buffer.from(JSON.stringify({ request_id: request.request_id, payload: { ok: true } })));
+    });
+  };
+  const result = await fca.publishLsRequestWithAck({
+    client, content: { request_id: 51 }, requestId: 51, timeoutMs: 100,
+    extract: (message) => message.payload
+  });
+  assert.deepStrictEqual(result, { ok: true });
+  for (const event of ["message", "error", "close", "offline", "end"]) {
+    assert.equal(client.listenerCount(event), 0);
+  }
+});
+
+test("MQTT request acknowledgement cleans up after synchronous publish failure", async () => {
+  const { EventEmitter } = require("events");
+  const client = new EventEmitter();
+  client.publish = () => { throw new Error("publish exploded"); };
+  await assert.rejects(
+    fca.publishLsRequestWithAck({ client, content: {}, requestId: 52, timeoutMs: 100, extract: (message) => message }),
+    /publish exploded/
+  );
+  for (const event of ["message", "error", "close", "offline", "end"]) {
+    assert.equal(client.listenerCount(event), 0);
+  }
+});
+
+test("MQTT request acknowledgement rejects on connection loss and invalid timeout", async () => {
+  const { EventEmitter } = require("events");
+  const client = new EventEmitter();
+  client.publish = () => {};
+  const pending = fca.publishLsRequestWithAck({ client, content: {}, requestId: 53, timeoutMs: 1000, extract: (message) => message });
+  client.emit("close");
+  await assert.rejects(pending, /connection closed/);
+  await assert.rejects(
+    fca.publishLsRequestWithAck({ client, content: {}, requestId: 54, timeoutMs: 0, extract: (message) => message }),
+    /positive number/
+  );
+});
+
 async function main() {
   let passed = 0;
   let skipped = 0;
