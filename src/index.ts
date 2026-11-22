@@ -37,5 +37,6 @@ export { createUsersDomain } from "./domains/users";
 export { createAccountDomain } from "./domains/account";
 export { createHttpDomain } from "./domains/http";
 export { createSchedulerDomain } from "./domains/scheduler";
+export { createRealtimeListener } from "./domains/realtime/listener";
 
 export * from "./types";
