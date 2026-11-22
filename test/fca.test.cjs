@@ -1629,8 +1629,8 @@ test("Signal direct-message helpers establish sessions, encrypt and decrypt prek
   const next = await fca.decryptSignalDirectMessage(deps, { name: "remote-user", deviceId: 2 }, { type: 2, body: Buffer.from("whisper").toString("base64") });
   assert.equal(Buffer.from(next).toString(), "plain");
   assert.deepEqual(calls.map((entry) => entry[0]), ["bundle", "decrypt-prekey", "decrypt"]);
-  assert.equal(calls[0][1].value.name, "remote-user");
-  assert.equal(calls[0][2].value.name, "local-user");
+  assert.equal(calls[0][2].value.name, "remote-user");
+  assert.equal(calls[0][3].value.name, "local-user");
   await assert.rejects(fca.encryptSignalDirectMessage({ ...deps, localAddress: { name: "", deviceId: 1 } }, { name: "remote-user", deviceId: 2 }, "x"), /local/);
   await assert.rejects(fca.decryptSignalDirectMessage(deps, { name: "remote-user", deviceId: 2 }, { type: 7, body: Buffer.from("x").toString("base64") }), /Unsupported direct-message/);
 });
@@ -1646,7 +1646,6 @@ test("Signal encrypted media encrypts bytes, wraps key, verifies integrity and d
   const originalEncrypt = fca.encryptSignalDirectMessage;
   const originalDecrypt = fca.decryptSignalDirectMessage;
   const media = Buffer.from("private image bytes \\u0000 and more");
-  const key = Buffer.alloc(64, 7);
   const descriptor = await fca.encryptSignalMedia({ ...deps, signal: {
     ProtocolAddress: { new: (name, deviceId) => ({ name, deviceId }) },
     signalEncrypt: async (plain) => { encryptedMessages.push(Buffer.from(plain)); return { type: () => 2, serialize: () => Buffer.from("wrapped-key") }; }
@@ -1661,7 +1660,7 @@ test("Signal encrypted media encrypts bytes, wraps key, verifies integrity and d
     ProtocolAddress: { new: (name, deviceId) => ({ name, deviceId }) },
     CiphertextMessageType: { Whisper: 2 },
     SignalMessage: { deserialize: () => ({}) },
-    signalDecrypt: async () => key
+    signalDecrypt: async () => encryptedMessages[0]
   } };
   const roundTripDescriptor = { ...descriptor, encryptedKey: { type: 2, body: Buffer.from("cipher").toString("base64") } };
   const clear = await fca.decryptSignalMedia(decryptDeps, remote, roundTripDescriptor);
