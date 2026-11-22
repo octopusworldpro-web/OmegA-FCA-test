@@ -86,3 +86,7 @@ export {
   createChangeGroupImageCommand,
   type ChangeGroupImageCommandDeps
 } from "./domains/threads/commands/change-group-image";
+
+export { formatFriends } from "./domains/users/queries/get-friends-list";
+export { formatMessagesGraphQLResponse } from "./domains/threads/queries/get-thread-history";
+export { formatUserIdEntry } from "./domains/users/shared";
