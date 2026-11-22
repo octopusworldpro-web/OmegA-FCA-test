@@ -187,3 +187,5 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - Shared thread-photo pagination validates offset/limit and safely handles missing nested photo detail structures.
 - Added synthetic tests for friend/profile normalization, malformed thread-history response, empty history and invalid pagination.
 - Facebook profile fields, thread history and shared photos still require authenticated live-session checks for current server response parity.
+
+- Thread-info lookups now trim and deduplicate IDs, and return the legacy empty result (`null` for one ID, `{}` for a list) without making a network request when no usable ID is supplied.
