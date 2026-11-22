@@ -26,7 +26,7 @@ function required<T>(value: T | undefined | null, label: string): T {
  */
 export function createLibsignalStores(signal: Dynamic, store: SignalKeyStore) {
   if (!signal?.SessionStore || !signal?.IdentityKeyStore || !signal?.PreKeyStore ||
-      !signal?.SignedPreKeyStore || !signal?.KyberPreKeyStore) {
+      !signal?.SignedPreKeyStore || !signal?.KyberPreKeyStore || !signal?.SenderKeyStore) {
     throw new TypeError("A compatible @signalapp/libsignal-client module is required");
   }
 
@@ -105,6 +105,22 @@ export function createLibsignalStores(signal: Dynamic, store: SignalKeyStore) {
         signal.PrivateKey.deserialize(fromBase64(record.privateKey)),
         fromBase64(record.signature)
       );
+    }
+  }
+
+  class SenderKeyStoreAdapter extends signal.SenderKeyStore {
+    async storeSenderKey(senderKeyName: Dynamic, record: Dynamic): Promise<void> {
+      const address = senderKeyName.sender();
+      await store.storeSenderKey(
+        addressOf(address),
+        senderKeyName.groupId(),
+        bytesToBase64(record.serialize())
+      );
+    }
+    async loadSenderKey(senderKeyName: Dynamic): Promise<Dynamic> {
+      const address = senderKeyName.sender();
+      const serialized = store.loadSenderKey(addressOf(address), senderKeyName.groupId());
+      return serialized ? signal.SenderKeyRecord.deserialize(fromBase64(serialized)) : null;
     }
   }
 
