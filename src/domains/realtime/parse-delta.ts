@@ -7,13 +7,13 @@ import formatMod from "../../utils/format";
 const {
   formatDeltaEvent,
   formatMessage,
-  _formatAttachment,
   formatDeltaMessage,
+  formatDeltaQuotedMessage,
+  formatIncomingAttachment,
   formatDeltaReadReceipt,
   formatID,
   getType,
   decodeClientPayload,
-  getMentionsFromDeltaMessage
 } = formatMod;
 
 function emitThreadInfoEvent(ctx: Loose, globalCallback: Loose, payload: Loose) {
@@ -100,77 +100,17 @@ function createParseDelta(deps: Loose) {
                 logger("parseDelta: deltaMessageReply.message or messageMetadata is missing", "warn");
                 return;
               }
-              const mentions = getMentionsFromDeltaMessage(msg);
-              const msgMetadata = msg.messageMetadata;
-              const threadKey = msgMetadata.threadKey || {};
               callbackToReturn = {
                 type: "message_reply",
-                threadID: (threadKey.threadFbId ? threadKey.threadFbId : threadKey.otherUserFbId || "").toString(),
-                messageID: msgMetadata.messageId || "",
-                senderID: (msgMetadata.actorFbId || "").toString(),
-                attachments: (msg.attachments || []).map((att: Loose) => {
-                  try {
-                    const mercury = JSON.parse(att.mercuryJSON);
-                    Object.assign(att, mercury);
-                  } catch (ex) {
-                    // Ignore parsing errors
-                  }
-                  return att;
-                }).map((att: Loose) => {
-                  let x: Loose;
-                  try {
-                    x = _formatAttachment(att, undefined);
-                  } catch (ex) {
-                    x = att;
-                    x.error = ex;
-                    x.type = "Loose";
-                  }
-                  return x;
-                }),
-                args: (msg.body || "").trim().split(/\s+/),
-                body: msg.body || "",
-                isGroup: !!threadKey.threadFbId,
-                mentions,
-                timestamp: parseInt(msgMetadata.timestamp || 0),
-                participantIDs: (msg.participants || []).map((e: Loose) => e.toString())
+                ...formatDeltaQuotedMessage(msg)
               };
             if (d.deltaMessageReply.repliedToMessage) {
               try {
                 const repliedTo = d.deltaMessageReply.repliedToMessage;
-                const rmentions = getMentionsFromDeltaMessage(repliedTo);
                 const msgMetadata = repliedTo.messageMetadata;
                 if (msgMetadata && msgMetadata.threadKey) {
-                  callbackToReturn.messageReply = {
-                    threadID: (msgMetadata.threadKey.threadFbId ? msgMetadata.threadKey.threadFbId : msgMetadata.threadKey.otherUserFbId || "").toString(),
-                    messageID: msgMetadata.messageId || "",
-                    senderID: (msgMetadata.actorFbId || "").toString(),
-                    attachments: (repliedTo.attachments || []).map((att: Loose) => {
-                      let mercury: Loose;
-                      try {
-                        mercury = JSON.parse(att.mercuryJSON);
-                        Object.assign(att, mercury);
-                      } catch (ex) {
-                        mercury = {};
-                      }
-                      return att;
-                    }).map((att: Loose) => {
-                      let x: Loose;
-                      try {
-                        x = _formatAttachment(att, undefined);
-                      } catch (ex) {
-                        x = att;
-                        x.error = ex;
-                        x.type = "Loose";
-                      }
-                      return x;
-                    }),
-                    args: (repliedTo.body || "").trim().split(/\s+/),
-                    body: repliedTo.body || "",
-                    isGroup: !!msgMetadata.threadKey.threadFbId,
-                    mentions: rmentions,
-                    timestamp: parseInt(msgMetadata.timestamp || 0),
-                    participantIDs: (repliedTo.participants || []).map((e: Loose) => e.toString())
-                  };
+                  callbackToReturn.messageReply = formatDeltaQuotedMessage(repliedTo, callbackToReturn.threadID);
+                }
                 }
               } catch (err: Loose) {
                 const errMsg = err && err.message ? err.message : String(err || "Unknown error");
@@ -204,7 +144,7 @@ function createParseDelta(deps: Loose) {
                   messageID: fetchData.message_id,
                   senderID: fetchData.message_sender.id.toString(),
                   attachments: fetchData.message.blob_attachment.map((att: Loose) =>
-                    _formatAttachment({ blob_attachment: att }, undefined)
+                    formatIncomingAttachment({ blob_attachment: att })
                   ),
                   args: (fetchData.message.text || "").trim().split(/\s+/) || [],
                   body: fetchData.message.text || "",
