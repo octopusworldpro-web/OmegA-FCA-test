@@ -456,6 +456,23 @@ test("MQTT stop APIs are safe when called through the legacy API and cancel queu
   assert.equal(ctx._reconnectTimer, null);
 });
 
+test("MQTT reconnect backoff is exponential, capped, and jitter bounded", () => {
+  const delay = fca.getMqttReconnectDelay;
+  assert.equal(delay({ attempt: 1, baseDelayMs: 1000, maxDelayMs: 8000, jitterMs: 400, random: 0 }), 1000);
+  assert.equal(delay({ attempt: 2, baseDelayMs: 1000, maxDelayMs: 8000, jitterMs: 400, random: 0.5 }), 2200);
+  assert.equal(delay({ attempt: 5, baseDelayMs: 1000, maxDelayMs: 8000, jitterMs: 400, random: 0.999 }), 8400);
+  assert.equal(delay({ attempt: 99, baseDelayMs: 1000, maxDelayMs: 8000, jitterMs: 400, random: 0 }), 8000);
+});
+
+test("MQTT payload decoder accepts objects and buffers and rejects malformed frames", () => {
+  const parse = fca.parseMqttJsonPayload;
+  assert.deepEqual(parse(Buffer.from("{\\\"type\\\":\\\"ready\\\"}")), { type: "ready" });
+  assert.deepEqual(parse({ type: "presence" }), { type: "presence" });
+  assert.equal(parse("not-json"), null);
+  assert.equal(parse("[]"), null);
+  assert.equal(parse("null"), null);
+});
+
 test("public exports are available", () => {
   assert.strictEqual(typeof fca.login, "function");
   assert.strictEqual(typeof fca.createFcaClient, "function");
