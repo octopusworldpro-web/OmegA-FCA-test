@@ -55,3 +55,48 @@ Do not publish or enable automatic installation based only on this audit. Before
 5. Validate the published package in a clean Node.js 20+ project.
 
 Automatic update/install remains disabled by default until the updater is constrained to this package and its official npm registry, version parsing is validated, install failure handling is tested, and restart/rollback behavior is defined.
+
+
+## Task 1 — EryXenX / OmegA-FCA / GoatBot compatibility audit
+
+**Audit date:** 2026-11-22  
+**Compared package:** `@eryxenx/fca@1.3.5` (npm metadata and published README)  
+**GoatBot dependency:** `@eryxenx/fca: ^1.3.4` in the inspected `OmegA-Goatbot` main-branch manifest.
+
+### Confirmed from source
+
+- OmegA-FCA exposes classic callback login and Promise login, with the callback receiving the flat API object; the Promise form returns an FCA context.
+- The source includes cookie/appstate login plumbing, cookie normalization, session backup encryption helpers, MQTT compatibility, and a namespaced client facade.
+- The MQTT adapter wraps the legacy `listenMqtt` callback and forwards events/errors. It also runs a periodic fb_dtsg refresh interval; lifecycle/cleanup behavior still needs runtime tests.
+- The checked-in tests cover package entrypoints, CJS/ESM exports, config defaults/migration, and cookie/appstate credential-file parsing. They do not establish Facebook authentication, broker connectivity, or end-to-end message delivery.
+- The CI workflow is configured for Node 20 and runs install, `npm test`, typecheck, lint, and `npm pack --dry-run`. No completed passing workflow run was available during this audit.
+
+### Compatibility gap register
+
+| Capability | OmegA-FCA source audit | Result |
+|---|---|---|
+| Classic callback login | Present | Source-confirmed |
+| Promise login/context | Present | Source-confirmed |
+| Cookie / appstate input | Present | Source-confirmed |
+| MQTT listen adapter | Present | Source-confirmed; runtime pending |
+| Namespaced client facade | Present | Source-confirmed |
+| Session guard / corruption recovery parity | No equivalent full guard confirmed | Gap |
+| sendBroadcast parity | Not confirmed in exported API/source audit | Gap |
+| Signal Protocol E2EE | No implementation confirmed in this repository tree | Gap |
+| Group Sender Keys / SKDM | No implementation confirmed | Gap |
+| Encrypted group messaging/media | No implementation confirmed | Gap |
+| Native E2EE media engine | No equivalent native engine confirmed | Gap |
+
+The npm README for EryXenX 1.3.5 advertises sessionGuard, sendBroadcast, Signal Protocol E2EE, and a native media engine. Those are upstream README claims, not proof that OmegA-FCA currently implements them. Feature parity must be closed by implementation and tests, not by documentation aliases.
+
+### Login route finding
+
+The OmegA-FCA source has a separately exposed `loginViaAPI` helper. Its implementation delegates to `authCore.loginViaAPI`; source comments in the login-helper implementation describe a default external API base. The ordinary `login({ appState })` path is distinct. For the user's current cookie/appstate-based test path, the external API login helper is not required and must remain disabled by default.
+
+### External package source limitation
+
+The EryXenX GitHub repository source could not be retrieved through the connected GitHub account in this audit. Therefore, the comparison above uses npm package metadata/README plus OmegA-FCA and GoatBot source manifests; no upstream source-level method parity claim is made.
+
+### Task 1 conclusion
+
+Static repository and integration audit is complete. No runtime pass is claimed. The remaining work is implementation/testing of the listed parity gaps, followed by CI and authorized live tests. This document is the baseline for the next checklist task.
