@@ -16,6 +16,7 @@ export { listenMqtt } from "./core/mqtt";
 export { createAuthCore } from "./core/auth-helpers";
 export { defaultConfig, loadConfig, resolveConfig, writeConfigTemplate } from "./core/config";
 export { attachThreadInfoRealtimeSync } from "./core/thread-info-realtime-sync";
+export { encryptSessionBackup, decryptSessionBackup, isEncryptedSessionBackup } from "./session/backup-crypto";
 export { checkForPackageUpdate, runConfiguredUpdateCheck } from "./core/update-check";
 export { createFcaClient } from "./app/create-client";
 export {
