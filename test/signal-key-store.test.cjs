@@ -17,7 +17,8 @@ const fca = require("../dist/index.js");
     await store.storeSignedPreKey({ keyId: 1, publicKey: "cHVi", privateKey: "cHJp", signature: "c2ln", createdAt: 1700000000 });
     await store.storePreKey(2, { publicKey: "cHViMg==", privateKey: "cHJpMg==" });
     const address = { name: "remote-user", deviceId: 1 };
-    await store.storeSession(address, Buffer.from("serialized-session").toString("base64"));\n    await store.storeSenderKey(address, "group-abc", Buffer.from("serialized-sender-key").toString("base64"));
+    await store.storeSession(address, Buffer.from("serialized-session").toString("base64"));
+    await store.storeSenderKey(address, "group-abc", Buffer.from("serialized-sender-key").toString("base64"));
     assert.equal(store.getRegistrationId(), 4567);
     assert.equal(store.loadPreKey(2).publicKey, "cHViMg==");
     assert.equal(store.isTrustedIdentity(address, "aWRlbnRpdHk="), true);
@@ -29,12 +30,15 @@ const fca = require("../dist/index.js");
     const encrypted = await fs.readFile(storagePath, "utf8");
     assert.equal(encrypted.includes("serialized-session"), false);
     const reopened = await fca.createSignalKeyStore({ accountId: "account-123", storagePath, encryptionKey });
-    assert.equal(reopened.loadSession(address), Buffer.from("serialized-session").toString("base64"));\n    assert.equal(reopened.loadSenderKey(address, "group-abc"), Buffer.from("serialized-sender-key").toString("base64"));
+    assert.equal(reopened.loadSession(address), Buffer.from("serialized-session").toString("base64"));
+    assert.equal(reopened.loadSenderKey(address, "group-abc"), Buffer.from("serialized-sender-key").toString("base64"));
     assert.equal(reopened.loadSignedPreKey(1).signature, "c2ln");
     await reopened.removePreKey(2);
-    await reopened.removeSession(address);\n    await reopened.removeSenderKey(address, "group-abc");
+    await reopened.removeSession(address);
+    await reopened.removeSenderKey(address, "group-abc");
     assert.equal(reopened.loadPreKey(2), undefined);
-    assert.equal(reopened.loadSession(address), undefined);\n    assert.equal(reopened.loadSenderKey(address, "group-abc"), undefined);
+    assert.equal(reopened.loadSession(address), undefined);
+    assert.equal(reopened.loadSenderKey(address, "group-abc"), undefined);
     await reopened.close();
 
     await assert.rejects(
