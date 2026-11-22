@@ -225,6 +225,10 @@ export function createAuthCore(opts: {
   }
 
   function setJarFromPairs(j: Loose, pairs: string[], domain: string) {
+    const normalizedDomain = String(domain || "").toLowerCase().replace(/^\./, "");
+    if (normalizedDomain !== "facebook.com" && !normalizedDomain.endsWith(".facebook.com")) {
+      throw new Error("Session cookies may only be installed for Facebook domains");
+    }
     const expires = new Date(Date.now() + 31536e6).toUTCString();
     // Session cookies must only be installed for HTTPS origins.
     const urls = [
@@ -234,7 +238,7 @@ export function createAuthCore(opts: {
     ];
 
     for (const kv of pairs) {
-      const cookieStr = `${kv}; expires=${expires}; domain=${domain}; path=/; Secure;`;
+      const cookieStr = `${kv}; expires=${expires}; domain=.${normalizedDomain}; path=/; Secure;`;
       for (const url of urls) {
         try {
           if (typeof j.setCookieSync === "function") {
