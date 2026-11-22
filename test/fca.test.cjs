@@ -896,6 +896,42 @@ test("optional live login works when credentials are provided", async () => {
   };
 });
 
+
+test("MQTT SUBACK requires every subscribed topic to be granted", () => {
+  const validate = fca.validateMqttSubscriptionAck;
+  const topics = ["/ls_req", "/ls_resp", "/t_ms"];
+  assert.deepStrictEqual(validate(topics, null, topics.map((topic) => ({ topic, qos: 1 }))), { ok: true });
+  assert.match(validate(topics, null, [{ topic: "/ls_req", qos: 1 }]).reason, /omitted topic/);
+  assert.match(validate(topics, null, topics.map((topic) => ({ topic, qos: topic === "/t_ms" ? 128 : 1 }))).reason, /rejected/);
+  assert.match(validate(topics, new Error("SUBACK failed"), []).reason, /SUBACK failed/);
+});
+
+test("MQTT initial sync chooses create queue or diffs and preserves protocol fields", () => {
+  const build = fca.buildInitialMqttSyncQueue;
+  const fresh = build({ userID: "123", lastSeqId: 42 });
+  assert.equal(fresh.topic, "/messenger_sync_create_queue");
+  assert.equal(fresh.payload.entity_fbid, "123");
+  assert.equal(fresh.payload.initial_titan_sequence_id, 42);
+  assert.equal(fresh.payload.encoding, "JSON");
+  assert.equal(fresh.payload.sync_token, undefined);
+  const resume = build({ userID: "123", lastSeqId: 43, syncToken: "token-a" });
+  assert.equal(resume.topic, "/messenger_sync_get_diffs");
+  assert.equal(resume.payload.last_seq_id, 43);
+  assert.equal(resume.payload.sync_token, "token-a");
+});
+
+test("MQTT t_ms sync state accepts safe sequence IDs and ignores invalid values", () => {
+  const normalize = fca.normalizeMqttSyncState;
+  assert.deepStrictEqual(
+    normalize({ firstDeltaSeqId: "10", lastIssuedSeqId: "12", syncToken: "next" }, { lastSeqId: 2, syncToken: "old" }),
+    { lastSeqId: 12, syncToken: "next" }
+  );
+  assert.deepStrictEqual(
+    normalize({ firstDeltaSeqId: "NaN", lastIssuedSeqId: "12x", syncToken: "" }, { lastSeqId: 2, syncToken: "old" }),
+    { lastSeqId: 2, syncToken: "old" }
+  );
+});
+
 async function main() {
   let passed = 0;
   let skipped = 0;
