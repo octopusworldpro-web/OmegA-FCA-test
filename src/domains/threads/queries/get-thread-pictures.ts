@@ -22,6 +22,10 @@ export function createGetThreadPicturesQuery(deps: GetThreadPicturesQueryDeps) {
     callback?: NodeStyleCallback<Loose[]>
   ) {
     const { callback: cb, promise } = createLegacyPromise<Loose[]>(callback, []);
+    if (!threadID || !Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit <= 0) {
+      cb(new Error("getThreadPictures: threadID, non-negative offset and positive limit are required"));
+      return promise;
+    }
 
     postSharedPhotosRequest({
       defaultFuncs,
@@ -37,8 +41,13 @@ export function createGetThreadPicturesQuery(deps: GetThreadPicturesQueryDeps) {
           throw resData;
         }
 
+        const images = resData?.payload?.imagesData;
+        if (!Array.isArray(images)) {
+          throw new Error("getThreadPictures: invalid image list response");
+        }
+
         return Promise.all(
-          resData.payload.imagesData.map((image: Loose) =>
+          images.filter((image: Loose) => image?.fbid != null).map((image: Loose) =>
             postSharedPhotosRequest({
               defaultFuncs,
               ctx,
@@ -51,9 +60,12 @@ export function createGetThreadPicturesQuery(deps: GetThreadPicturesQueryDeps) {
                 throw detail;
               }
 
-              const queryThreadID =
-                detail.jsmods.require[0][3][1].query_metadata.query_path[0].message_thread;
-              return detail.jsmods.require[0][3][1].query_results[queryThreadID].message_images.edges[0].node.image2;
+              const module = detail?.jsmods?.require?.[0]?.[3]?.[1];
+              const queryThreadID = module?.query_metadata?.query_path?.[0]?.message_thread;
+              const edges = queryThreadID
+                ? module?.query_results?.[queryThreadID]?.message_images?.edges
+                : null;
+              return Array.isArray(edges) ? edges[0]?.node?.image2 || null : null;
             })
           )
         );
