@@ -3,7 +3,7 @@ import type { NodeStyleCallback } from "../../../compat/callbackify";
 import { postGraphqlBatch } from "../../../transport/http/graphql";
 import formatMod from "../../../utils/format";
 
-const { _formatAttachment } = formatMod;
+const { formatIncomingAttachment } = formatMod;
 
 export interface GetMessageQueryDeps {
   defaultFuncs: {
@@ -33,7 +33,7 @@ function formatThemeMetadata(data: Loose) {
 function formatBlobAttachments(blobAttachments: Loose[]): Loose[] {
   return blobAttachments.map((attachment: Loose) => {
     try {
-      return _formatAttachment(attachment, undefined);
+      return formatIncomingAttachment(attachment);
     } catch (error) {
       return {
         ...attachment,
@@ -72,9 +72,15 @@ function formatMentions(message: Loose) {
   const text = String(message?.text || "");
   const ranges = Array.isArray(message?.ranges) ? message.ranges : [];
 
-  return ranges.map((mention: Loose) => ({
-    [mention.entity.id]: text.substring(mention.offset, mention.offset + mention.length)
-  }));
+  const mentions: Record<string, string> = {};
+  for (const mention of ranges) {
+    const id = mention?.entity?.id;
+    const offset = Number(mention?.offset);
+    const length = Number(mention?.length);
+    if (id == null || !Number.isFinite(offset) || !Number.isFinite(length) || offset < 0 || length < 0) continue;
+    mentions[String(id)] = text.substring(offset, offset + length);
+  }
+  return mentions;
 }
 
 function formatReactions(reactions: Loose) {
@@ -210,10 +216,14 @@ function formatMessage(threadID: string, data: Loose): Loose {
             `Unknown admin text type: "${data.extensible_message_admin_text_type}", if this happens to you let me know when it happens. Please open an issue at https://github.com/ntkhang03/fb-chat-api/issues.`
           );
       }
-    case "UserMessage":
-      return {
+    case "UserMessage": {
+      const body = String(data.message?.text || "");
+      const threadParticipants = Array.isArray(data.participants) ? data.participants : [];
+      const event: Loose = {
+        type: "message",
         senderID: data.message_sender?.id,
-        body: data.message?.text,
+        body, 
+        args: body.trim() ? body.trim().split(/\\s+/) : [],
         threadID,
         messageID: data.message_id,
         reactions: formatReactions(data.message_reactions),
@@ -221,8 +231,16 @@ function formatMessage(threadID: string, data: Loose): Loose {
           ? formatBlobAttachments(data.blob_attachments)
           : formatExtensibleAttachment(data.extensible_attachment),
         mentions: formatMentions(data.message),
-        timestamp: data.timestamp_precise
+        timestamp: Number.parseInt(String(data.timestamp_precise || 0), 10) || 0,
+        isGroup: threadParticipants.length > 2,
+        participantIDs: threadParticipants.map((participant: Loose) => String(participant?.id || participant))
       };
+      if (data.replied_to_message?.message) {
+        event.type = "message_reply";
+        event.messageReply = formatMessage(threadID, data.replied_to_message.message);
+      }
+      return event;
+    }
     default:
       throw new Error(
         `Unknown message type: "${data.__typename}", if this happens to you let me know when it happens. Please open an issue at https://github.com/ntkhang03/fb-chat-api/issues.`
@@ -230,20 +248,13 @@ function formatMessage(threadID: string, data: Loose): Loose {
   }
 }
 
-function parseDelta(threadID: string, delta: Loose): Loose {
-  if (delta.replied_to_message?.message) {
-    return Object.assign(
-      {
-        type: "message_reply"
-      },
-      formatMessage(threadID, delta),
-      {
-        messageReply: formatMessage(threadID, delta.replied_to_message.message)
-      }
-    );
+export function formatFetchedMessage(threadID: string, delta: Loose): Loose {
+  const event = formatMessage(threadID, delta);
+  if (delta?.replied_to_message?.message) {
+    event.type = "message_reply";
+    event.messageReply = formatMessage(threadID, delta.replied_to_message.message);
   }
-
-  return formatMessage(threadID, delta);
+  return event;
 }
 
 export function createGetMessageQuery(deps: GetMessageQueryDeps) {
@@ -296,7 +307,7 @@ export function createGetMessageQuery(deps: GetMessageQueryDeps) {
           throw fetchData;
         }
 
-        cb(null, parseDelta(threadID, fetchData));
+        cb(null, formatFetchedMessage(threadID, fetchData));
       })
       .catch((error: Loose) => {
         logError?.("getMessage", error);
