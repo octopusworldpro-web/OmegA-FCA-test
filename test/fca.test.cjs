@@ -1327,3 +1327,50 @@ test("getThreadInfo returns empty values without querying for blank IDs", async 
   assert.deepEqual(await getInfo(["", "  "]), {});
   assert.equal(calls, 0);
 });
+
+test("shareContact waits for its matching MQTT ACK and allocates monotonic IDs", async () => {
+  const { EventEmitter } = require("events");
+  const client = new EventEmitter();
+  let published;
+  client.publish = (topic, body, options, callback) => {
+    published = { topic, body: JSON.parse(body) };
+    callback();
+    setImmediate(() => client.emit("message", "/ls_resp", Buffer.from(JSON.stringify({
+      request_id: published.body.request_id,
+      payload: { status: "ok" }
+    }))));
+  };
+  const ctx = { mqttClient: client, wsReqNumber: 40, wsTaskNumber: 70 };
+  const shareContact = fca.createShareContactCommand({
+    ctx,
+    generateOfflineThreadingID: () => "epoch-1"
+  });
+  const result = await shareContact("hello", "contact-9", "thread-2");
+  assert.deepEqual(result, { success: true });
+  assert.equal(published.topic, "/ls_req");
+  assert.equal(published.body.request_id, 41);
+  const task = JSON.parse(published.body.payload).tasks[0];
+  assert.equal(task.task_id, 71);
+  assert.equal(task.label, "359");
+  assert.deepEqual(JSON.parse(task.payload), {
+    contact_id: "contact-9",
+    sync_group: 1,
+    text: "hello",
+    thread_id: "thread-2"
+  });
+  assert.equal(client.listenerCount("message"), 0);
+});
+
+test("shareContact rejects blank identifiers without publishing", async () => {
+  const { EventEmitter } = require("events");
+  const client = new EventEmitter();
+  let publishes = 0;
+  client.publish = () => { publishes += 1; };
+  const shareContact = fca.createShareContactCommand({
+    ctx: { mqttClient: client },
+    generateOfflineThreadingID: () => "epoch-2"
+  });
+  await assert.rejects(shareContact("", "contact-1", "  "), /senderID and threadID are required/);
+  assert.equal(publishes, 0);
+});
+
