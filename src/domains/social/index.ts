@@ -37,7 +37,7 @@ function runMutation(
 ): Promise<Loose> {
   return postGraphql({
     defaultFuncs: deps.defaultFuncs,
-    ctx: deps.ctx,
+    ctx: deps.ctx as FcaContext & { jar: Loose },
     jar: deps.ctx.jar,
     form: {
       av: deps.ctx.userID,
