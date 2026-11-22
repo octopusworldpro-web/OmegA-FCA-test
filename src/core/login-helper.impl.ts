@@ -373,29 +373,9 @@ async function tryAutoLoginIfNeeded(
     }
   }
 
-  // Try to hydrate from DB backup
-  const hydrated = await hydrateJarFromDB(null);
-  if (hydrated) {
-    logger("tryAutoLoginIfNeeded: Trying backup from DB...", "info");
-    try {
-      const initial = await get("https://www.facebook.com/", jar, null, globalOptions).then(saveCookies(jar));
-      const resB = (await ctxRef.bypassAutomation(initial, jar)) || initial;
-      const htmlB = resB && resB.data ? resB.data : "";
-      if (!htmlB.includes("/checkpoint/block/?next")) {
-        const htmlUserID = htmlUID(htmlB);
-        if (isValidUID(htmlUserID)) {
-          const cookiesB = await Promise.resolve(jar.getCookies("https://www.facebook.com"));
-          logger(`tryAutoLoginIfNeeded: DB backup session valid, USER_ID=${htmlUserID}`, "info");
-          return { html: htmlB, cookies: cookiesB, userID: htmlUserID };
-        } else {
-          logger(`tryAutoLoginIfNeeded: DB backup session dead (HTML USER_ID=${htmlUserID || "empty"}), will try API login...`, "warn");
-        }
-      }
-    } catch (dbErr: unknown) {
-      logger(`tryAutoLoginIfNeeded: DB backup failed - ${errMsg(dbErr)}`, "warn");
-    }
-  }
-
+  // Do not restore the most recent database session when the account UID is unknown.
+  // A global "latest backup" can belong to a different account and silently switch identity.
+  // Recovery requires an explicitly identified account/session.
   // Check if auto-login is enabled (support both true and "true")
   if (config.autoLogin === false || String(config.autoLogin) === "false") {
     throw new Error("AppState expired — Auto-login is disabled");
