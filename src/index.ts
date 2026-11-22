@@ -104,3 +104,7 @@ export {
 export { createShareContactCommand, type ShareContactCommandDeps } from "./domains/messages/commands/share-contact";
 
 export { createSocialDomain, type SocialDomainDeps } from "./domains/social";
+
+export { formatIncomingAttachment } from "./utils/format/attachment";
+export { formatDeltaMessage, formatDeltaQuotedMessage } from "./utils/format/delta";
+export { formatFetchedMessage } from "./domains/messages/queries/get-message";
