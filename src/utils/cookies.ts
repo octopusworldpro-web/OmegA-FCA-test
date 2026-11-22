@@ -18,25 +18,23 @@ interface AppStateCookie {
 
 function saveCookies(jar: CookieJarLike) {
   return (res: Loose) => {
+    const rawSetCookie = res?.headers?.["set-cookie"] ?? res?.headers?.["Set-Cookie"];
+    if (!rawSetCookie || !jar || typeof jar.setCookieSync !== "function") return res;
+    let responseUrl = res?.request?.res?.responseUrl || res?.request?.responseURL;
     try {
-      const setCookie = res?.headers?.["set-cookie"];
-      if (Array.isArray(setCookie) && setCookie.length) {
-        const url =
-          res?.request?.res?.responseUrl ||
-          (res?.config?.baseURL
-            ? new URL(res.config.url || "/", res.config.baseURL).toString()
-            : res?.config?.url || "https://www.facebook.com");
-        for (const c of setCookie) {
-          try {
-            jar.setCookieSync?.(c, url);
-          } catch {
-            // ignore per-cookie errors
-          }
-        }
+      if (!responseUrl) {
+        const requestUrl = res?.config?.url;
+        const baseUrl = res?.config?.baseURL;
+        responseUrl = requestUrl ? new URL(requestUrl, baseUrl || "https://www.facebook.com/").toString() : "https://www.facebook.com/";
       }
-    } catch {
-      // ignore unexpected cookie parsing errors
-    }
+      const parsed = new URL(String(responseUrl));
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return res;
+      const cookies = Array.isArray(rawSetCookie) ? rawSetCookie : [rawSetCookie];
+      for (const cookie of cookies) {
+        if (typeof cookie !== "string" || !cookie.trim()) continue;
+        try { jar.setCookieSync(cookie, parsed.toString()); } catch { /* ignore malformed cookie */ }
+      }
+    } catch { /* cookie persistence must not mask the HTTP response */ }
     return res;
   };
 }
@@ -44,7 +42,7 @@ function saveCookies(jar: CookieJarLike) {
 function getAppState(jar: CookieJarLike): AppStateCookie[] {
   if (!jar || typeof jar.getCookiesSync !== "function") return [];
 
-  const urls = ["https://www.facebook.com"];
+  const urls = ["https://www.facebook.com/", "https://m.facebook.com/", "https://mbasic.facebook.com/", "https://web.facebook.com/", "https://touch.facebook.com/"];
   const all = urls.flatMap((u) => {
     try {
       return jar.getCookiesSync?.(u) || [];
@@ -58,7 +56,7 @@ function getAppState(jar: CookieJarLike): AppStateCookie[] {
 
   for (const c of all) {
     const key = c.key || c.name;
-    if (!key) continue;
+    if (typeof key !== "string" || !key || typeof c.value !== "string") continue;
 
     const id = key + "|" + (c.domain || "") + "|" + (c.path || "/");
     if (seen.has(id)) continue;
