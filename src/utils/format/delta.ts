@@ -199,3 +199,12 @@ function formatDeltaMessage(m: Loose) {
   if (quoted) event.messageReply = formatDeltaQuotedMessage(quoted, event.threadID);
   return event;
 }
+
+export default {
+  getAdminTextMessageType,
+  formatDeltaEvent,
+  formatDeltaMessage,
+  formatDeltaQuotedMessage,
+  getMentionsFromDeltaMessage,
+  formatDeltaReadReceipt
+};
