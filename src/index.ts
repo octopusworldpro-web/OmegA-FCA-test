@@ -110,3 +110,5 @@ export { formatDeltaMessage, formatDeltaQuotedMessage } from "./utils/format/del
 export { formatFetchedMessage } from "./domains/messages/queries/get-message";
 
 export { createSignalKeyStore, type SignalKeyStore, type SignalStoreOptions, type SignalKeyPairRecord, type SignalSignedPreKeyRecord, type SignalSessionAddress } from "./domains/e2ee/signal-key-store";
+
+export { createLibsignalStores, ensureSignalIdentity, createSignalSignedPreKey, createSignalPreKey, createSignalKyberPreKey } from "./domains/e2ee/libsignal-adapter";
