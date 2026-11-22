@@ -138,14 +138,20 @@ export function createGetUserInfoQuery(deps: GetUserInfoQueryDeps) {
     }
   }
 
+  const USER_CACHE_TTL_MS = 10 * 60 * 1000;
+
   async function loadCached(ids: string[]): Promise<UserInfoMap> {
     const out: UserInfoMap = {};
     const rows = await Promise.all(ids.map((id) => get(id).catch(() => null)));
+    const now = Date.now();
 
     for (let index = 0; index < ids.length; index += 1) {
       const id = ids[index];
       const row = rows[index] as Loose;
-      if (row?.data) {
+      if (!row?.data) continue;
+
+      const updatedAt = row.updatedAt ? new Date(row.updatedAt).getTime() : 0;
+      if (updatedAt > 0 && now - updatedAt <= USER_CACHE_TTL_MS) {
         out[id] = toUserInfoEntry(row.data, id);
       }
     }
@@ -188,7 +194,14 @@ export function createGetUserInfoQuery(deps: GetUserInfoQueryDeps) {
     callback?: NodeStyleCallback<UserInfoMap>
   ) {
     const { callback: cb, promise } = createLegacyPromise<UserInfoMap>(callback, {});
-    const ids = Array.isArray(idsOrId) ? idsOrId.map((value) => String(value)) : [String(idsOrId)];
+    const ids = [...new Set((Array.isArray(idsOrId) ? idsOrId : [idsOrId])
+      .map((value) => String(value).trim())
+      .filter(Boolean))];
+
+    if (ids.length === 0) {
+      cb(null, {});
+      return promise;
+    }
 
     if (disableAntiUserInfo) {
       fetchLegacy(ids, cb);
