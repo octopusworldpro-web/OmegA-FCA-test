@@ -196,7 +196,10 @@ export function formatDeltaMessage(m: Loose) {
     isUnread: md.isUnread !== undefined ? md.isUnread : false
   };
   const quoted = m?.repliedToMessage || m?.replied_to_message?.message;
-  if (quoted) event.messageReply = formatDeltaQuotedMessage(quoted, event.threadID);
+  if (quoted) {
+    event.type = "message_reply";
+    event.messageReply = formatDeltaQuotedMessage(quoted, event.threadID);
+  }
   return event;
 }
 
