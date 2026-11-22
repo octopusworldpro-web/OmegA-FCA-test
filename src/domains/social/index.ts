@@ -224,14 +224,21 @@ export function createSocialDomain(deps: SocialDomainDeps) {
     text = "",
     callback?: NodeStyleCallback<Loose>
   ) => {
-    const link = String(url || "").trim();
-    if (!/^https?:\/\//i.test(link)) {
-      const error = new Error("shareLink requires an http(s) URL");
-      callback?.(error);
-      return Promise.reject(error);
+    const { callback: done, promise } = callbackPromise<Loose>(callback as unknown as CallbackResult);
+    try {
+      const link = String(url || "").trim();
+      if (!/^https?:\\/\\//i.test(link)) throw new Error("shareLink requires an http(s) URL");
+      if (!String(threadID || "").trim()) throw new Error("threadID is required");
+      const body = [String(text || "").trim(), link].filter(Boolean).join("\\n");
+      deps.sendMessage({ body }, String(threadID)).then(result => done(null, result)).catch(error => {
+        deps.logError?.("shareLink", error);
+        done(error);
+      });
+    } catch (error) {
+      deps.logError?.("shareLink", error);
+      done(error);
     }
-    const body = [String(text || "").trim(), link].filter(Boolean).join("\n");
-    return deps.sendMessage({ body }, String(threadID), callback);
+    return promise;
   };
 
   return { shareLink, postComment, reactToComment, sharePost };
