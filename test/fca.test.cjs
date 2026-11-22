@@ -466,7 +466,7 @@ test("MQTT reconnect backoff is exponential, capped, and jitter bounded", () => 
 
 test("MQTT payload decoder accepts objects and buffers and rejects malformed frames", () => {
   const parse = fca.parseMqttJsonPayload;
-  assert.deepEqual(parse(Buffer.from("{\\\"type\\\":\\\"ready\\\"}")), { type: "ready" });
+  assert.deepEqual(parse(Buffer.from('{"type":"ready"}')), { type: "ready" });
   assert.deepEqual(parse({ type: "presence" }), { type: "presence" });
   assert.equal(parse("not-json"), null);
   assert.equal(parse("[]"), null);
