@@ -153,6 +153,7 @@ export interface SignalKeyStore {
   loadSession(address: SignalSessionAddress): string | undefined;
   removeSession(address: SignalSessionAddress): Promise<void>;
   isTrustedIdentity(address: SignalSessionAddress, identityKey: string): boolean;
+  getIdentity(address: SignalSessionAddress): string | undefined;
   saveIdentity(address: SignalSessionAddress, identityKey: string): Promise<boolean>;
   deleteIdentity(address: SignalSessionAddress): Promise<void>;
   flush(): Promise<void>;
@@ -273,6 +274,7 @@ export async function createSignalKeyStore(options: SignalStoreOptions): Promise
       const existing = snapshot().trustedIdentities[addressKey(address)];
       return existing === undefined || existing === requireBytes(identityKey, "identityKey");
     },
+    getIdentity: (address) => snapshot().trustedIdentities[addressKey(address)],
     saveIdentity: async (address, identityKey) => {
       const key = addressKey(address);
       const normalized = requireBytes(identityKey, "identityKey");
