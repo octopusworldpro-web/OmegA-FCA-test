@@ -31,14 +31,11 @@ function callbackPromise<T>(callback?: CallbackResult) {
 
 function runMutation(
   deps: SocialDomainDeps,
-  scope: string,
   friendlyName: string,
   docId: string,
-  variables: Record<string, Loose>,
-  callback?: CallbackResult
-) {
-  const { callback: cb, promise } = callbackPromise<Loose>(callback);
-  postGraphql({
+  variables: Record<string, Loose>
+): Promise<Loose> {
+  return postGraphql({
     defaultFuncs: deps.defaultFuncs,
     ctx: deps.ctx,
     jar: deps.ctx.jar,
@@ -51,12 +48,8 @@ function runMutation(
     }
   }).then((response: Loose) => {
     if (response?.errors?.length) throw response;
-    cb(null, response);
-  }).catch((error: Loose) => {
-    deps.logError?.(scope, error);
-    cb(error);
+    return response;
   });
-  return promise;
 }
 
 export function createSocialDomain(deps: SocialDomainDeps) {
@@ -96,8 +89,9 @@ export function createSocialDomain(deps: SocialDomainDeps) {
         useDefaultActor: false,
         __relay_internal__pv__CometUFIReactionsEnableShortNamerelayprovider: false
       };
-      runMutation(deps, "reactToComment", "CometUFIFeedbackReactMutation", "7616998081714004", variables,
-        (error, result) => error ? done(error) : done(null, result));
+      runMutation(deps, "CometUFIFeedbackReactMutation", "7616998081714004", variables)
+        .then(result => done(null, result))
+        .catch(error => { deps.logError?.("reactToComment", error); done(error); });
     } catch (error) {
       deps.logError?.("reactToComment", error);
       done(error);
@@ -144,8 +138,9 @@ export function createSocialDomain(deps: SocialDomainDeps) {
         __relay_internal__pv__CometUFICommentAvatarStickerAnimatedImagerelayprovider: false,
         __relay_internal__pv__IsWorkUserrelayprovider: false
       };
-      runMutation(deps, "postComment", "useCometUFICreateCommentMutation", "33964973576450400", variables,
-        (error, result) => error ? done(error) : done(null, result));
+      runMutation(deps, "useCometUFICreateCommentMutation", "33964973576450400", variables)
+        .then(result => done(null, result))
+        .catch(error => { deps.logError?.("postComment", error); done(error); });
     } catch (error) {
       deps.logError?.("postComment", error);
       done(error);
@@ -209,8 +204,9 @@ export function createSocialDomain(deps: SocialDomainDeps) {
         __relay_internal__pv__GHLShouldChangeSponsoredDataFieldNamerelayprovider: true,
         __relay_internal__pv__GHLShouldChangeAdIdFieldNamerelayprovider: true
       };
-      runMutation(deps, "sharePost", "ComposerStoryCreateMutation", "26264075519853494", variables,
-        (error, result) => error ? done(error) : done(null, result));
+      runMutation(deps, "ComposerStoryCreateMutation", "26264075519853494", variables)
+        .then(result => done(null, result))
+        .catch(error => { deps.logError?.("sharePost", error); done(error); });
     } catch (error) {
       deps.logError?.("sharePost", error);
       done(error);
