@@ -23,14 +23,16 @@ const GENDERS: Record<number, string> = {
   11: "unknown_plural"
 };
 
-function formatFriends(payload: Record<string, Loose>): FriendListEntry[] {
-  return Object.keys(payload).map((key) => {
+export function formatFriends(payload: Record<string, Loose>): FriendListEntry[] {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return [];
+  return Object.keys(payload).flatMap((key) => {
     const user = payload[key];
-    return {
+    if (!user || user.id == null || String(user.id).trim() === "") return [];
+    return [{
       alternateName: user.alternateName || null,
       firstName: user.firstName || null,
-      gender: GENDERS[user.gender] || "unknown",
-      userID: formatID(String(user.id || "")),
+      gender: GENDERS[Number(user.gender)] || "unknown",
+      userID: formatID(String(user.id)) || String(user.id),
       isFriend: Boolean(user.is_friend),
       fullName: user.name || null,
       profilePicture: user.thumbSrc || null,
@@ -38,7 +40,7 @@ function formatFriends(payload: Record<string, Loose>): FriendListEntry[] {
       profileUrl: user.uri || null,
       vanity: user.vanity || null,
       isBirthday: Boolean(user.is_birthday)
-    };
+    }];
   });
 }
 
@@ -76,7 +78,11 @@ export function createGetFriendsListQuery(deps: GetFriendsListQueryDeps) {
           throw response;
         }
 
-        cb(null, formatFriends((response.payload || {}) as Record<string, Loose>));
+        const payload = response?.payload;
+        if (payload != null && (typeof payload !== "object" || Array.isArray(payload))) {
+          throw new Error("getFriendsList: invalid response payload");
+        }
+        cb(null, formatFriends((payload || {}) as Record<string, Loose>));
       })
       .catch((error: Loose) => {
         logError?.("getFriendsList", error);
