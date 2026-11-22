@@ -39,6 +39,28 @@ Static review of `src/core/auth.ts`, `src/core/auth-helpers.ts`, `src/core/login
 
 **Remaining action:** Add explicit tests that reject HTTP, malformed URLs, and embedded URL credentials; document that enabling this feature transfers credentials to the operator-selected third party. Prefer AppState/Cookie login.
 
+### A-04 — Arbitrary cookie domains in imported sessions
+
+**Finding:** AppState entries could specify a cookie domain outside Facebook. The cookie jar helper also accepted a caller-supplied domain without enforcing the Facebook domain boundary.
+
+**Change:** AppState cookie import now skips non-Facebook domains. The shared cookie-jar helper rejects non-Facebook target domains.
+
+**Status:** Fixed in commits `f5208edffa466a2cc2ab21193f54053dbe2ee288` and `54a7c15417998d4553c2f03a406ee6876333bec1`.
+
+### A-05 — Credential provider HTTP redirects
+
+**Finding:** An HTTP client following redirects could potentially forward a credential POST to a different host if the configured provider returned a redirect.
+
+**Change:** External credential-provider requests now set `maxRedirects: 0`; redirects are returned as responses and are not followed.
+
+**Status:** Fixed in commit `e87f5a3758effc88ade58bb7173109eb933966f4`.
+
+### A-06 — Security regression tests
+
+**Change:** Added synthetic tests for HTTPS-only cookie installation, Secure attributes, Facebook-domain validation, malformed/credential-bearing provider URLs, and disabled redirect following.
+
+**Status:** Added in commit `7645df57061fa8f6e2e37f6faa0bfccf18c62546`; CI verification pending.
+
 ## Remaining security work
 
 1. Database session backups are stored as serialized appstate/cookie values. Encryption at rest, access control, retention, and backup deletion need a dedicated design before production use.
