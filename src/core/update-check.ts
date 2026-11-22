@@ -62,7 +62,7 @@ function readUpdateConfig(input?: FcaConfig | FcaUpdateCheckConfig): FcaUpdateCh
   }
 
   const fallback = {
-    enabled: true,
+    enabled: false,
     install: false,
     notifyIfCurrent: false,
     packageName: packageInfo.name,
