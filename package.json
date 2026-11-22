@@ -46,7 +46,7 @@
     "ora": "^9.3.0",
     "picocolors": "^1.1.1",
     "sequelize": "^6.37.6",
-    "sqlite3": "^5.1.7",
+    "sqlite3": "^6.0.1",
     "totp-generator": "^1.0.0",
     "ws": "^8.18.1"
   },
