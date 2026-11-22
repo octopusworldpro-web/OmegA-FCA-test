@@ -34,7 +34,7 @@ The GoatBot login module also uses local humanizer wrapping around the listener.
 | MQTT listener start/stop | Present; needs authorized live test |
 | Common message/thread/user methods | Present in legacy API surface; test each signature |
 | GoatBot humanizer | Bot-side wrapper exists; FCA option itself is not implemented |
-| `sessionGuard()` | Not present in uploaded source |
+| `sessionGuard()` / `stopSessionGuard()` | Implemented on the legacy API; account-bound atomic AppState saver with periodic writes and stop handle; requires live runtime validation |
 | `api.e2ee` / Signal Protocol | Not present in uploaded source |
 | Group E2EE / SKDM | Not present in uploaded source |
 | `autoMarkDelivery` option | Not declared in uploaded `FcaOptions`; verify behavior before enabling |
@@ -52,3 +52,12 @@ The GoatBot login module also uses local humanizer wrapping around the listener.
 - [ ] Run the bot's full test suite and Railway deployment test before changing its production dependency.
 
 A source-level method match is not a live Facebook acceptance result. Do not mark the bot integration complete until every applicable item above passes.
+
+
+## Task 4 — Account identity, session validation & SessionGuard
+
+- Added `api.sessionGuard(accountFilePath, { interval, debounce })` and `api.stopSessionGuard()` to the legacy FCA API.
+- The guard snapshots the active account's AppState periodically, checks that `c_user` matches the authenticated UID and that `xs` exists, limits cookie count and payload size, and accepts Facebook cookie domains only.
+- Writes use a same-directory temporary file, restrictive `0600` permissions, fsync, and atomic rename. A rejected/mismatched snapshot leaves the previous account file untouched.
+- The guard defaults to a 3-minute interval and a 30-second initial debounce; the caller can stop it during account switching or shutdown.
+- Synthetic tests cover identity matching, atomic write, file permissions, and preserving the prior file when the UID does not match. Live Facebook rotation/refresh behavior remains to be validated with an authorized account.
