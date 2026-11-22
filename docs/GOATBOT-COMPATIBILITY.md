@@ -102,3 +102,13 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - HTTP 4xx/5xx responses now enter the request retry handler instead of being treated as successful Axios responses. The retry policy can retry 429 and transient 5xx/network failures while returning ordinary non-retryable 4xx responses to legacy callers.
 - Added synthetic tests for Set-Cookie handling, relative URL resolution, multi-host AppState collection, deduplication, and 429 retry behavior.
 - These tests validate the local transport contract; authenticated Facebook requests and proxy behavior still require authorized runtime testing.
+
+
+## Task 8 — MQTT connection and WebSocket handshake
+
+- MQTT transport continues to use the Facebook Messenger WebSocket endpoint with MQTT 3.1 (`MQIsdp`, protocol version 3), clean sessions, 30-second keepalive, and a bounded 12-second connection timeout.
+- The WebSocket URL builder now parses the server-provided endpoint, preserves existing query parameters, replaces `sid`/`cid` without duplicate parameters, removes fragments, and normalizes HTTPS endpoints to WSS.
+- Server-provided endpoints are accepted only for Facebook-owned hostnames and secure `https:`/`wss:` schemes. Invalid or non-Facebook endpoints fail before session cookies are attached to a WebSocket request.
+- The HTTP `Host` handshake header is derived from the actual validated endpoint rather than being hard-coded to `edge-chat.facebook.com`.
+- Synthetic tests cover endpoint normalization, regional fallback, existing query preservation, duplicate parameter replacement, host derivation, and rejection of untrusted/insecure endpoints.
+- This validates local URL/handshake construction. A live Facebook MQTT CONNACK and authenticated socket handshake still need an authorized account runtime test.
