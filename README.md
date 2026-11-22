@@ -185,7 +185,6 @@ The goal is a drop-in FCA experience: preserve the bot's existing login pattern,
 
 The compatibility audit is still in progress. GoatBot's `sessionGuard()` / `stopSessionGuard()` API is implemented with account-bound atomic AppState snapshots; its live session-refresh behavior still needs runtime validation. The `e2ee` API remains unimplemented. Do not replace the bot's current FCA dependency until the compatibility matrix and bot-side regression tests confirm the required methods and lifecycle behavior.
 
-- [EryXen API Compatibility Audit](docs/ERYXEN-API-COMPATIBILITY.md)
 - [GoatBot Compatibility Notes](docs/GOATBOT-COMPATIBILITY.md)
 
 ## <img src="https://img.shields.io/badge/07-E2EE%20STATUS-607D8B?style=flat-square" /> End-to-end encryption status
