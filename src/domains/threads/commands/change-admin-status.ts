@@ -41,6 +41,7 @@ export function createChangeAdminStatusCommand(deps: ChangeAdminStatusCommandDep
     if (!adminIDs.length || adminIDs.some((id) => !id.trim())) {
       return Promise.reject(new Error("adminID must contain at least one valid ID"));
     }
+    let taskCounter = ctx.wsTaskNumber;
     const tasks = adminIDs.map((id) => ({
       failure_count: null,
       label: "25",
@@ -50,8 +51,9 @@ export function createChangeAdminStatusCommand(deps: ChangeAdminStatusCommandDep
         is_admin: adminStatus ? 1 : 0
       }),
       queue_name: "admin_status",
-      task_id: ++ctx.wsTaskNumber
+      task_id: ++taskCounter
     }));
+    ctx.wsTaskNumber = taskCounter;
 
     return publishLsRequestWithAck({
       client: ctx.mqttClient as MqttRequestClient,
@@ -63,9 +65,10 @@ export function createChangeAdminStatusCommand(deps: ChangeAdminStatusCommandDep
           tasks,
           version_id: "8798795233522156"
         }),
-        request_id: ++ctx.wsReqNumber,
+        request_id: requestId,
         type: 3
-      }
+      },
+      extract: (message) => message.payload
     }).catch((error: Loose) => {
       logError?.("changeAdminStatus", error);
       throw error;
