@@ -149,3 +149,11 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - Hardened the shared MQTT `/ls_req` → `/ls_resp` acknowledgement helper used by message sending. It now validates request IDs and timeouts, matches only the corresponding response, handles Buffer/string payloads, and rejects on MQTT error/close/offline/end instead of waiting for a timeout.
 - Publish exceptions and publish callback errors settle the request and remove every registered listener/timer. The timeout is installed before publish, avoiding a synchronous publish-error timer leak.
 - Added synthetic tests for matching ACKs, cleanup, synchronous publish failures, connection loss and invalid timeout values. Existing send-message payload construction and receive-event dispatch remain wired through the legacy API and grouped `client.messages` namespace; authenticated Facebook send/receive still needs a live account test.
+
+
+## Task 13 — Text, reply, unsend and edit
+
+- Text sends now allocate monotonically increasing request and task IDs from the FCA context instead of using a small random request-ID range and fixed task IDs.
+- Reply metadata is carried from either the legacy fourth `replyToMessage` argument or the structured payload's `replyToMessage` field into Messenger's `reply_metadata` structure.
+- Added synthetic MQTT-ACK tests covering text body, thread routing, reply metadata, callback-once behavior, ID progression, and listener cleanup.
+- The edit and unsend command paths remain exposed through the legacy API and grouped message domain; authenticated Facebook-side edit/unsend semantics still require a live session test.
