@@ -240,10 +240,8 @@ async function setJarCookies(j: Loose, appstate: Loose[]) {
       cookieParts.push(`Domain=${domain}`);
       cookieParts.push(`Path=${cookiePath}`);
 
-      // Add Secure flag if secure is true
-      if (c.secure === true) {
-        cookieParts.push("Secure");
-      }
+      // Authentication/session cookies must never be sent over plaintext HTTP.
+      cookieParts.push("Secure");
 
       // Add HttpOnly flag if httpOnly is true
       if (c.httpOnly === true) {
@@ -260,18 +258,10 @@ async function setJarCookies(j: Loose, appstate: Loose[]) {
 
       return cookieParts.join("; ");
     };
-    const cookieConfigs = [];
-    if (cookieDomain === ".facebook.com" || cookieDomain === "facebook.com") {
-      cookieConfigs.push({ url: `http://${dom}${cookiePath}`, cookieStr: buildCookieString() });
-      cookieConfigs.push({ url: `https://${dom}${cookiePath}`, cookieStr: buildCookieString() });
-      cookieConfigs.push({ url: `http://www.${dom}${cookiePath}`, cookieStr: buildCookieString() });
-      cookieConfigs.push({ url: `https://www.${dom}${cookiePath}`, cookieStr: buildCookieString() });
-    } else {
-      cookieConfigs.push({ url: `http://${dom}${cookiePath}`, cookieStr: buildCookieString() });
-      cookieConfigs.push({ url: `https://${dom}${cookiePath}`, cookieStr: buildCookieString() });
-      cookieConfigs.push({ url: `http://www.${dom}${cookiePath}`, cookieStr: buildCookieString() });
-      cookieConfigs.push({ url: `https://www.${dom}${cookiePath}`, cookieStr: buildCookieString() });
-    }
+    const cookieConfigs = [
+      { url: `https://${dom}${cookiePath}`, cookieStr: buildCookieString() },
+      { url: `https://www.${dom}${cookiePath}`, cookieStr: buildCookieString() }
+    ];
 
     for (const config of cookieConfigs) {
       tasks.push(j.setCookie(config.cookieStr, config.url).catch((err: unknown) => {
