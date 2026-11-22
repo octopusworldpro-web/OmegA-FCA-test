@@ -154,7 +154,7 @@ function getMentionsFromDeltaMessage(m: Loose) {
   return mentions;
 }
 
-function formatDeltaQuotedMessage(m: Loose, fallbackThreadID?: string): Loose {
+export function formatDeltaQuotedMessage(m: Loose, fallbackThreadID?: string): Loose {
   const metadata = m?.messageMetadata || {};
   const threadKey = metadata.threadKey || {};
   const threadID = String(
@@ -177,7 +177,7 @@ function formatDeltaQuotedMessage(m: Loose, fallbackThreadID?: string): Loose {
   };
 }
 
-function formatDeltaMessage(m: Loose) {
+export function formatDeltaMessage(m: Loose) {
   const md = m?.messageMetadata || {};
   const threadKey = md.threadKey || {};
   const body = String(m?.body || "");
