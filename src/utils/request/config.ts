@@ -22,7 +22,7 @@ function cfg(base: CfgInput = {}) {
     httpAgent: agent || client.defaults.httpAgent,
     httpsAgent: agent || client.defaults.httpsAgent,
     proxy: false as const,
-    validateStatus: (s: number) => s >= 200 && s < 600
+    validateStatus: (s: number) => s >= 200 && s < 400
   };
 }
 
