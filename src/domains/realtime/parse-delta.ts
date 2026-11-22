@@ -6,7 +6,6 @@ import formatMod from "../../utils/format";
 
 const {
   formatDeltaEvent,
-  formatMessage,
   formatDeltaMessage,
   formatDeltaQuotedMessage,
   formatIncomingAttachment,
