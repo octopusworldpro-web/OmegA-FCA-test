@@ -1445,3 +1445,140 @@ test("social shareLink delegates a URL-bearing message through the existing Mess
   await assert.rejects(social.shareLink("javascript:alert(1)", "thread-1"), /http\(s\) URL/);
 });
 
+test("incoming media formatter handles photo, video, audio, file and malformed Mercury metadata", () => {
+  const photo = fca.formatIncomingAttachment({
+    mercuryJSON: JSON.stringify({
+      attach_type: "photo",
+      fileName: "incoming.jpg",
+      metadata: { fbid: "photo-1", dimensions: "640,480", url: "https://cdn.example/photo.jpg" }
+    })
+  });
+  assert.equal(photo.type, "photo");
+  assert.equal(photo.ID, "photo-1");
+  assert.equal(photo.width, "640");
+  assert.equal(photo.height, "480");
+  assert.equal(photo.url, "https://cdn.example/photo.jpg");
+
+  const video = fca.formatIncomingAttachment({
+    blob_attachment: {
+      __typename: "MessageVideo",
+      legacy_attachment_id: "video-1",
+      filename: "clip.mp4",
+      playable_url: "https://cdn.example/clip.mp4",
+      large_image: { uri: "https://cdn.example/clip-preview.jpg", width: 320, height: 180 },
+      original_dimensions: { x: 1280, y: 720 },
+      playable_duration_in_ms: 12000,
+      video_type: "MP4"
+    }
+  });
+  assert.equal(video.type, "video");
+  assert.equal(video.ID, "video-1");
+  assert.equal(video.url, "https://cdn.example/clip.mp4");
+
+  const audio = fca.formatIncomingAttachment({
+    blob_attachment: {
+      __typename: "MessageAudio",
+      legacy_attachment_id: "audio-1",
+      filename: "voice.m4a",
+      playable_url: "https://cdn.example/voice.m4a",
+      audio_type: "VOICE",
+      playable_duration_in_ms: 2500
+    }
+  });
+  assert.equal(audio.type, "audio");
+  assert.equal(audio.url, "https://cdn.example/voice.m4a");
+
+  const file = fca.formatIncomingAttachment({
+    blob_attachment: {
+      __typename: "MessageFile",
+      message_file_fbid: "file-1",
+      filename: "report.pdf",
+      url: "https://cdn.example/report.pdf",
+      content_type: "application/pdf"
+    }
+  });
+  assert.equal(file.type, "file");
+  assert.equal(file.ID, "file-1");
+
+  const malformed = fca.formatIncomingAttachment({ mercuryJSON: "{bad json", attach_type: "mystery", url: "https://cdn.example/raw" });
+  assert.equal(malformed.type, "unknown");
+  assert.equal(malformed.url, "https://cdn.example/raw");
+});
+
+test("incoming MQTT message preserves media, mentions, participants and quoted reply for GoatBot", () => {
+  const quoted = {
+    body: "quoted text",
+    messageMetadata: {
+      actorFbId: "sender-2",
+      messageId: "quoted-1",
+      timestamp: "1700000000000",
+      threadKey: { threadFbId: "thread-9" }
+    },
+    attachments: [{
+      mercuryJSON: JSON.stringify({
+        attach_type: "photo",
+        metadata: { fbid: "quoted-photo", dimensions: "80,60", url: "https://cdn.example/quoted.jpg" }
+      })
+    }],
+    participants: ["sender-2", "sender-3"]
+  };
+  const event = fca.formatDeltaMessage({
+    body: "hello world",
+    messageMetadata: {
+      actorFbId: "sender-1",
+      messageId: "message-1",
+      timestamp: "1700000001000",
+      threadKey: { threadFbId: "thread-9" },
+      isUnread: true
+    },
+    data: { prng: JSON.stringify([{ i: "mention-1", o: 0, l: 5 }]) },
+    attachments: [{
+      mercuryJSON: JSON.stringify({
+        attach_type: "photo",
+        metadata: { fbid: "photo-2", dimensions: "640,480", url: "https://cdn.example/incoming.jpg" }
+      })
+    }],
+    participants: ["sender-1", "sender-2", "sender-3"],
+    repliedToMessage: quoted
+  });
+  assert.equal(event.type, "message");
+  assert.equal(event.senderID, "sender-1");
+  assert.equal(event.threadID, "thread-9");
+  assert.equal(event.messageID, "message-1");
+  assert.equal(event.isGroup, true);
+  assert.equal(event.isUnread, true);
+  assert.deepEqual(event.mentions, { "mention-1": "hello" });
+  assert.equal(event.attachments[0].type, "photo");
+  assert.equal(event.messageReply.type, "Message");
+  assert.equal(event.messageReply.messageID, "quoted-1");
+  assert.equal(event.messageReply.attachments[0].ID, "quoted-photo");
+});
+
+test("fetched getMessage output keeps quoted-reply event type and legacy fields", () => {
+  const result = fca.formatFetchedMessage("thread-4", {
+    __typename: "UserMessage",
+    message_id: "root-1",
+    message_sender: { id: "sender-4" },
+    message: { text: "reply body", ranges: [{ entity: { id: "user-9" }, offset: 0, length: 5 }] },
+    timestamp_precise: "1700000002000",
+    participants: [{ id: "sender-4" }, { id: "sender-5" }],
+    blob_attachments: [],
+    replied_to_message: {
+      message: {
+        __typename: "UserMessage",
+        message_id: "parent-1",
+        message_sender: { id: "sender-5" },
+        message: { text: "parent body", ranges: [] },
+        timestamp_precise: "1700000000000",
+        participants: [{ id: "sender-4" }, { id: "sender-5" }],
+        blob_attachments: []
+      }
+    }
+  });
+  assert.equal(result.type, "message_reply");
+  assert.equal(result.messageReply.messageID, "parent-1");
+  assert.deepEqual(result.mentions, { "user-9": "reply" });
+  assert.deepEqual(result.args, ["reply", "body"]);
+  assert.equal(result.isGroup, false);
+});
+
