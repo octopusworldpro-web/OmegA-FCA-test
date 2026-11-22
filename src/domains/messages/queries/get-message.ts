@@ -223,7 +223,7 @@ function formatMessage(threadID: string, data: Loose): Loose {
         type: "message",
         senderID: data.message_sender?.id,
         body, 
-        args: body.trim() ? body.trim().split(/\\s+/) : [],
+        args: body.trim() ? body.trim().split(/\s+/) : [],
         threadID,
         messageID: data.message_id,
         reactions: formatReactions(data.message_reactions),
