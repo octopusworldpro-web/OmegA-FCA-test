@@ -519,6 +519,28 @@ test("AppState collection includes Facebook subdomain cookies and deduplicates b
   assert.equal(state.length, 2);
   assert.deepEqual(state.map((cookie) => cookie.key), ["c_user", "m_cookie"]);
 });
+test("HTTP retry policy retries 429 and 5xx responses but returns ordinary 4xx responses", async () => {
+  let attempts = 0;
+  const result = await fca.requestWithRetry(async () => {
+    attempts += 1;
+    if (attempts === 1) {
+      const error = new Error("rate limited");
+      error.response = { status: 429, data: "retry" };
+      error.config = { method: "get", url: "/messages" };
+      throw error;
+    }
+    return { status: 200, data: "ok" };
+  }, 3, 1);
+  assert.equal(attempts, 2);
+  assert.equal(result.data, "ok");
+  const badRequest = { status: 400, data: "bad request" };
+  const returned = await fca.requestWithRetry(async () => {
+    const error = new Error("bad request");
+    error.response = badRequest;
+    throw error;
+  }, 3, 1);
+  assert.strictEqual(returned, badRequest);
+});
 test("public exports are available", () => {
   assert.strictEqual(typeof fca.login, "function");
   assert.strictEqual(typeof fca.createFcaClient, "function");
