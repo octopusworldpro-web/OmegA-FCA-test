@@ -114,3 +114,12 @@ Static source and contract review is complete for the available OmegA-FCA files 
 **Fix in Task 2:** callback handlers previously used `.then(success).catch(failure)`. If user callback code threw, that exception could be mistaken for a login failure and invoke the callback a second time. The bridge now uses the Promise `.then(success, failure)` rejection branch, so callback exceptions are not fed back into the same callback as a second invocation.
 
 **Validation boundary:** package export-shape tests and CI validate CJS/ESM entrypoints, build, typecheck and lint. Live success/failure login callback behavior still requires a controlled authenticated integration test; it is not claimed as live-verified here.
+
+
+## Task 3 — AppState, Cookie & account authentication input normalization
+
+- `loginAsync` now normalizes AppState arrays, JSON-encoded AppState strings, raw Cookie headers, Cookie arrays (including `{name|key, value}` objects), and key/value Cookie objects before invoking the login helper.
+- AppState cookie objects remain AppState input; explicit Cookie values are passed through the Cookie path and take precedence for duplicate cookie names in the exposed context header.
+- The context `cookieString` and initial account UID are derived from the normalized combined session input, including `c_user` and `i_user`.
+- Cookie values containing additional `=` characters are preserved.
+- Added deterministic tests for the supported input shapes. These tests validate normalization only; they do not prove that Facebook accepts a session or that the imported session is live.
