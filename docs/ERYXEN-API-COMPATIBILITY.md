@@ -64,3 +64,39 @@ The callback login contract returns the flat legacy API object (same object as `
 - OSV advisory: https://osv.dev/vulnerability/MAL-2026-20276
 - OmegA-FCA exports: `src/index.ts`
 - OmegA-FCA facade mapping: `src/app/create-client.ts` and `src/compat/api-registry.ts`
+
+
+## 2026-11-22 cross-repository verification
+
+### EryXen package identity and security decision
+
+- npm package: `@eryxenx/fca`.
+- npm search metadata surfaced version `1.3.5`; the package page's indexed README describes the NEXCA MQTT, Signal Protocol E2EE, `sessionGuard`, `sendBroadcast`, and 90+ method feature set.
+- The package metadata identifies `EryXenX/fca-eryxenx` as its GitHub repository. That repository could not be read through the connected GitHub account during this audit, so the published source tree and exact tarball contents were not independently verified.
+- OSV/OpenSSF advisory `MAL-2026-20276` reports malicious credential-relay code in published versions `1.3.0`, `1.3.1`, and `1.3.2`: the affected login flow sends the supplied Facebook email, password, and long-lived TOTP seed to `minhdong.site`. A separate package-risk index also flags `1.3.5`, while the primary OSV record names only `1.3.0–1.3.2`. This discrepancy means version-number-based trust is unsafe.
+- **Decision:** do not install, execute, vendor, or add this package to OmegA-FCA's dependency tree. Use its public API documentation only as a compatibility checklist. Independently implement the required behavior using local credentials/session handling and inspect every source/dependency before adoption.
+
+### OmegA-Goatbot main branch
+
+Repository verified: `nirzon-islam/OmegA-Goatbot`, default branch `main`.
+
+Its `package.json` confirms:
+- package name `goatbot-pro`, version `7.1.5`;
+- Node engine `20.x`;
+- dependency `@eryxenx/fca: ^1.3.4`.
+
+The OmegA-FCA target is therefore the existing GoatBot FCA contract, not the EryXen package's internal implementation or private endpoints. Keep the bot's current login/event lifecycle and replace only after acceptance tests pass. The GoatBot repository README in the OmegA-FCA audit identifies its custom humanizer as a bot-side wrapper; do not assume an FCA `humanize` option is required.
+
+### OmegA-FCA source structure inspected
+
+The following files were read from `octopusworldpro-web/OmegA-FCA-test@main`:
+- `package.json`: `@nirzon-islam/omega-fca@0.2.0`, Node >=20, TypeScript/tsup CJS+ESM build, build/typecheck/test/lint scripts.
+- `src/index.ts`: exports classic and Promise login, cookie helpers, MQTT, config/request/auth helpers, encrypted session-backup crypto, client facade, MessengerBot, domain constructors and types.
+- `src/app/create-client.ts`: creates additive namespaces for messages, threads, users, account, realtime, HTTP and scheduler; methods are bound to the legacy API object.
+- `src/compat/api-registry.ts`: attaches the client facade and only fills namespace properties when absent.
+
+The current facade is a compatibility layer, not proof that every underlying method exists or works. Optional methods are omitted; live-bound methods throw when the legacy API method is missing. This must be covered by method-by-method tests.
+
+### Task 1 audit conclusion
+
+Static source and contract review is complete for the available OmegA-FCA files and GoatBot `main` manifest. EryXen's public API documentation has been inventoried, but its full repository/tarball could not be independently inspected; this is recorded as an explicit limitation, not treated as a successful source audit. The package is excluded for security reasons. No dependency was added and no credentials or live Facebook session were used.
