@@ -39,10 +39,12 @@ export = {
 
   _formatAttachment: attachment._formatAttachment,
   formatAttachment: attachment.formatAttachment,
+  formatIncomingAttachment: attachment.formatIncomingAttachment,
 
   getAdminTextMessageType: delta.getAdminTextMessageType,
   formatDeltaEvent: delta.formatDeltaEvent,
   formatDeltaMessage: delta.formatDeltaMessage,
+  formatDeltaQuotedMessage: delta.formatDeltaQuotedMessage,
   getMentionsFromDeltaMessage: delta.getMentionsFromDeltaMessage,
   formatDeltaReadReceipt: delta.formatDeltaReadReceipt,
 
