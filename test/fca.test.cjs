@@ -544,7 +544,7 @@ test("credential provider requests do not follow redirects", async () => {
 });
 
 test("session backups are encrypted at rest and bound to account and type", () => {
-  const { encryptSessionBackup, decryptSessionBackup, isEncryptedSessionBackup } = require("../dist/session/backup-crypto.js");
+  const { encryptSessionBackup, decryptSessionBackup, isEncryptedSessionBackup } = fca;
   const previousKey = process.env.OMEGA_FCA_SESSION_BACKUP_KEY;
   const previousLegacy = process.env.OMEGA_FCA_ALLOW_LEGACY_PLAINTEXT_BACKUPS;
   process.env.OMEGA_FCA_SESSION_BACKUP_KEY = "11".repeat(32);
