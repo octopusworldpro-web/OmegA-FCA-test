@@ -78,12 +78,12 @@ export function createAuthCore(opts: {
         };
       }
 
-      const endpoint = `${parsedBaseUrl.origin}${parsedBaseUrl.pathname.replace(/\\/+$/, "")}/api/v1/facebook/login_ios`;
+      const endpoint = `${parsedBaseUrl.origin}${parsedBaseUrl.pathname.replace(/\/+$/, "")}/api/v1/facebook/login_ios`;
       const xApiKey = apiKey || config.apiKey || null;
 
       const body: Record<string, string> = { email, password };
       if (twoFactor && typeof twoFactor === "string" && twoFactor.trim()) {
-        body.twoFactor = twoFactor.replace(/\\s+/g, "").toUpperCase();
+        body.twoFactor = twoFactor.replace(/\s+/g, "").toUpperCase();
       }
 
       const headers: Record<string, string> = {
@@ -208,8 +208,8 @@ export function createAuthCore(opts: {
   function normalizeCookieHeaderString(s: string) {
     let str = String(s || "").trim();
     if (!str) return [];
-    if (/^cookie\\s*:/i.test(str)) str = str.replace(/^cookie\\s*:/i, "").trim();
-    str = str.replace(/\\r?\\n/g, " ").replace(/\\s*;\\s*/g, ";");
+    if (/^cookie\s*:/i.test(str)) str = str.replace(/^cookie\s*:/i, "").trim();
+    str = str.replace(/\r?\n/g, " ").replace(/\s*;\s*/g, ";");
     const parts = str.split(";").map((v) => v.trim()).filter(Boolean);
     const out: string[] = [];
     for (const p of parts) {
