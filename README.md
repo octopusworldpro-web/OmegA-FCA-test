@@ -60,6 +60,10 @@ const ctx = await loginAsync({ appState: require("./appstate.json") });
 const api = ctx.api;
 ```
 
+## Authentication security audit
+
+See [Authentication & Session Security Audit](docs/AUTH-SESSION-SECURITY-AUDIT.md) for reviewed login/session risks, fixes, and remaining security gates.
+
 ## Authentication and credentials
 
 Supported input formats include:
