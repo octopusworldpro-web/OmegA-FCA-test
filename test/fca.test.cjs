@@ -1182,6 +1182,6 @@ test("uploadAttachment command rejects empty input through callback and Promise"
   });
   let callbackError;
   const promise = command([], (error) => { callbackError = error; });
-  await assert.rejects(promise, /attachment/i);
+  await assert.rejects(promise, (error) => /attachment/i.test(error.error));
   assert.ok(callbackError);
 });
