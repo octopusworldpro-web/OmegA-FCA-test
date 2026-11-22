@@ -131,3 +131,14 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - Sequence-ID bootstrap failures use the same bounded exponential retry policy, retain their own attempt counter, avoid duplicate retry timers, and reset the counter after successful bootstrap. Stop/shutdown clears the retry timer and counter.
 - MQTT reconnect attempts are reset only after the `/t_ms` sync-ready response; a raw WebSocket/MQTT connect does not count as ready.
 - Synthetic tests cover exponential growth, jitter bounds, strict maximum cap, and existing stop-cancels-reconnect behavior. Actual broker outages, `/t_ms` readiness and reconnect recovery still require authorized live-session verification.
+
+
+## Task 11 — Listener recovery and stability
+
+- getSeqIDWrapper now uses a per-context single-flight promise. Concurrent bootstrap calls share the same request; a pending retry timer is not cancelled by another caller.
+- Retry timers are cleared on shutdown/teardown and are unref()'d where supported.
+- Listener stop is idempotent: concurrent stop calls share one teardown and each supplied callback is completed once.
+- MQTT client end now has a bounded cleanup timeout, so a missing end callback cannot leave teardown permanently pending.
+- Forced cycling is skipped during another lifecycle transition and only schedules a reconnect after cleanup completes.
+- Pending MQTT request tasks are rejected during teardown; /ls_resp consumes matching tasks before invoking callbacks, preventing duplicate callback delivery and stale map entries. Unknown/expired request IDs are ignored.
+- Synthetic tests cover one-shot task response consumption and unknown request IDs. Authenticated live listener recovery still requires a real session runtime test.
