@@ -101,8 +101,8 @@ function createParseDelta(deps: Loose) {
                 return;
               }
               callbackToReturn = {
-                type: "message_reply",
-                ...formatDeltaQuotedMessage(msg)
+                ...formatDeltaQuotedMessage(msg),
+                type: "message_reply"
               };
             if (d.deltaMessageReply.repliedToMessage) {
               try {
@@ -110,7 +110,6 @@ function createParseDelta(deps: Loose) {
                 const msgMetadata = repliedTo.messageMetadata;
                 if (msgMetadata && msgMetadata.threadKey) {
                   callbackToReturn.messageReply = formatDeltaQuotedMessage(repliedTo, callbackToReturn.threadID);
-                }
                 }
               } catch (err: Loose) {
                 const errMsg = err && err.message ? err.message : String(err || "Unknown error");
