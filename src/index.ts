@@ -95,3 +95,8 @@ export {
   createGetThreadHistoryQuery,
   type GetThreadHistoryQueryDeps
 } from "./domains/threads/queries/get-thread-history";
+
+export {
+  createGetThreadInfoQuery,
+  type GetThreadInfoQueryDeps
+} from "./domains/threads/queries/get-thread-info";
