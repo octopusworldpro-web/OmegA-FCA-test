@@ -258,3 +258,13 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - The action helper calls only the injected Signal encrypt/decrypt operations. It does not call legacy `markAsRead`, `markAsReadAll`, `markAsSeen` or publish the ordinary `/mark_thread` read status. Existing normal read-receipt behavior is unchanged.
 - Exported the helper and public types from the package root. Synthetic tests cover encrypted envelope handoff, deduplication, payload validation and malformed payload rejection.
 - **Validation boundary:** this is an encrypted application-level read-receipt action over an established 1:1 Signal session. It is not evidence that Messenger's private E2EE receipt/action wire format is compatible. Messenger device routing, remote receipt semantics, delivery/seen action parity and live Facebook acceptance still require authorized runtime validation; group E2EE actions are addressed by later group tasks.
+
+
+## Task 23 — Group Sender Keys and SKDM
+
+- Extended the encrypted account-bound Signal store with per-group/per-sender SenderKeyRecord persistence. Sender-key records are stored inside the existing AES-256-GCM encrypted envelope and support load/remove across restarts.
+- Added an optional libsignal SenderKeyStore adapter without making existing direct-message store construction depend on group support.
+- Added `createSignalSenderKeyGroups`: generate a Sender Key Distribution Message (SKDM), process a peer's distribution, encrypt group payloads with the sender-key cipher and decrypt received sender-key messages.
+- Sender identity is scoped by group ID plus the sender's Signal ProtocolAddress/device ID. Distribution and ciphertext payloads carry the group ID and sender address for routing; malformed base64 and missing group/sender fields are rejected.
+- Tests cover SKDM creation/processing, group encrypt/decrypt, invalid inputs and encrypted persistence/reopen/removal of sender-key records.
+- **Validation boundary:** this is the libsignal Sender Keys protocol layer and local persistence, not Messenger's full group-device fanout. Messenger-specific distribution fanout to every device, membership/epoch changes, sender-key rotation/revocation, SKDM envelope transport and live Facebook group E2EE acceptance remain unverified and require authorized runtime integration.
