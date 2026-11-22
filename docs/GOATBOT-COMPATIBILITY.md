@@ -166,3 +166,13 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - Upload transport uses the active Facebook cookie jar, obtains/caches upload form tokens, posts multipart data to the Mercury upload endpoint, maps returned image/video/audio/file IDs and metadata, and detects checkpoint responses.
 - Message send tests cover Buffer upload handoff, caption preservation, uploaded attachment ID serialization, and pre-uploaded attachment tuple handling without a redundant upload.
 - Multi-file transport and authenticated Facebook upload/send still require a live account test; CI verifies the synthetic command contract only.
+
+
+## Task 15 — Group and thread management
+
+- Group creation now normalizes participant IDs, removes duplicates and the authenticated account itself, and requires at least two distinct other participants before issuing the GraphQL mutation.
+- Add-member input IDs are normalized and deduplicated; invalid empty IDs are rejected.
+- Remove-member, admin-role, title and quick-reaction/emoji MQTT mutations now use the request-ID-matched `/ls_resp` acknowledgement helper instead of treating a successful publish as a completed server mutation.
+- These mutations allocate monotonically increasing request/task IDs from the FCA context; admin batches use a distinct task ID per member.
+- Added synthetic tests for remove-member callback-once/ACK cleanup, admin batch IDs/ACK, title and emoji ACK, and group-creation participant validation.
+- Group creation and other thread mutations still require an authenticated Facebook runtime test to verify current server-side GraphQL/MQTT protocol acceptance.
