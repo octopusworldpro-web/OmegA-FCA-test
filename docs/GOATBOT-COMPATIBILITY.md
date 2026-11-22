@@ -112,3 +112,13 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - The HTTP `Host` handshake header is derived from the actual validated endpoint rather than being hard-coded to `edge-chat.facebook.com`.
 - Synthetic tests cover endpoint normalization, regional fallback, existing query preservation, duplicate parameter replacement, host derivation, and rejection of untrusted/insecure endpoints.
 - This validates local URL/handshake construction. A live Facebook MQTT CONNACK and authenticated socket handshake still need an authorized account runtime test.
+
+
+## Task 9 — MQTT subscriptions and event sync
+
+- The MQTT listener now validates the SUBACK grant for every required Messenger topic and rejects missing/rejected QoS grants instead of assuming a successful subscribe callback.
+- Initial sync queue creation vs. diff resumption is normalized and tested, including `entity_fbid`, JSON encoding, sequence ID, sync token, and expected topic selection.
+- The initial queue, foreground state, and client settings are published sequentially only after successful subscriptions; each publish acknowledgement is checked and failures trigger reconnect or a stop event.
+- `/t_ms` sequence IDs are accepted only as non-negative safe integers; invalid values cannot poison the stored sequence state. Valid sync tokens and sequence updates are retained, and malformed delta collections are ignored.
+- `/ls_resp` accepts JSON text or an already-decoded object and ignores invalid payload shapes.
+- Synthetic protocol tests cover complete/rejected SUBACKs, fresh/resumed sync queues, and valid/invalid sequence state. Live Facebook subscription grants and event delivery still require authorized runtime verification.
