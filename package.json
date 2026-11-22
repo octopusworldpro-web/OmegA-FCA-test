@@ -12,16 +12,26 @@
       "default": "./dist/index.mjs"
     }
   },
-  "files": ["dist/", "docs/", "README.md", "test/", "LICENSE", "NOTICE", "fca-config.example.json"],
+  "files": [
+    "dist/",
+    "docs/",
+    "README.md",
+    "test/",
+    "LICENSE",
+    "NOTICE",
+    "fca-config.example.json"
+  ],
   "scripts": {
-    "test": "npm run build && node ./test/fca.test.cjs",
+    "test": "npm run build && node ./test/fca.test.cjs && node ./test/signal-key-store.test.cjs",
     "test:build": "npm test",
     "lint": "eslint .eslintrc.cjs scripts/*.cjs test/*.cjs",
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
     "build": "tsup src/index.ts --format cjs,esm --dts --clean --out-dir dist --external gradient-string --external form-data && node scripts/cjs-bridge.cjs",
     "build:types": "tsc -p tsconfig.build.json --emitDeclarationOnly"
   },
-  "engines": {"node": ">=20.0.0"},
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "axios": "^1.13.5",
     "axios-cookiejar-support": "^5.0.5",
@@ -50,11 +60,42 @@
     "typescript": "^5.9.3"
   },
   "license": "Apache-2.0",
-  "repository": {"type": "git", "url": "git+https://github.com/octopusworldpro-web/OmegA-FCA-test.git"},
-  "author": {"name": "NirZon", "url": "https://github.com/nirzon-islam"},
-  "contributors": [{"name": "OmegA Bot maintainers", "url": "https://github.com/octopusworldpro-web"}],
-  "bugs": {"url": "https://github.com/octopusworldpro-web/OmegA-FCA-test/issues"},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/octopusworldpro-web/OmegA-FCA-test.git"
+  },
+  "author": {
+    "name": "NirZon",
+    "url": "https://github.com/nirzon-islam"
+  },
+  "contributors": [
+    {
+      "name": "OmegA Bot maintainers",
+      "url": "https://github.com/octopusworldpro-web"
+    }
+  ],
+  "bugs": {
+    "url": "https://github.com/octopusworldpro-web/OmegA-FCA-test/issues"
+  },
   "homepage": "https://github.com/octopusworldpro-web/OmegA-FCA-test#readme",
-  "keywords": ["facebook", "chat", "api", "messenger", "bot", "unofficial", "automation", "facebook-api", "facebook-chat", "facebook-messenger", "chatbot", "nodejs", "fca", "omega"],
-  "publishConfig": {"access": "public", "registry": "https://registry.npmjs.org/"}
+  "keywords": [
+    "facebook",
+    "chat",
+    "api",
+    "messenger",
+    "bot",
+    "unofficial",
+    "automation",
+    "facebook-api",
+    "facebook-chat",
+    "facebook-messenger",
+    "chatbot",
+    "nodejs",
+    "fca",
+    "omega"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
 }
