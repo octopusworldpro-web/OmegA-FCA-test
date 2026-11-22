@@ -231,3 +231,12 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - Session records and prekey records are persisted as libsignal-serialized bytes inside the encrypted account store. Kyber prekey usage records include signed-prekey ID and base key to detect reuse.
 - The libsignal package is deliberately not bundled as a mandatory dependency: the official npm package is AGPL-3.0-only and Signal documents that use outside official Signal clients is unsupported. Applications must review the license and explicitly install/inject a compatible version.
 - This adapter provides the local protocol state and native libsignal store boundary. Messenger-specific device discovery, key-bundle retrieval/publication, provisioning, sealed-sender certificates and message envelope transport remain outside this task and are required before Facebook E2EE interoperability can be claimed.
+
+
+## Task 20 — Encrypted direct messages
+
+- Added a 1:1 direct-message protocol layer on top of the injected official libsignal implementation and Task 19 encrypted stores. It exposes outgoing session establishment from a native PreKeyBundle, direct-message encryption, and direct-message decryption.
+- Session operations are scoped to the remote account/device ProtocolAddress and local account/device ProtocolAddress. Encryption returns the native libsignal ciphertext type plus base64 serialized body for transport; plaintext is accepted as UTF-8 text or bytes.
+- Inbound PreKeySignalMessage uses libsignal's prekey decrypt path with the persisted EC, signed and Kyber prekey stores; regular Whisper messages use the established Double Ratchet session decrypt path. Unsupported ciphertext types are rejected rather than mis-decoded.
+- Added deterministic injected-module tests for session setup, encryption, first-message prekey decryption, subsequent whisper decryption, address routing and invalid message types. No crypto primitives are reimplemented in OmegA-FCA.
+- **Validation boundary:** This is the Signal 1:1 protocol engine boundary, not yet a Messenger-ready feature. Messenger-specific device discovery, remote bundle fetch/parse, key publication, sealed-sender certificates, Facebook envelope serialization/routing and actual E2EE thread acceptance remain unverified and must be completed in subsequent integration work. The official libsignal project states external use is unsupported and its APIs may change; consumers must explicitly provide a compatible module and review its AGPL-3.0-only license.
