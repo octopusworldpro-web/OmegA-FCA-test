@@ -1770,3 +1770,54 @@ test("Signal Sender Keys creates and processes SKDM then encrypts and decrypts g
   await assert.rejects(groups.processDistribution({ ...distribution, body: "!" }), /valid base64/);
   await assert.rejects(groups.encrypt("", sender, "x"), /groupId/);
 });
+
+
+test("Signal Sender Keys encrypts group media keys and uploads ciphertext only", async () => {
+  const fca = require("../dist/index.js");
+  let wrapped;
+  const groups = {
+    encrypt: async (groupId, sender, plaintext) => {
+      wrapped = Buffer.from(plaintext);
+      return { groupId, sender, body: Buffer.from("wrapped-key").toString("base64") };
+    },
+    decrypt: async (envelope) => {
+      assert.equal(envelope.body, Buffer.from("wrapped-key").toString("base64"));
+      return wrapped;
+    }
+  };
+  const media = fca.createSignalEncryptedGroupMedia(groups);
+  const sender = { name: "alice", deviceId: 1 };
+  const original = Buffer.from("group secret media payload");
+  const encrypted = await media.encrypt("group-1", sender, original, { fileName: "photo.jpg", contentType: "image/jpeg" });
+  assert.notDeepEqual(encrypted.ciphertext, original);
+  assert.equal(encrypted.descriptor.encryptedKey.groupId, "group-1");
+  assert.equal(Buffer.from(await media.decrypt(encrypted.descriptor, encrypted.ciphertext)).toString(), original.toString());
+
+  let uploaded;
+  const result = await media.encryptAndUpload("group-1", sender, original, async (ciphertext, metadata) => {
+    uploaded = { ciphertext: Buffer.from(ciphertext), metadata };
+    return { attachmentId: "group-opaque-1" };
+  }, { fileName: "photo.jpg", contentType: "image/jpeg" });
+  assert.ok(uploaded.ciphertext.length > 0);
+  assert.notEqual(uploaded.ciphertext.toString(), original.toString());
+  assert.equal(uploaded.metadata.fileName, "photo.jpg.enc");
+  assert.equal(uploaded.metadata.contentType, "application/octet-stream");
+  assert.equal(result.upload.attachmentId, "group-opaque-1");
+  assert.equal("ciphertext" in result.descriptor, false);
+  await assert.rejects(media.decrypt(result.descriptor, Buffer.from("tampered")), /dimensions|digest/);
+});
+
+test("Signal encrypted group media rejects routing mismatch and tampering", async () => {
+  const fca = require("../dist/index.js");
+  const groups = {
+    encrypt: async (groupId, sender, plaintext) => ({ groupId, sender, body: Buffer.from(plaintext).toString("base64") }),
+    decrypt: async (envelope) => Buffer.from(envelope.body, "base64")
+  };
+  const media = fca.createSignalEncryptedGroupMedia(groups);
+  const sender = { name: "alice", deviceId: 1 };
+  const encrypted = await media.encrypt("g-1", sender, Buffer.from("abc"));
+  await assert.rejects(media.decrypt({ ...encrypted.descriptor, groupId: "g-2" }, encrypted.ciphertext), /routing mismatch/);
+  const changed = Buffer.from(encrypted.ciphertext);
+  changed[0] ^= 1;
+  await assert.rejects(media.decrypt(encrypted.descriptor, changed), /digest mismatch/);
+});
