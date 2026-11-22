@@ -5,6 +5,7 @@ export {
   loginViaAPI,
   tokensViaAPI,
   normalizeCookieHeaderString,
+  normalizeLoginCredentials,
   setJarFromPairs,
   type LoginApiCallback
 } from "./core/auth";
