@@ -1115,3 +1115,73 @@ test("sendMessage accepts replyToMessage from the payload object", async () => {
   assert.equal(payload.text, "reply body");
   assert.equal(payload.reply_metadata.reply_source_id, "quoted-id");
 });
+
+
+test("sendMessage uploads Buffer media and serializes returned attachment IDs", async () => {
+  const { EventEmitter } = require("events");
+  const client = new EventEmitter();
+  let sent;
+  let uploaded;
+  const media = Buffer.from("omega-media");
+  client.publish = (_topic, raw, _options, callback) => {
+    callback();
+    sent = JSON.parse(raw);
+    queueMicrotask(() => client.emit("message", "/ls_resp", Buffer.from(JSON.stringify({
+      request_id: sent.request_id, payload: {}
+    }))));
+  };
+  const send = fca.createSendMessageCommand({
+    ctx: { mqttClient: client },
+    uploadAttachment: async (files) => {
+      uploaded = files;
+      return [{ image_id: "image-987", filename: "photo.png" }];
+    },
+    generateOfflineThreadingID: () => "media-offline-id",
+    isReadableStream: () => false
+  });
+  const result = await send({ body: "caption", attachment: media }, "thread-media");
+  assert.equal(uploaded.length, 1);
+  assert.equal(uploaded[0], media);
+  const envelope = JSON.parse(sent.payload);
+  const task = JSON.parse(envelope.tasks[0].payload);
+  assert.equal(task.send_type, 3);
+  assert.equal(task.text, "caption");
+  assert.deepEqual(task.attachment_fbids, ["image-987"]);
+  assert.equal(result.body, "caption");
+});
+
+test("sendMessage accepts pre-uploaded attachment tuples without re-uploading", async () => {
+  const { EventEmitter } = require("events");
+  const client = new EventEmitter();
+  let sent;
+  let uploadCalls = 0;
+  client.publish = (_topic, raw, _options, callback) => {
+    callback();
+    sent = JSON.parse(raw);
+    queueMicrotask(() => client.emit("message", "/ls_resp", Buffer.from(JSON.stringify({
+      request_id: sent.request_id, payload: {}
+    }))));
+  };
+  const send = fca.createSendMessageCommand({
+    ctx: { mqttClient: client },
+    uploadAttachment: async () => { uploadCalls += 1; return []; },
+    generateOfflineThreadingID: () => "preuploaded-id",
+    isReadableStream: () => false
+  });
+  await send({ attachment: ["image", "already-uploaded-123"] }, "thread-media");
+  const task = JSON.parse(JSON.parse(sent.payload).tasks[0].payload);
+  assert.equal(uploadCalls, 0);
+  assert.deepEqual(task.attachment_fbids, ["already-uploaded-123"]);
+  assert.equal(task.send_type, 3);
+});
+
+test("uploadAttachment command rejects empty input through callback and Promise", async () => {
+  const command = fca.createUploadAttachmentCommand({
+    ctx: {},
+    logger: {}
+  });
+  let callbackError;
+  const promise = command([], (error) => { callbackError = error; });
+  await assert.rejects(promise, /attachment/i);
+  assert.ok(callbackError);
+});
