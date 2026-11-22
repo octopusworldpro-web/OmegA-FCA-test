@@ -88,6 +88,10 @@ The source archive includes the following FCA-style API areas:
 
 The presence of an API method in source does not establish that its private Facebook endpoint is currently accepted. Each operation still needs compatible fixtures or authorized live testing.
 
+## API compatibility audit
+
+See [EryXen API Compatibility Audit](docs/ERYXEN-API-COMPATIBILITY.md) for the reference API comparison, security exclusions, and remaining compatibility gaps.
+
 ## GoatBot compatibility
 
 The intended bot target is [nirzon-islam/OmegA-Goatbot](https://github.com/nirzon-islam/OmegA-Goatbot).
