@@ -1,7 +1,7 @@
 {
-  "name": "@dongdev/fca-unofficial",
-  "version": "4.0.2",
-  "description": "Unofficial Facebook Chat API for Node.js - Interact with Facebook Messenger programmatically",
+  "name": "@nirzon-islam/omega-fca",
+  "version": "0.2.0",
+  "description": "OmegA-FCA — unofficial Facebook Messenger client and FCA compatibility layer",
   "main": "dist/cjs.cjs",
   "types": "dist/index.d.ts",
   "exports": {
@@ -28,40 +28,6 @@
     "build": "tsup src/index.ts --format cjs,esm --dts --clean --out-dir dist --external gradient-string && node scripts/cjs-bridge.cjs",
     "build:types": "tsc -p tsconfig.build.json --emitDeclarationOnly"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/dongp06/fca-unofficial.git"
-  },
-  "keywords": [
-    "facebook",
-    "chat",
-    "api",
-    "messenger",
-    "bot",
-    "unofficial",
-    "automation",
-    "facebook-api",
-    "facebook-chat",
-    "facebook-messenger",
-    "chatbot",
-    "nodejs",
-    "fca"
-  ],
-  "author": {
-    "name": "Donix",
-    "url": "https://www.facebook.com/minhdong.dev"
-  },
-  "contributors": [
-    {
-      "name": "DongDev",
-      "url": "https://github.com/dongp06"
-    }
-  ],
-  "license": "Apache-2.0",
-  "bugs": {
-    "url": "https://github.com/dongp06/fca-unofficial/issues"
-  },
-  "homepage": "https://github.com/dongp06/fca-unofficial#readme",
   "engines": {
     "node": ">=14.0.0"
   },
@@ -91,6 +57,41 @@
     "tsup": "^8.5.0",
     "typescript": "^5.9.3"
   },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/octopusworldpro-web/OmegA-FCA-test.git"
+  },
+  "author": {
+    "name": "NirZon",
+    "url": "https://github.com/nirzon-islam"
+  },
+  "contributors": [
+    {
+      "name": "OmegA Bot maintainers",
+      "url": "https://github.com/octopusworldpro-web"
+    }
+  ],
+  "bugs": {
+    "url": "https://github.com/octopusworldpro-web/OmegA-FCA-test/issues"
+  },
+  "homepage": "https://github.com/octopusworldpro-web/OmegA-FCA-test#readme",
+  "keywords": [
+    "facebook",
+    "chat",
+    "api",
+    "messenger",
+    "bot",
+    "unofficial",
+    "automation",
+    "facebook-api",
+    "facebook-chat",
+    "facebook-messenger",
+    "chatbot",
+    "nodejs",
+    "fca",
+    "omega"
+  ],
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
