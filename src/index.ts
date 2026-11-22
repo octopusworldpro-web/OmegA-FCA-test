@@ -50,3 +50,7 @@ export { validateMqttSubscriptionAck, normalizeMqttSyncState, buildInitialMqttSy
 export { consumeMqttTaskResponse } from "./transport/realtime/task-registry";
 
 export { publishLsRequestWithAck, type PublishLsRequestOptions } from "./transport/realtime/ls-requests";
+
+export { createSendMessageCommand, type SendMessageCommandDeps } from "./domains/messages/commands/send-message";
+export { createEditMessageCommand, type EditMessageCommandDeps } from "./domains/messages/commands/edit-message";
+export { createUnsendMessageCommand, type UnsendMessageCommandDeps } from "./domains/messages/commands/unsend-message";
