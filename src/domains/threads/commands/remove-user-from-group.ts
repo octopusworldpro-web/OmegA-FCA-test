@@ -2,7 +2,8 @@ import { createLegacyPromise } from "../../../compat/legacy-promise";
 import type { NodeStyleCallback } from "../../../compat/callbackify";
 import type { FcaContext } from "../../../core/state";
 import { assertMqttCapability } from "../../../session/capability-resolver";
-import { publishRealtimeMessage } from "../../../transport/realtime/publish";
+import type { MqttRequestClient } from "../../../transport/contracts/request";
+import { publishLsRequestWithAck } from "../../../transport/realtime/ls-requests";
 
 export interface RemoveUserFromGroupCommandDeps {
   ctx: FcaContext;
@@ -35,14 +36,15 @@ export function createRemoveUserFromGroupCommand(deps: RemoveUserFromGroupComman
         throw { error: `userID should be of type Number or String and not ${typeof userID}.` };
       }
 
-      if (typeof ctx.wsReqNumber !== "number") {
-        ctx.wsReqNumber = 0;
-      }
+      if (typeof ctx.wsReqNumber !== "number" || !Number.isSafeInteger(ctx.wsReqNumber)) ctx.wsReqNumber = 0;
+      if (typeof ctx.wsTaskNumber !== "number" || !Number.isSafeInteger(ctx.wsTaskNumber)) ctx.wsTaskNumber = 0;
+      const requestId = ++ctx.wsReqNumber;
+      const taskId = ++ctx.wsTaskNumber;
 
-      publishRealtimeMessage({
-        client: ctx.mqttClient as Loose,
-        topic: "/ls_req",
-        payload: {
+      publishLsRequestWithAck<boolean>({
+        client: ctx.mqttClient as MqttRequestClient,
+        requestId,
+        content: {
           app_id: "2220391788200892",
           payload: JSON.stringify({
             epoch_id: generateOfflineThreadingID(),
@@ -56,16 +58,17 @@ export function createRemoveUserFromGroupCommand(deps: RemoveUserFromGroupComman
                   sync_group: 1
                 }),
                 queue_name: "remove_participant_v2",
-                task_id: Math.floor(Math.random() * 1001)
+                task_id: taskId
               }
             ],
             version_id: "25002366262773827"
           }),
-          request_id: ++ctx.wsReqNumber,
+          request_id: requestId,
           type: 3
-        }
+        },
+        extract: () => true
       })
-        .then(() => cb(null, true))
+        .then((result) => cb(null, result))
         .catch((error: Loose) => {
           logError?.("removeUserFromGroup", error);
           cb(error);
