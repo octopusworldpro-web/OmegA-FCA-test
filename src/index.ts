@@ -116,4 +116,6 @@ export { establishSignalDirectSession, encryptSignalDirectMessage, decryptSignal
 export { encryptSignalMedia, decryptSignalMedia, encryptAndUploadSignalMedia, type EncryptedMediaDescriptor } from "./domains/e2ee/encrypted-media";
 
 export { createSignalE2EEActions, type E2EEReadReceipt, type E2EEActionsDeps } from "./domains/e2ee/actions";
-\nexport { createLibsignalSenderKeyStore } from "./domains/e2ee/libsignal-adapter";\nexport { createSignalSenderKeyGroups, type SenderKeyDistribution, type SenderKeyCiphertext } from "./domains/e2ee/sender-keys";\n
+
+export { createLibsignalSenderKeyStore } from "./domains/e2ee/libsignal-adapter";
+export { createSignalSenderKeyGroups, type SenderKeyDistribution, type SenderKeyCiphertext } from "./domains/e2ee/sender-keys";
