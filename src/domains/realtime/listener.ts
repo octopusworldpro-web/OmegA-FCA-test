@@ -272,8 +272,12 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
 
     function delayedReconnect() {
       const delay = conf.reconnectDelayMs;
+      if (ctx._reconnectTimer) clearTimeout(ctx._reconnectTimer);
       logger(`mqtt reconnect in ${delay}ms`, "info");
-      setTimeout(() => getSeqIDWrapper(), delay);
+      ctx._reconnectTimer = setTimeout(() => {
+        ctx._reconnectTimer = null;
+        if (!ctx._stopRequested && !ctx._ending) void getSeqIDWrapper();
+      }, delay);
     }
 
     function forceCycle() {
@@ -288,43 +292,52 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
     }
 
     return function listenRealtime(callback?: ListenerCallback): RealtimeMessageEmitter {
-      class MessageEmitter extends EventEmitter {
-        stopListening(callback2?: () => void) {
-          const cb = callback2 || function () { };
-          logger("mqtt stop requested", "info");
-          globalCallback = identity;
+      ctx._stopRequested = false;
 
-          if (ctx._autoCycleTimer) {
-            clearInterval(ctx._autoCycleTimer);
-            ctx._autoCycleTimer = null;
-            logger("mqtt auto-cycle cleared", "info");
-          }
-          if (ctx._reconnectTimer) {
-            clearTimeout(ctx._reconnectTimer);
-            ctx._reconnectTimer = null;
-          }
-          if (ctx._getSeqRetryTimer) {
-            clearTimeout(ctx._getSeqRetryTimer);
-            ctx._getSeqRetryTimer = null;
-          }
+      const stopListening = (callback2?: () => void): void => {
+        const cb = callback2 || function () { };
+        logger("mqtt stop requested", "info");
+        globalCallback = identity;
+        ctx._stopRequested = true;
 
-          ctx._ending = true;
-          unsubAll(() =>
-            endQuietly(() => {
-              logger("mqtt stopped", "info");
-              cb();
-              conf = mqttConf(ctx, conf);
-              if (conf.reconnectAfterStop) {
-                delayedReconnect();
-              }
-            })
-          );
+        if (ctx._autoCycleTimer) {
+          clearInterval(ctx._autoCycleTimer);
+          ctx._autoCycleTimer = null;
+          logger("mqtt auto-cycle cleared", "info");
+        }
+        if (ctx._reconnectTimer) {
+          clearTimeout(ctx._reconnectTimer);
+          ctx._reconnectTimer = null;
+        }
+        if (ctx._getSeqRetryTimer) {
+          clearTimeout(ctx._getSeqRetryTimer);
+          ctx._getSeqRetryTimer = null;
         }
 
-        async stopListeningAsync(): Promise<void> {
-          return new Promise((resolve) => {
-            this.stopListening(resolve);
-          });
+        ctx._ending = true;
+        unsubAll(() =>
+          endQuietly(() => {
+            logger("mqtt stopped", "info");
+            cb();
+            conf = mqttConf(ctx, conf);
+            if (conf.reconnectAfterStop) {
+              ctx._stopRequested = false;
+              delayedReconnect();
+            }
+          })
+        );
+      };
+
+      const stopListeningAsync = (): Promise<void> =>
+        new Promise((resolve) => stopListening(resolve));
+
+      class MessageEmitter extends EventEmitter {
+        stopListening(callback2?: () => void) {
+          stopListening(callback2);
+        }
+
+        stopListeningAsync(): Promise<void> {
+          return stopListeningAsync();
         }
       }
 
