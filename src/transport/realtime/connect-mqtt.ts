@@ -189,7 +189,6 @@ function createListenMqtt(deps: Loose) {
         process.env.OnStatus = "true";
       }
       ctx._cycling = false;
-      ctx._mqttReconnectAttempts = 0;
 
       const d = (ctx._mqttOpt && ctx._mqttOpt.reconnectDelayMs) || DEFAULT_RECONNECT_DELAY_MS;
       const topicList = topics.slice() as string[];
@@ -263,6 +262,7 @@ function createListenMqtt(deps: Loose) {
           if (ctx._rTimeout) {
             delete ctx._rTimeout;
           }
+          ctx._mqttReconnectAttempts = 0;
           if (ctx.globalOptions.emitReady) globalCallback({ type: "ready", error: null });
           delete ctx.tmsWait;
         };
