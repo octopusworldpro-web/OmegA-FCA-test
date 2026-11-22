@@ -342,10 +342,14 @@ function createListenMqtt(deps: Loose) {
           const tasks = ctx.tasks;
           if (tasks && tasks instanceof Map && tasks.has(reqID)) {
             const taskData = tasks.get(reqID);
-            const { type: taskType, callback: taskCallback } = taskData;
+            // Consume before invoking user code: duplicate /ls_resp frames cannot fire twice.
+            tasks.delete(reqID);
+            if (!taskData || taskData.completed || typeof taskData.callback !== "function") return;
+            taskData.completed = true;
+            const taskType = taskData.type;
             const taskRespData = getTaskResponseData(taskType, parsedPayload);
-            if (taskRespData == null) taskCallback("error", null);
-            else taskCallback(null, Object.assign({ type: taskType, reqID }, taskRespData));
+            if (taskRespData == null) taskData.callback("error", null);
+            else taskData.callback(null, Object.assign({ type: taskType, reqID }, taskRespData));
           }
         }
       } catch (ex: Loose) {
