@@ -212,7 +212,7 @@ The test suite contains synthetic checks and an optional live-login test that is
 | Area | Status |
 |:--|:--:|
 | Source integration | In progress |
-| Build & automated validation | In progress |
+| Build & automated validation | CI passed (Node 20) |
 | FCA API compatibility | In progress |
 | OmegA-GoatBot integration | Pending acceptance tests |
 | Authorized Facebook live login | Not yet verified |
@@ -220,7 +220,7 @@ The test suite contains synthetic checks and an optional live-login test that is
 
 </div>
 
-**OmegA-FCA 0.2.0 is an integration and validation release**, not a claim of complete production parity with every FCA fork. Release readiness requires clean installation, successful build/typecheck/tests, GoatBot regression checks, and owner-authorized Facebook live testing.
+**OmegA-FCA 0.2.0 is an integration and validation release**, not a claim of complete production parity with every FCA fork. The current GitHub Actions run has passed dependency audit, build/tests, typecheck, lint, and package dry-run on Node.js 20. Release readiness still requires reproducible lockfile-based installation, GoatBot regression checks, and owner-authorized Facebook live testing.
 
 ## <img src="https://img.shields.io/badge/10-SOURCE%20%26%20CREDITS-7B2FF7?style=flat-square" /> Source & attribution
 
