@@ -481,6 +481,68 @@ test("explicit HTTPS credential provider receives normalized two-factor input", 
   assert.strictEqual(requestConfig.headers["x-api-key"], "test-api-key");
 });
 
+test("session cookie import uses HTTPS Facebook origins and Secure cookies", () => {
+  const calls = [];
+  const auth = fca.createAuthCore();
+  auth.setJarFromPairs({
+    setCookieSync(cookie, url) {
+      calls.push({ cookie, url });
+    }
+  }, ["c_user=123", "xs=secret"], ".facebook.com");
+
+  assert.strictEqual(calls.length, 6);
+  assert.ok(calls.every(({ url }) => url.startsWith("https://")));
+  assert.ok(calls.every(({ cookie }) => /; Secure;/.test(cookie)));
+  assert.ok(calls.every(({ cookie }) => /domain=\.facebook\.com/i.test(cookie)));
+});
+
+test("session cookie import rejects non-Facebook cookie domains", () => {
+  const auth = fca.createAuthCore();
+  assert.throws(
+    () => auth.setJarFromPairs({ setCookieSync() {} }, ["session=secret"], ".attacker.example"),
+    /Facebook domains/i
+  );
+});
+
+test("credential provider rejects embedded URL credentials and malformed URLs", async () => {
+  let requests = 0;
+  const auth = fca.createAuthCore({
+    axiosBase: async () => {
+      requests += 1;
+      return { status: 200, data: { uid: "1" } };
+    }
+  });
+
+  for (const url of [
+    "https://user:password@trusted.example",
+    "not-a-url"
+  ]) {
+    const result = await auth.loginViaAPI("owner@example.com", "dummy-password", null, url);
+    assert.strictEqual(result.ok, false);
+  }
+  assert.strictEqual(requests, 0);
+});
+
+test("credential provider requests do not follow redirects", async () => {
+  let requestConfig;
+  const auth = fca.createAuthCore({
+    axiosBase: async (config) => {
+      requestConfig = config;
+      return { status: 200, data: { uid: "12345" } };
+    }
+  });
+
+  const result = await auth.loginViaAPI(
+    "owner@example.com",
+    "dummy-password",
+    null,
+    "https://trusted.example"
+  );
+
+  assert.strictEqual(result.ok, true);
+  assert.strictEqual(requestConfig.maxRedirects, 0);
+});
+
 test("createFcaClient reuses grouped namespaces when they already exist", () => {
   const send = () => "send-ok";
   const getInfo = () => "thread-ok";
