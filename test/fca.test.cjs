@@ -1185,3 +1185,84 @@ test("uploadAttachment command rejects empty input through callback and Promise"
   await assert.rejects(promise, (error) => /attachment/i.test(error.error));
   assert.ok(callbackError);
 });
+
+
+function createAckMqttClient() {
+  const { EventEmitter } = require("events");
+  const client = new EventEmitter();
+  client.publish = (_topic, raw, _options, callback) => {
+    callback();
+    const request = JSON.parse(raw);
+    queueMicrotask(() => client.emit("message", "/ls_resp", Buffer.from(JSON.stringify({
+      request_id: request.request_id,
+      payload: { accepted: true }
+    }))));
+  };
+  return client;
+}
+
+test("removeUserFromGroup waits for matching MQTT acknowledgement and uses monotonic IDs", async () => {
+  const client = createAckMqttClient();
+  const ctx = { mqttClient: client, wsReqNumber: 10, wsTaskNumber: 20 };
+  const remove = fca.createRemoveUserFromGroupCommand({
+    ctx,
+    generateOfflineThreadingID: () => "remove-epoch"
+  });
+  let calls = 0;
+  const result = await remove("member-1", "group-1", (error, value) => {
+    assert.equal(error, null);
+    assert.equal(value, true);
+    calls += 1;
+  });
+  assert.equal(result, true);
+  assert.equal(calls, 1);
+  assert.equal(ctx.wsReqNumber, 11);
+  assert.equal(ctx.wsTaskNumber, 21);
+  for (const event of ["message", "error", "close", "offline", "end"]) assert.equal(client.listenerCount(event), 0);
+});
+
+test("changeAdminStatus assigns distinct task IDs and resolves from MQTT ACK", async () => {
+  const client = createAckMqttClient();
+  const ctx = { mqttClient: client, wsReqNumber: 2, wsTaskNumber: 8 };
+  const changeAdmin = fca.createChangeAdminStatusCommand({
+    ctx,
+    generateOfflineThreadingID: () => "admin-epoch"
+  });
+  const result = await changeAdmin("group-1", ["admin-a", "admin-b"], true);
+  assert.deepEqual(result, { accepted: true });
+  assert.equal(ctx.wsReqNumber, 3);
+  assert.equal(ctx.wsTaskNumber, 10);
+  for (const event of ["message", "error", "close", "offline", "end"]) assert.equal(client.listenerCount(event), 0);
+});
+
+test("setTitle and changeThreadEmoji wait for MQTT acknowledgement", async () => {
+  const titleClient = createAckMqttClient();
+  const titleCtx = { mqttClient: titleClient, wsReqNumber: 0, wsTaskNumber: 0 };
+  const setTitle = fca.createSetTitleCommand({
+    defaultFuncs: { post: async () => ({}) },
+    ctx: titleCtx,
+    generateOfflineThreadingID: () => "title-epoch",
+    generateTimestampRelative: () => "now",
+    generateThreadingID: () => "threading-id"
+  });
+  assert.deepEqual(await setTitle("New group", "group-1"), { success: true });
+  assert.equal(titleCtx.wsTaskNumber, 1);
+
+  const emojiClient = createAckMqttClient();
+  const emojiCtx = { mqttClient: emojiClient };
+  const setEmoji = fca.createChangeThreadEmojiCommand({
+    defaultFuncs: { post: async () => ({}) },
+    ctx: emojiCtx,
+    generateOfflineThreadingID: () => "emoji-epoch"
+  });
+  assert.deepEqual(await setEmoji("🔥", "group-1"), { success: true });
+  assert.equal(emojiCtx.wsTaskNumber, 1);
+});
+
+test("createNewGroup rejects duplicate/self participants before sending GraphQL", () => {
+  const createGroup = fca.createCreateNewGroupCommand({
+    defaultFuncs: { post: async () => ({}) },
+    ctx: { jar: {}, userID: "owner-1" }
+  });
+  assert.throws(() => createGroup(["owner-1", "member-1", "member-1"]), /at least 2 distinct users/);
+});
