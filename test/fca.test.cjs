@@ -1266,3 +1266,51 @@ test("createNewGroup rejects duplicate/self participants before sending GraphQL"
   });
   assert.throws(() => createGroup(["owner-1", "member-1", "member-1"]), /at least 2 distinct users/);
 });
+
+
+test("formatFriends skips malformed rows and preserves normalized friend fields", () => {
+  const friends = fca.formatFriends({
+    valid: { id: "12345", name: "Test User", gender: 2, is_friend: true },
+    missingId: { name: "No ID" },
+    nullRow: null
+  });
+  assert.equal(friends.length, 1);
+  assert.equal(friends[0].userID, "12345");
+  assert.equal(friends[0].fullName, "Test User");
+  assert.equal(friends[0].gender, "male_singular");
+  assert.equal(friends[0].isFriend, true);
+  assert.deepEqual(fca.formatFriends(null), []);
+});
+
+test("formatUserIdEntry tolerates partial typeahead records", () => {
+  const entry = fca.formatUserIdEntry({ uid: null, text: "Partial result" });
+  assert.equal(entry.userID, "");
+  assert.equal(entry.name, "Partial result");
+  assert.equal(entry.indexRank, 0);
+  assert.equal(entry.score, 0);
+  assert.equal(entry.isVerified, false);
+});
+
+test("formatMessagesGraphQLResponse validates shape and handles empty message lists", () => {
+  assert.throws(
+    () => fca.formatMessagesGraphQLResponse({}),
+    /invalid message_thread response/
+  );
+  const messages = fca.formatMessagesGraphQLResponse({
+    o0: { data: { message_thread: {
+      thread_key: { thread_fbid: "group-1" },
+      thread_type: "GROUP",
+      messages: { nodes: [] }
+    } } }
+  });
+  assert.deepEqual(messages, []);
+});
+
+test("getThreadHistory rejects invalid pagination before issuing a request", async () => {
+  const getHistory = fca.createGetThreadHistoryQuery({
+    defaultFuncs: { post: async () => { throw new Error("must not call transport"); } },
+    ctx: { jar: {}, userID: "viewer-1" }
+  });
+  await assert.rejects(getHistory("thread-1", 0, null), /amount must be a positive integer/);
+  await assert.rejects(getHistory("", 10, null), /threadID is required/);
+});
