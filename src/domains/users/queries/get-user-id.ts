@@ -21,6 +21,10 @@ export function createGetUserIdQuery(deps: GetUserIdQueryDeps) {
 
   return function getUserID(name: string, callback?: NodeStyleCallback<UserIdEntry[]>) {
     const { callback: cb, promise } = createLegacyPromise<UserIdEntry[]>(callback, []);
+    if (!String(name || "").trim()) {
+      cb(null, []);
+      return promise;
+    }
 
     getWithLoginCheck({
       defaultFuncs,
@@ -40,8 +44,11 @@ export function createGetUserIdQuery(deps: GetUserIdQueryDeps) {
           throw resData;
         }
 
-        const data = resData.payload.entries;
-        cb(null, data.map(formatUserIdEntry));
+        const data = resData?.payload?.entries;
+        if (!Array.isArray(data)) {
+          throw new Error("getUserID: invalid typeahead response payload");
+        }
+        cb(null, data.filter((entry: Loose) => entry && entry.uid != null).map(formatUserIdEntry));
       })
       .catch((error: Loose) => {
         logError?.("getUserID", error);
