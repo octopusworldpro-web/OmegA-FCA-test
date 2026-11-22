@@ -36,6 +36,7 @@ interface SignalStoreState {
   usedKyberPreKeys: Record<string, string[]>;
   sessions: Record<string, string>;
   trustedIdentities: Record<string, string>;
+  senderKeys?: Record<string, string>;
 }
 
 interface EncryptedEnvelope {
@@ -54,7 +55,8 @@ const emptyState = (accountId: string): SignalStoreState => ({
   kyberPreKeys: {},
   usedKyberPreKeys: {},
   sessions: {},
-  trustedIdentities: {}
+  trustedIdentities: {},
+  senderKeys: {}
 });
 
 function requireText(value: unknown, label: string): string {
@@ -149,6 +151,9 @@ export interface SignalKeyStore {
   loadKyberPreKey(keyId: number): string | undefined;
   markKyberPreKeyUsed(keyId: number, signedPreKeyId: number, baseKey: string): Promise<void>;
   hasKyberPreKeyBeenUsed(keyId: number): boolean;
+  storeSenderKey(address: SignalSessionAddress, groupId: string, serializedRecord: string): Promise<void>;
+  loadSenderKey(address: SignalSessionAddress, groupId: string): string | undefined;
+  removeSenderKey(address: SignalSessionAddress, groupId: string): Promise<void>;
   storeSession(address: SignalSessionAddress, serializedRecord: string): Promise<void>;
   loadSession(address: SignalSessionAddress): string | undefined;
   removeSession(address: SignalSessionAddress): Promise<void>;
@@ -265,6 +270,15 @@ export async function createSignalKeyStore(options: SignalStoreOptions): Promise
       draft.usedKyberPreKeys[id] = [...existing, marker];
     }),
     hasKyberPreKeyBeenUsed: (keyId) => Boolean(snapshot().usedKyberPreKeys[String(requireId(keyId, "kyberPreKeyId"))]?.length),
+    storeSenderKey: (address, groupId, serializedRecord) => mutate((draft) => {
+      const group = requireText(groupId, "groupId");
+      draft.senderKeys ||= {};
+      draft.senderKeys[`${addressKey(address)}|${group}`] = requireBytes(serializedRecord, "sender key record");
+    }),
+    loadSenderKey: (address, groupId) => snapshot().senderKeys?.[`${addressKey(address)}|${requireText(groupId, "groupId")}`],
+    removeSenderKey: (address, groupId) => mutate((draft) => {
+      delete draft.senderKeys?.[`${addressKey(address)}|${requireText(groupId, "groupId")}`];
+    }),
     storeSession: (address, serializedRecord) => mutate((draft) => {
       draft.sessions[addressKey(address)] = requireBytes(serializedRecord, "session record");
     }),
