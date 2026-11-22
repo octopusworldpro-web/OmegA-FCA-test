@@ -373,6 +373,22 @@ test("dist/cjs.cjs default export is callable login (Mirai / classic require)", 
   assert.strictEqual(typeof login.createMessengerBot, "function");
 });
 
+test("package root resolves through the CommonJS export map", () => {
+  const packageEntry = require("..");
+  assert.strictEqual(typeof packageEntry, "function");
+  assert.strictEqual(typeof packageEntry.login, "function");
+  assert.strictEqual(typeof packageEntry.createMessengerBot, "function");
+});
+
+test("ESM entry exposes default login and named FCA exports", async () => {
+  const esm = await import("../dist/index.mjs");
+  assert.strictEqual(typeof esm.default, "function");
+  assert.strictEqual(typeof esm.login, "function");
+  assert.strictEqual(typeof esm.createFcaClient, "function");
+  assert.strictEqual(typeof esm.attachClientFacade, "function");
+  assert.strictEqual(typeof esm.resolveConfig, "function");
+});
+
 test("resolveConfig honors legacy autoUpdate alias", () => {
   const resolved = fca.resolveConfig({
     autoUpdate: false,
