@@ -10,14 +10,22 @@ fca-config.json
 !.env.example
 Fca_Database/
 *.sqlite
+*.db
 
 # Build output
 dist/
 
 # Session / credentials (never commit)
+account.txt
+**/account.txt
 appstate.json
 **/appstate.json
+appState.json
+**/appState.json
 cookie.txt
+cookies.txt
+cookie.json
+cookies.json
 *.pem
 
 # OS
