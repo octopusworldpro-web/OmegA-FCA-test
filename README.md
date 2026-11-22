@@ -100,6 +100,10 @@ See [GoatBot compatibility notes](docs/GOATBOT-COMPATIBILITY.md) for the integra
 
 The uploaded source archive does not contain a Messenger E2EE implementation, Signal Protocol session store, Group Sender Keys, or SKDM implementation. OmegA-FCA does not claim to support encrypted one-to-one or group messaging in this release. These features must be implemented and tested separately before being advertised.
 
+## Source and dependency audit
+
+See [Source & Dependency Audit](docs/SOURCE-DEPENDENCY-AUDIT.md) for the current static audit, addressed findings, and remaining release gates.
+
 ## Development
 
 ```bash
