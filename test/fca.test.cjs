@@ -943,6 +943,24 @@ test("MQTT t_ms sync state accepts safe sequence IDs and ignores invalid values"
   );
 });
 
+
+test("MQTT response registry consumes known tasks once and ignores expired IDs", () => {
+  const tasks = new Map();
+  let calls = 0;
+  tasks.set("req-1", { type: "send_message_mqtt", callback(error, value) {
+    calls += 1;
+    assert.equal(error, null);
+    assert.equal(value.type, "send_message_mqtt");
+    assert.equal(value.reqID, "req-1");
+  } });
+  const mapper = (type, payload) => ({ messageID: payload.mid });
+  assert.equal(fca.consumeMqttTaskResponse(tasks, "missing", { mid: "x" }, mapper), false);
+  assert.equal(fca.consumeMqttTaskResponse(tasks, "req-1", { mid: "m1" }, mapper), true);
+  assert.equal(tasks.has("req-1"), false);
+  assert.equal(fca.consumeMqttTaskResponse(tasks, "req-1", { mid: "m2" }, mapper), false);
+  assert.equal(calls, 1);
+});
+
 async function main() {
   let passed = 0;
   let skipped = 0;
