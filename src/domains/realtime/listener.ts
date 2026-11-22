@@ -99,34 +99,18 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
     let conf = mqttConf(ctx, opts);
 
     function getSeqIDWrapper(): Promise<void> {
-      if (ctx._ending && !ctx._cycling) {
-        logger("mqtt getSeqID skipped - ending", "warn");
-        return Promise.resolve();
-      }
-
-      if (ctx._getSeqRetryTimer) {
-        clearTimeout(ctx._getSeqRetryTimer);
-        ctx._getSeqRetryTimer = null;
-      }
-
+      if (ctx._getSeqPromise) return ctx._getSeqPromise;
+      if (ctx._ending && !ctx._cycling) return Promise.resolve();
+      if (ctx._getSeqRetryTimer) return Promise.resolve();
       const form = {
         av: ctx.globalOptions.pageID,
-        queries: JSON.stringify({
-          o0: {
-            doc_id: "3336396659757871",
-            query_params: {
-              limit: 1,
-              before: null,
-              tags: ["INBOX"],
-              includeDeliveryReceipts: false,
-              includeSeqID: true
-            }
-          }
-        })
+        queries: JSON.stringify({ o0: { doc_id: "3336396659757871", query_params: {
+          limit: 1, before: null, tags: ["INBOX"], includeDeliveryReceipts: false, includeSeqID: true
+        } } })
       };
-
       logger("mqtt getSeqID call", "info");
-      return getSeqIDFactory(defaultFuncs, api, ctx, globalCallback, form)
+      const operation = Promise.resolve()
+        .then(() => getSeqIDFactory(defaultFuncs, api, ctx, globalCallback, form))
         .then(() => {
           logger("mqtt getSeqID done", "info");
           ctx._cycling = false;
@@ -135,21 +119,23 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
         .catch((error: Loose) => {
           ctx._cycling = false;
           const message = error && error.message ? error.message : String(error || "Unknown error");
-          logger(`mqtt getSeqID error: ${message}`, "error");
-          if (ctx._ending) {
-            return;
-          }
-          if (ctx.globalOptions.autoReconnect && !ctx._stopRequested && !ctx._getSeqRetryTimer) {
+          logger("mqtt getSeqID error: " + message, "error");
+          if (ctx._ending || ctx._stopRequested) return;
+          if (ctx.globalOptions.autoReconnect && !ctx._getSeqRetryTimer) {
             const attempt = (ctx._getSeqRetryAttempts || 0) + 1;
             const delay = getMqttReconnectDelay({ attempt, baseDelayMs: conf.reconnectDelayMs, maxDelayMs: conf.maxReconnectDelayMs || 30000, jitterMs: 400, random: Math.random() });
             ctx._getSeqRetryAttempts = attempt;
             logger("mqtt getSeqID will retry in ~" + delay + "ms (attempt " + attempt + ")", "warn");
             ctx._getSeqRetryTimer = setTimeout(() => {
               ctx._getSeqRetryTimer = null;
-              if (!ctx._ending && !ctx._stopRequested) getSeqIDWrapper();
+              if (!ctx._ending && !ctx._stopRequested) void getSeqIDWrapper();
             }, delay);
+            if (typeof ctx._getSeqRetryTimer.unref === "function") ctx._getSeqRetryTimer.unref();
           }
-        });
+        })
+        .finally(() => { if (ctx._getSeqPromise === operation) ctx._getSeqPromise = null; });
+      ctx._getSeqPromise = operation;
+      return operation;
     }
 
     function isConnected() {
@@ -264,7 +250,19 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
               ctx.mqttClient.publish("/browser_close", "{}", { qos: 0 });
             } catch { }
           }
-          ctx.mqttClient.end(true, finish);
+          let ended = false;
+          const finishOnce = () => {
+            if (ended) return;
+            ended = true;
+            clearTimeout(endTimeout);
+            finish();
+          };
+          const endTimeout = setTimeout(() => {
+            logger("mqtt client end timeout, forcing listener cleanup", "warn");
+            finishOnce();
+          }, UNSUB_ALL_TIMEOUT_MS);
+          if (typeof endTimeout.unref === "function") endTimeout.unref();
+          ctx.mqttClient.end(true, finishOnce);
         } else {
           finish();
         }
@@ -284,14 +282,17 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
     }
 
     function forceCycle() {
-      if (ctx._cycling) {
-        logger("mqtt force cycle already in progress", "warn");
+      if (ctx._cycling || ctx._ending || ctx._stopRequested) {
+        logger("mqtt force cycle skipped - lifecycle transition active", "warn");
         return;
       }
       ctx._cycling = true;
       ctx._ending = true;
       logger("mqtt force cycle begin", "warn");
-      unsubAll(() => endQuietly(() => delayedReconnect()));
+      unsubAll(() => endQuietly(() => {
+        ctx._cycling = false;
+        if (!ctx._stopRequested) delayedReconnect();
+      }));
     }
 
     return function listenRealtime(callback?: ListenerCallback): RealtimeMessageEmitter {
