@@ -154,7 +154,7 @@ function getMentionsFromDeltaMessage(m: Loose) {
   return mentions;
 }
 
-export function formatDeltaQuotedMessage(m: Loose, fallbackThreadID?: string): Loose {
+export export function formatDeltaQuotedMessage(m: Loose, fallbackThreadID?: string): Loose {
   const metadata = m?.messageMetadata || {};
   const threadKey = metadata.threadKey || {};
   const threadID = String(
@@ -201,6 +201,17 @@ export function formatDeltaMessage(m: Loose) {
     event.messageReply = formatDeltaQuotedMessage(quoted, event.threadID);
   }
   return event;
+}
+
+function formatDeltaReadReceipt(delta: Loose) {
+  const threadKey = delta?.threadKey || {};
+  const threadID = threadKey.otherUserFbId || threadKey.threadFbId || "";
+  return {
+    reader: String(threadKey.otherUserFbId || delta?.actorFbId || ""),
+    time: delta?.actionTimestampMs,
+    threadID: formatID(String(threadID)),
+    type: "read_receipt"
+  };
 }
 
 export default {
