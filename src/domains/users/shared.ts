@@ -167,15 +167,16 @@ export function toUserInfoEntry(raw: Loose, idFallback?: string): UserInfoEntry 
 }
 
 export function formatUserIdEntry(data: Loose): UserIdEntry {
+  const uid = data?.uid == null ? "" : String(data.uid);
   return {
-    userID: formatID(data.uid.toString()) ?? "",
-    photoUrl: data.photo,
-    indexRank: data.index_rank,
-    name: data.text,
-    isVerified: data.is_verified,
-    profileUrl: data.path,
-    category: data.category,
-    score: data.score,
-    type: data.type
+    userID: formatID(uid) ?? uid,
+    photoUrl: data?.photo || "",
+    indexRank: Number.isFinite(Number(data?.index_rank)) ? Number(data.index_rank) : 0,
+    name: data?.text || "",
+    isVerified: Boolean(data?.is_verified),
+    profileUrl: data?.path || "",
+    category: data?.category || "",
+    score: Number.isFinite(Number(data?.score)) ? Number(data.score) : 0,
+    type: data?.type || ""
   };
 }
