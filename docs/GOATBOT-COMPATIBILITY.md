@@ -249,3 +249,12 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - Decryption unwraps the key through the peer Signal session, validates dimensions and digest, verifies the MAC using timing-safe comparison, then decrypts the bytes and checks the resulting size.
 - Tests cover ciphertext/key separation, round-trip binary content, digest tampering, MAC tampering, and upload callback receiving ciphertext only.
 - **Validation boundary:** this is a local encrypted-media primitive and upload adapter, not yet Facebook Messenger E2EE media interoperability. Messenger-specific attachment CDN upload, encrypted attachment descriptor fields, key/digest placement, envelope serialization and recipient retrieval remain private/version-sensitive and require live account acceptance. The helper deliberately accepts an upload callback rather than pretending ordinary FCA upload is Messenger E2EE transport.
+
+
+## Task 22 — E2EE actions and encrypted mark-as-read
+
+- Added `createSignalE2EEActions` with encrypted 1:1 read-receipt application actions carried inside the Task 20 Signal direct-message ciphertext envelope.
+- A read receipt contains a versioned action kind, thread ID, deduplicated message IDs and read timestamp. Inputs are validated and capped at 500 message IDs; decoded payloads are validated before being returned to application code.
+- The action helper calls only the injected Signal encrypt/decrypt operations. It does not call legacy `markAsRead`, `markAsReadAll`, `markAsSeen` or publish the ordinary `/mark_thread` read status. Existing normal read-receipt behavior is unchanged.
+- Exported the helper and public types from the package root. Synthetic tests cover encrypted envelope handoff, deduplication, payload validation and malformed payload rejection.
+- **Validation boundary:** this is an encrypted application-level read-receipt action over an established 1:1 Signal session. It is not evidence that Messenger's private E2EE receipt/action wire format is compatible. Messenger device routing, remote receipt semantics, delivery/seen action parity and live Facebook acceptance still require authorized runtime validation; group E2EE actions are addressed by later group tasks.
