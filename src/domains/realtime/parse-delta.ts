@@ -104,17 +104,9 @@ function createParseDelta(deps: Loose) {
                 ...formatDeltaQuotedMessage(msg),
                 type: "message_reply"
               };
-            if (d.deltaMessageReply.repliedToMessage) {
-              try {
-                const repliedTo = d.deltaMessageReply.repliedToMessage;
-                const msgMetadata = repliedTo.messageMetadata;
-                if (msgMetadata && msgMetadata.threadKey) {
-                  callbackToReturn.messageReply = formatDeltaQuotedMessage(repliedTo, callbackToReturn.threadID);
-                }
-              } catch (err: Loose) {
-                const errMsg = err && err.message ? err.message : String(err || "Unknown error");
-                logger(`parseDelta message_reply repliedToMessage error: ${errMsg}`, "warn");
-              }
+            if (d.deltaMessageReply.repliedToMessage?.messageMetadata?.threadKey) {
+              const repliedTo = d.deltaMessageReply.repliedToMessage;
+              callbackToReturn.messageReply = formatDeltaQuotedMessage(repliedTo, callbackToReturn.threadID);
             } else if (d.deltaMessageReply.replyToMessageId) {
               return defaultFuncs.post("https://www.facebook.com/api/graphqlbatch/", ctx.jar, {
                 av: ctx.globalOptions.pageID,
