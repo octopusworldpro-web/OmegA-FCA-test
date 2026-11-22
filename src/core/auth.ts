@@ -147,10 +147,6 @@ export function normalizeLoginCredentials(credentials: LoginCredentials): LoginC
   return { appState, Cookie: Cookie || undefined };
 }
 
-function appStateToCookieString(appState: Loose[] | string | undefined): string {
-  return cookiePairsFromInput(appState).join("; ");
-}
-
 function appStateToFbid(appState: Loose[] | string | undefined): string {
   const pairs = cookiePairsFromInput(appState);
   const uid = pairs.find((pair) => /^c_user=/i.test(pair)) ||
@@ -203,8 +199,10 @@ export async function loginAsync(
   ctx.options = { ...ctx.options, ...globalOptions };
   ctx.globalOptions = globalOptions;
   const normalizedCredentials = normalizeLoginCredentials(credentials);
-  ctx.cookieString = [appStateToCookieString(normalizedCredentials.appState), appStateToCookieString(normalizedCredentials.Cookie)]
-    .filter(Boolean).join("; ");
+  ctx.cookieString = dedupeCookiePairs([
+    ...cookiePairsFromInput(normalizedCredentials.appState),
+    ...cookiePairsFromInput(normalizedCredentials.Cookie)
+  ]).join("; ");
   ctx.fbid = appStateToFbid(ctx.cookieString);
   (ctx as Loose)._request = createRequestHelper(ctx);
 
