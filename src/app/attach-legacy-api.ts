@@ -7,6 +7,7 @@ import { createRealtimeMiddlewareSystem } from "../domains/realtime/middleware";
 import { createSchedulerDomain } from "../domains/scheduler";
 import { createThreadsDomain } from "../domains/threads";
 import { createUsersDomain } from "../domains/users";
+import { createSocialDomain } from "../domains/social";
 import type { FcaClientNamespace, FcaClientNamespaces } from "../types/client";
 
 import { EventEmitter } from "node:events";
@@ -207,6 +208,13 @@ export function attachLegacyApiSurface(
       logError
     }
   }) as Record<string, Loose>;
+
+  const social = createSocialDomain({
+    defaultFuncs,
+    ctx,
+    sendMessage: messages.send,
+    logError
+  });
 
   const threads = createThreadsDomain({
     info: {
@@ -441,6 +449,11 @@ export function attachLegacyApiSurface(
     logout: account.logout,
     refreshFb_dtsg: account.refreshFb_dtsg,
     setPostReaction: account.setPostReaction,
+    reactToPost: account.setPostReaction,
+    reactToComment: social.reactToComment,
+    postComment: social.postComment,
+    sharePost: social.sharePost,
+    shareLink: social.shareLink,
     unfriend: account.unfriend,
     httpGet: http.get,
     httpPost: http.post,
