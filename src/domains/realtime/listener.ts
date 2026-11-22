@@ -216,7 +216,7 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
           ctx._rTimeout = null;
         }
         if (ctx.tasks && ctx.tasks instanceof Map) {
-          const pendingTasks = Array.from(ctx.tasks.values());
+          const pendingTasks: Loose[] = Array.from(ctx.tasks.values()) as Loose[];
           ctx.tasks.clear();
           for (const task of pendingTasks) {
             if (!task || task.completed || typeof task.callback !== "function") continue;
