@@ -496,6 +496,29 @@ test("GoatBot login contract exposes session getters and emitter methods", async
   assert.equal(emitted, true);
 });
 
+test("cookie persistence accepts single and multiple Set-Cookie headers and resolves relative URLs", () => {
+  const saved = [];
+  const jar = { setCookieSync: (cookie, url) => saved.push({ cookie, url }) };
+  const response = { headers: { "set-cookie": ["c_user=123; Path=/; Domain=.facebook.com", "xs=token; Path=/; Domain=.facebook.com"] }, config: { url: "/settings", baseURL: "https://www.facebook.com" } };
+  assert.strictEqual(fca.saveCookies(jar)(response), response);
+  assert.equal(saved.length, 2);
+  assert.equal(saved[0].url, "https://www.facebook.com/settings");
+  const single = { headers: { "set-cookie": "datr=value; Path=/; Domain=.facebook.com" }, request: { res: { responseUrl: "https://m.facebook.com/" } } };
+  fca.saveCookies(jar)(single);
+  assert.equal(saved.length, 3);
+  assert.equal(saved[2].url, "https://m.facebook.com/");
+});
+
+test("AppState collection includes Facebook subdomain cookies and deduplicates by scope", () => {
+  const jar = { getCookiesSync: (url) => {
+    if (url.includes("www.facebook.com")) return [{ key: "c_user", value: "123", domain: ".facebook.com", path: "/", expires: "Infinity" }];
+    if (url.includes("m.facebook.com")) return [{ key: "c_user", value: "123", domain: ".facebook.com", path: "/", expires: "Infinity" }, { key: "m_cookie", value: "mobile", domain: "m.facebook.com", path: "/", expires: "Infinity" }];
+    return [];
+  } };
+  const state = fca.getAppState(jar);
+  assert.equal(state.length, 2);
+  assert.deepEqual(state.map((cookie) => cookie.key), ["c_user", "m_cookie"]);
+});
 test("public exports are available", () => {
   assert.strictEqual(typeof fca.login, "function");
   assert.strictEqual(typeof fca.createFcaClient, "function");
