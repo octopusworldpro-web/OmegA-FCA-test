@@ -1,4 +1,5 @@
 import type { SignalKeyStore } from "./signal-key-store";
+import { createLibsignalStores } from "./libsignal-adapter";
 
 type Dynamic = any;
 
@@ -119,8 +120,6 @@ export async function decryptSignalDirectMessage(
 
 /** Utility to build the five native store adapters and direct-message operations together. */
 export function createSignalDirectMessages(signal: Dynamic, keyStore: SignalKeyStore, localAddress: SignalPeerAddress) {
-  // Import is intentionally avoided: callers pass the same libsignal module to both layers.
-  const { createLibsignalStores } = require("./libsignal-adapter") as typeof import("./libsignal-adapter");
   const stores = createLibsignalStores(signal, keyStore);
   const deps: SignalDirectMessageDeps = { signal, stores, localAddress: validateAddress(localAddress, "local") };
   return {
