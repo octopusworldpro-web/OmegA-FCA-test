@@ -362,7 +362,66 @@ function formatAttachment(
     : [];
 }
 
+
+function formatIncomingAttachment(input: Loose): Loose {
+  if (!input || typeof input !== "object") {
+    return { type: "unknown", ID: "", url: null, raw: input ?? null };
+  }
+
+  let attachment = { ...input };
+  if (typeof attachment.mercuryJSON === "string") {
+    try {
+      const parsed = JSON.parse(attachment.mercuryJSON);
+      if (parsed && typeof parsed === "object") attachment = { ...attachment, ...parsed };
+    } catch {
+      // Keep the original attachment; malformed optional metadata must not drop the message.
+    }
+  }
+
+  const mercury = attachment.mercury && typeof attachment.mercury === "object"
+    ? attachment.mercury
+    : null;
+  const candidate = mercury ? { ...attachment, mercury } : attachment;
+  try {
+    return _formatAttachment(candidate, undefined);
+  } catch (error) {
+    const source = mercury || attachment;
+    const blob = source.blob_attachment || source;
+    const metadata = source.metadata || {};
+    const typename = blob.__typename || source.attach_type || source.type || "unknown";
+    const typeMap: Record<string, string> = {
+      MessageImage: "photo",
+      MessageVideo: "video",
+      MessageAudio: "audio",
+      MessageFile: "file",
+      StickerAttachment: "sticker",
+      photo: "photo",
+      video: "video",
+      audio: "audio",
+      file: "file",
+      animated_image: "animated_image"
+    };
+    const type = typeMap[String(typename)] || "unknown";
+    const media = blob.animated_image || blob.playable_url || blob;
+    return {
+      type,
+      ID: blob.legacy_attachment_id || blob.message_file_fbid || metadata.fbid || metadata.stickerID || "",
+      filename: blob.filename || source.fileName || source.name || null,
+      url: blob.url || blob.playable_url || source.url || metadata.url || null,
+      thumbnailUrl: blob.preview_image?.uri || blob.large_image?.uri || source.thumbnail_url || source.preview_url || null,
+      previewUrl: blob.preview?.uri || blob.preview_image?.uri || source.preview_url || null,
+      width: blob.original_dimensions?.x ?? metadata.dimensions?.width ?? null,
+      height: blob.original_dimensions?.y ?? metadata.dimensions?.height ?? null,
+      duration: blob.playable_duration_in_ms ?? metadata.duration ?? null,
+      mimeType: blob.content_type || source.mime_type || null,
+      raw: candidate,
+      formatError: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
 export = {
   _formatAttachment,
-  formatAttachment
+  formatAttachment,
+  formatIncomingAttachment
 };
