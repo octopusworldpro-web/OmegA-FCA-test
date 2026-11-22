@@ -57,11 +57,10 @@ Do not publish or enable automatic installation based only on this audit. Before
 Automatic update/install remains disabled by default until the updater is constrained to this package and its official npm registry, version parsing is validated, install failure handling is tested, and restart/rollback behavior is defined.
 
 
-## Task 1 — EryXenX / OmegA-FCA / GoatBot compatibility audit
+## Task 1 — OmegA-FCA / GoatBot compatibility audit
 
 **Audit date:** 2026-11-22  
-**Compared package:** `@eryxenx/fca@1.3.5` (npm metadata and published README)  
-**GoatBot dependency:** `@eryxenx/fca: ^1.3.4` in the inspected `OmegA-Goatbot` main-branch manifest.
+**GoatBot integration:** the inspected `OmegA-Goatbot` main-branch manifest currently declares an external FCA dependency.
 
 ### Confirmed from source
 
@@ -87,7 +86,7 @@ Automatic update/install remains disabled by default until the updater is constr
 | Encrypted group messaging/media | No implementation confirmed | Gap |
 | Native E2EE media engine | No equivalent native engine confirmed | Gap |
 
-The npm README for EryXenX 1.3.5 advertises sessionGuard, sendBroadcast, Signal Protocol E2EE, and a native media engine. Those are upstream README claims, not proof that OmegA-FCA currently implements them. Feature parity must be closed by implementation and tests, not by documentation aliases.
+Feature parity must be established by OmegA-FCA implementation and tests, not by documentation aliases.
 
 ### Login route finding
 
@@ -95,7 +94,7 @@ The OmegA-FCA source has a separately exposed `loginViaAPI` helper. Its implemen
 
 ### External package source limitation
 
-The EryXenX GitHub repository source could not be retrieved through the connected GitHub account in this audit. Therefore, the comparison above uses npm package metadata/README plus OmegA-FCA and GoatBot source manifests; no upstream source-level method parity claim is made.
+The compatibility review is limited to OmegA-FCA and GoatBot source manifests; no external source-level method parity claim is made.
 
 ### Task 1 conclusion
 
