@@ -76,3 +76,15 @@ Static review of `src/core/auth.ts`, `src/core/auth-helpers.ts`, `src/core/login
 - Keep `account.txt`, appstate JSON, cookie headers, passwords, 2FA seeds, database backups, and provider API keys out of Git.
 - Keep the repository private if it contains operational code/configuration, but privacy does not replace secret exclusion.
 - Do not enable external credential login unless the provider's operator, implementation, retention policy, and security have been independently reviewed.
+
+
+## A-07 — Session backup encryption and account scoping
+
+- New SQL AppState/cookie backups are encrypted with AES-256-GCM before being written to the database.
+- The encryption key must be supplied as `OMEGA_FCA_SESSION_BACKUP_KEY` (32-byte base64 or 64-character hex). No key is embedded in source or generated from an account password.
+- Authenticated additional data binds ciphertext to the numeric Facebook UID and backup type. Copying a row to another UID or changing its type makes decryption fail.
+- Missing/invalid keys cause backup writes to be skipped; encrypted backups cannot be restored without the same key.
+- Legacy plaintext backups are rejected by default. An explicit temporary opt-in, `OMEGA_FCA_ALLOW_LEGACY_PLAINTEXT_BACKUPS=true`, permits reading them; migrate by signing in again with the encryption key configured, then remove the opt-in.
+- Global “latest backup” restore is disabled. A backup is only eligible for lookup when a valid numeric UID is already known. The login path that has no known UID does not restore an arbitrary account's backup.
+- This protects new backups at the application layer; it does not encrypt the entire SQLite database, WAL files, filesystem snapshots, or backups made outside OmegA-FCA. Protect the database volume and key separately.
+- Automated tests cover ciphertext opacity, successful decryption, wrong UID/type, wrong key, and legacy plaintext rejection. These tests do not replace a live database migration or deployment test.
