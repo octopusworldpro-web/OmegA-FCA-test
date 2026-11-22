@@ -5,6 +5,7 @@
 import formatMod from "../../utils/format";
 import { getMqttReconnectDelay, parseMqttJsonPayload } from "../../domains/realtime/reconnect-policy";
 import { buildMqttWebSocketUrl, getMqttWebSocketHost } from "./mqtt-url";
+import { buildInitialMqttSyncQueue, normalizeMqttSyncState, validateMqttSubscriptionAck } from "./sync-protocol";
 
 const { formatID } = formatMod;
 
@@ -200,12 +201,13 @@ function createListenMqtt(deps: Loose) {
        * Subscribe là async; publish sync queue trước SUBACK → Facebook trả
        * "Connection refused: No subscription existed" và đóng socket.
        */
-      mqttClient.subscribe(topicList, (subErr: Error | null) => {
+      mqttClient.subscribe(topicList, (subErr: Error | null, granted?: Array<{ topic: string; qos: number }>) => {
         if (!isActiveClient(mqttClient)) {
           return;
         }
-        if (subErr) {
-          const sm = subErr && subErr.message ? subErr.message : String(subErr);
+        const subAck = validateMqttSubscriptionAck(topicList, subErr, granted);
+        if (!subAck.ok) {
+          const sm = subAck.reason || "MQTT subscription was not acknowledged";
           logger(`mqtt subscribe error: ${sm}`, "error");
           try {
             if (mqttClient && mqttClient.connected) {
@@ -222,19 +224,13 @@ function createListenMqtt(deps: Loose) {
           return;
         }
 
-        const queue: Loose = {
-          sync_api_version: 11, max_deltas_able_to_process: 100, delta_batch_size: 500,
-          encoding: "JSON", entity_fbid: ctx.userID, initial_titan_sequence_id: ctx.lastSeqId, device_params: null
-        };
-        const syncTopic = ctx.syncToken ? "/messenger_sync_get_diffs" : "/messenger_sync_create_queue";
-        if (ctx.syncToken) {
-          queue.last_seq_id = ctx.lastSeqId;
-          queue.sync_token = ctx.syncToken;
-        }
-        mqttClient.publish(syncTopic, JSON.stringify(queue), { qos: 1, retain: false });
-        mqttClient.publish("/foreground_state", JSON.stringify({ foreground: chatOn }), { qos: 1 });
-        mqttClient.publish("/set_client_settings", JSON.stringify({ make_user_available_when_in_foreground: true }), { qos: 1 });
-
+        const initialSync = buildInitialMqttSyncQueue(ctx);
+        const outbound = [
+          { topic: initialSync.topic, payload: initialSync.payload },
+          { topic: "/foreground_state", payload: { foreground: chatOn } },
+          { topic: "/set_client_settings", payload: { make_user_available_when_in_foreground: true } }
+        ];
+        const startTmsTimeout = () => {
         let rTimeout: NodeJS.Timeout | null = setTimeout(function () {
           rTimeout = null;
           if (ctx._ending) {
@@ -269,6 +265,28 @@ function createListenMqtt(deps: Loose) {
           if (ctx.globalOptions.emitReady) globalCallback({ type: "ready", error: null });
           delete ctx.tmsWait;
         };
+        };
+        const publishNext = (index: number) => {
+          if (!isActiveClient(mqttClient) || !mqttClient.connected) return;
+          if (index >= outbound.length) {
+            startTmsTimeout();
+            return;
+          }
+          const item = outbound[index];
+          mqttClient.publish(item.topic, JSON.stringify(item.payload), { qos: 1, retain: false }, (publishErr?: Error | null) => {
+            if (!isActiveClient(mqttClient)) return;
+            if (publishErr) {
+              const message = publishErr.message || String(publishErr);
+              logger("mqtt publish " + item.topic + " failed: " + message, "error");
+              try { if (mqttClient.connected) mqttClient.end(true); } catch (_) { }
+              if (ctx.globalOptions.autoReconnect && !ctx._ending && !ctx._stopRequested) scheduleReconnect(d);
+              else globalCallback({ type: "stop_listen", error: message }, null);
+              return;
+            }
+            publishNext(index + 1);
+          });
+        };
+        publishNext(0);
       });
     });
 
@@ -287,13 +305,13 @@ function createListenMqtt(deps: Loose) {
           globalCallback(null, { type: "friend_request_cancel", actorFbId: jsonMessage.from.toString(), timestamp: Date.now().toString() });
         } else if (topic === "/t_ms") {
           if (ctx.tmsWait && typeof ctx.tmsWait == "function") ctx.tmsWait();
-          if (jsonMessage.firstDeltaSeqId && jsonMessage.syncToken) {
-            ctx.lastSeqId = jsonMessage.firstDeltaSeqId;
-            ctx.syncToken = jsonMessage.syncToken;
-          }
-          if (jsonMessage.lastIssuedSeqId) ctx.lastSeqId = parseInt(jsonMessage.lastIssuedSeqId);
-          for (const dlt of (jsonMessage.deltas || [])) {
-            parseDelta(defaultFuncs, api, ctx, globalCallback, { delta: dlt });
+          const syncState = normalizeMqttSyncState(jsonMessage, { lastSeqId: ctx.lastSeqId, syncToken: ctx.syncToken });
+          ctx.lastSeqId = syncState.lastSeqId;
+          ctx.syncToken = syncState.syncToken;
+          if (Array.isArray(jsonMessage.deltas)) {
+            for (const dlt of jsonMessage.deltas) {
+              if (dlt && typeof dlt === "object") parseDelta(defaultFuncs, api, ctx, globalCallback, { delta: dlt });
+            }
           }
         } else if (topic === "/thread_typing" || topic === "/orca_typing_notifications") {
           const typ = {
@@ -311,7 +329,9 @@ function createListenMqtt(deps: Loose) {
             }
           }
         } else if (topic === "/ls_resp") {
-          const parsedPayload = JSON.parse(jsonMessage.payload);
+          const rawPayload = jsonMessage.payload;
+          const parsedPayload = typeof rawPayload === "string" ? JSON.parse(rawPayload) : rawPayload;
+          if (!parsedPayload || typeof parsedPayload !== "object" || Array.isArray(parsedPayload)) return;
           const reqID = jsonMessage.request_id;
           const tasks = ctx.tasks;
           if (tasks && tasks instanceof Map && tasks.has(reqID)) {
