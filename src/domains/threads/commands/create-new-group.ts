@@ -30,13 +30,19 @@ export function createCreateNewGroupCommand(deps: CreateNewGroupCommandDeps) {
     if (!Array.isArray(participantIDs)) {
       throw { error: "createNewGroup: participantIDs should be an array." };
     }
-    if (participantIDs.length < 2) {
-      throw { error: "createNewGroup: participantIDs should have at least 2 IDs." };
+    const actorID = String(ctx.i_userID || ctx.userID || "");
+    if (!actorID) {
+      throw new Error("createNewGroup: authenticated user ID is unavailable.");
+    }
+    const normalizedIDs = [...new Set(participantIDs.map((id) => String(id).trim()))]
+      .filter((id) => id && id !== actorID);
+    if (normalizedIDs.length < 2) {
+      throw new Error("createNewGroup: participantIDs should contain at least 2 distinct users other than the current account.");
     }
 
     const { callback: cb, promise } = createLegacyPromise<string>(effectiveCallback);
-    const participants = participantIDs.map((participantID) => ({ fbid: participantID }));
-    participants.push({ fbid: ctx.i_userID || ctx.userID });
+    const participants = normalizedIDs.map((participantID) => ({ fbid: participantID }));
+    participants.push({ fbid: actorID });
 
     postGraphql({
       defaultFuncs,
