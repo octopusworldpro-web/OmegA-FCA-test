@@ -16,3 +16,16 @@ export function getMqttReconnectDelay(options: MqttReconnectDelayOptions): numbe
   const exponential = Math.min(max, base * Math.pow(2, Math.min(attempt - 1, 30)));
   return Math.min(max + jitter, exponential + Math.floor(random * (jitter + 1)));
 }
+
+/** Decode an MQTT JSON payload without allowing malformed frames to escape the handler. */
+export function parseMqttJsonPayload(payload: unknown): Record<string, Loose> | null {
+  try {
+    const text = Buffer.isBuffer(payload) ? payload.toString("utf8") : payload;
+    const value = typeof text === "string" ? JSON.parse(text) : text;
+    return value !== null && typeof value === "object" && !Array.isArray(value)
+      ? value as Record<string, Loose>
+      : null;
+  } catch {
+    return null;
+  }
+}
