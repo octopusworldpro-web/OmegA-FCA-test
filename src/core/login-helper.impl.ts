@@ -17,6 +17,7 @@ import { createRequestCore } from "./request";
 import { attachThreadInfoRealtimeSync } from "./thread-info-realtime-sync";
 import { attachThreadUpdater, createApiFacade, createFcaState } from "./state";
 import { DataTypes } from "sequelize";
+import { decryptSessionBackup, encryptSessionBackup } from "../session/backup-crypto";
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -147,7 +148,9 @@ async function ensureUniqueIndex(sequelize: Loose) {
 }
 
 async function upsertBackup(Model: Loose, userID: Loose, type: string, data: Loose) {
-  const where = { userID: String(userID || ""), type };
+  const normalizedUserID = String(userID || "");
+  if (!/^\\d+$/.test(normalizedUserID) || !normalizedUserID) throw new Error("Refusing to store a session backup without a valid account UID");
+  const where = { userID: normalizedUserID, type };
   const row = await Model.findOne({ where });
   if (row) {
     await row.update({ data });
@@ -165,10 +168,14 @@ async function backupAppStateSQL(j: Loose, userID: Loose) {
     if (!models || !models.sequelize) return;
     await Model.sync();
     await ensureUniqueIndex(models.sequelize);
+    const normalizedUserID = String(userID || "");
+    if (!/^\\d+$/.test(normalizedUserID) || !normalizedUserID) throw new Error("Refusing to store a session backup without a valid account UID");
     const appJson = getAppState(j);
     const ck = cookieHeaderFromJar(j);
-    await upsertBackup(Model, userID, "appstate", JSON.stringify(appJson));
-    await upsertBackup(Model, userID, "cookie", ck);
+    const encryptedAppState = encryptSessionBackup(JSON.stringify(appJson), normalizedUserID, "appstate");
+    const encryptedCookie = encryptSessionBackup(ck, normalizedUserID, "cookie");
+    await upsertBackup(Model, normalizedUserID, "appstate", encryptedAppState);
+    await upsertBackup(Model, normalizedUserID, "cookie", encryptedCookie);
     logger("Backup stored (overwrite mode)", "sys");
   } catch (e) {
     logger(`Failed to save appstate backup ${errMsg(e)}`, "warn");
@@ -179,23 +186,16 @@ async function getLatestBackup(userID: Loose, type: string) {
   try {
     const Model = getBackupModel();
     if (!Model) return null;
-    const row = await Model.findOne({ where: { userID: String(userID || ""), type } });
-    return row ? ((row as Loose).data as string | null) : null;
+    const normalizedUserID = String(userID || "");
+    if (!/^\\d+$/.test(normalizedUserID) || !normalizedUserID) return null;
+    const row = await Model.findOne({ where: { userID: normalizedUserID, type } });
+    if (!row || typeof (row as Loose).data !== "string") return null;
+    return decryptSessionBackup((row as Loose).data as string, normalizedUserID, type);
   } catch {
     return null;
   }
 }
 
-async function getLatestBackupAny(type: string) {
-  try {
-    const Model = getBackupModel();
-    if (!Model) return null;
-    const row = await Model.findOne({ where: { type }, order: [["updatedAt", "DESC"]] });
-    return row ? ((row as Loose).data as string | null) : null;
-  } catch {
-    return null;
-  }
-}
 
 
 
@@ -287,15 +287,10 @@ async function tokens(username: string, password: string, twofactor: string | nu
 
 async function hydrateJarFromDB(userID: Loose) {
   try {
-    let ck = null;
-    let app = null;
-    if (userID) {
-      ck = await getLatestBackup(userID, "cookie");
-      app = await getLatestBackup(userID, "appstate");
-    } else {
-      ck = await getLatestBackupAny("cookie");
-      app = await getLatestBackupAny("appstate");
-    }
+    const normalizedUserID = String(userID || "");
+    // Never select a global "latest" backup: it can silently restore another account.\n    if (!/^\\d+$/.test(normalizedUserID) || !normalizedUserID) return false;
+    const ck = await getLatestBackup(normalizedUserID, "cookie");
+    const app = await getLatestBackup(normalizedUserID, "appstate");
     if (ck) {
       const pairs = normalizeCookieHeaderString(ck);
       if (pairs.length) {
