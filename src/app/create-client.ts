@@ -50,6 +50,7 @@ function createFallbackNamespaces(api: LegacyApiLike): FcaClientNamespaces {
       typing: bindOptionalMethod(api, "sendTypingIndicator"),
       react: bindOptionalMethod(api, "setMessageReaction"),
       shareContact: bindOptionalMethod(api, "shareContact"),
+      shareLink: bindOptionalMethod(api, "shareLink"),
       getEmojiUrl: bindOptionalMethod(api, "getEmojiUrl"),
       resolvePhotoUrl: bindOptionalMethod(api, "resolvePhotoUrl"),
       uploadAttachment: bindOptionalMethod(api, "uploadAttachment"),
@@ -97,6 +98,10 @@ function createFallbackNamespaces(api: LegacyApiLike): FcaClientNamespaces {
       changeBlockedStatus: bindOptionalMethod(api, "changeBlockedStatus"),
       setOptions: bindOptionalMethod(api, "setOptions"),
       setPostReaction: bindOptionalMethod(api, "setPostReaction"),
+      reactToPost: bindOptionalMethod(api, "reactToPost"),
+      reactToComment: bindOptionalMethod(api, "reactToComment"),
+      postComment: bindOptionalMethod(api, "postComment"),
+      sharePost: bindOptionalMethod(api, "sharePost"),
       unfriend: bindOptionalMethod(api, "unfriend"),
       getAppState: bindOptionalMethod(api, "getAppState"),
       getCookies: bindOptionalMethod(api, "getCookies")
