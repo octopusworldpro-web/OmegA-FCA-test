@@ -18,6 +18,7 @@ import { attachThreadInfoRealtimeSync } from "./thread-info-realtime-sync";
 import { attachThreadUpdater, createApiFacade, createFcaState } from "./state";
 import { DataTypes } from "sequelize";
 import { decryptSessionBackup, encryptSessionBackup } from "../session/backup-crypto";
+import { createSessionGuard } from "./session-guard";
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -995,6 +996,16 @@ function loginHelper(
           cookieHeaderFromJar,
           getLatestBackup
         }) as Loose;
+        let activeSessionGuard: ReturnType<typeof createSessionGuard> | null = null;
+        api.sessionGuard = (accountFilePath: string, guardOptions: { interval?: number; debounce?: number } = {}) => {
+          if (activeSessionGuard) activeSessionGuard.stop();
+          activeSessionGuard = createSessionGuard(accountFilePath, String(userID), () => getAppState(jar), logger, guardOptions);
+          return activeSessionGuard;
+        };
+        api.stopSessionGuard = () => {
+          if (activeSessionGuard) activeSessionGuard.stop();
+          activeSessionGuard = null;
+        };
         const defaultFuncs = makeDefaults(html, userID, ctxMain);
 
         // Attach lightweight DB updaters for realtime events (MQTT)
