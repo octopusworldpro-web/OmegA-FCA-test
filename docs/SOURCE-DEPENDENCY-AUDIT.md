@@ -39,7 +39,7 @@ Dependency ranges alone do not establish whether a release has known vulnerabili
 - No `package-lock.json` is committed yet. Reproducible `npm ci` is not available until it is generated and committed.
 - Dependency installation and package resolution were not completed in this environment.
 - Full build, unit tests, lint, and TypeScript checks have not been run.
-- `tsconfig.typecheck.json` explicitly excludes `src/core/login-helper.impl.ts`; therefore a passing typecheck would not cover that file. The exclusion needs a separate remediation plan rather than being treated as full type safety.
+- The explicit exclusion for `src/core/login-helper.impl.ts` was removed from `tsconfig.typecheck.json`; the implementation is now included in the project typecheck graph. A passing CI run is still required to establish whether it typechecks cleanly.
 - A Node.js 20 GitHub Actions workflow was added at `.github/workflows/ci.yml` to run install, build/tests, typecheck, lint, and package dry-run. No completed status check is available yet, so it is not counted as a pass.
 - `npm pack --dry-run` and inspection of the actual tarball contents remain required before publishing.
 - Live Facebook login, MQTT broker acceptance, message operations, and E2EE interoperability are outside this static audit.
