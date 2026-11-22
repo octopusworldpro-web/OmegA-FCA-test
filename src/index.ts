@@ -108,3 +108,5 @@ export { createSocialDomain, type SocialDomainDeps } from "./domains/social";
 export { formatIncomingAttachment } from "./utils/format/attachment";
 export { formatDeltaMessage, formatDeltaQuotedMessage } from "./utils/format/delta";
 export { formatFetchedMessage } from "./domains/messages/queries/get-message";
+
+export { createSignalKeyStore, type SignalKeyStore, type SignalStoreOptions, type SignalKeyPairRecord, type SignalSignedPreKeyRecord, type SignalSessionAddress } from "./domains/e2ee/signal-key-store";
