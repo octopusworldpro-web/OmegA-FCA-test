@@ -90,3 +90,8 @@ export {
 export { formatFriends } from "./domains/users/queries/get-friends-list";
 export { formatMessagesGraphQLResponse } from "./domains/threads/queries/get-thread-history";
 export { formatUserIdEntry } from "./domains/users/shared";
+
+export {
+  createGetThreadHistoryQuery,
+  type GetThreadHistoryQueryDeps
+} from "./domains/threads/queries/get-thread-history";
