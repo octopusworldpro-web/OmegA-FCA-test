@@ -541,6 +541,31 @@ test("HTTP retry policy retries 429 and 5xx responses but returns ordinary 4xx r
   }, 3, 1);
   assert.strictEqual(returned, badRequest);
 });
+test("MQTT websocket URL preserves endpoint parameters and replaces sid/cid safely", () => {
+  const url = new URL(fca.buildMqttWebSocketUrl({
+    endpoint: "https://edge-chat.facebook.com/chat?region=prn&sid=old&keep=yes#fragment",
+    sessionId: 123456,
+    clientId: "client-abc"
+  }));
+  assert.equal(url.protocol, "wss:");
+  assert.equal(url.hostname, "edge-chat.facebook.com");
+  assert.equal(url.searchParams.get("region"), "prn");
+  assert.equal(url.searchParams.get("keep"), "yes");
+  assert.equal(url.searchParams.get("sid"), "123456");
+  assert.equal(url.searchParams.get("cid"), "client-abc");
+  assert.equal(url.hash, "");
+  assert.equal(fca.getMqttWebSocketHost(url.toString()), "edge-chat.facebook.com");
+});
+
+test("MQTT websocket URL builds regional fallback and rejects untrusted endpoints", () => {
+  const fallback = new URL(fca.buildMqttWebSocketUrl({ region: "FRA", sessionId: 42, clientId: "c1" }));
+  assert.equal(fallback.protocol, "wss:");
+  assert.equal(fallback.hostname, "edge-chat.facebook.com");
+  assert.equal(fallback.searchParams.get("region"), "fra");
+  assert.throws(() => fca.buildMqttWebSocketUrl({ endpoint: "https://evil.example/chat", sessionId: 42, clientId: "c1" }), /Rejected/);
+  assert.throws(() => fca.buildMqttWebSocketUrl({ endpoint: "wss://edge-chat.facebook.com.evil.example/chat", sessionId: 42, clientId: "c1" }), /Rejected/);
+  assert.throws(() => fca.buildMqttWebSocketUrl({ endpoint: "http://edge-chat.facebook.com/chat", sessionId: 42, clientId: "c1" }), /Rejected/);
+});
 test("public exports are available", () => {
   assert.strictEqual(typeof fca.login, "function");
   assert.strictEqual(typeof fca.createFcaClient, "function");
