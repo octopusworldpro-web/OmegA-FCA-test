@@ -1,4 +1,5 @@
 import type { ListenMqttError, MqttEvent } from "../../types/events";
+import { getMqttReconnectDelay } from "./reconnect-policy";
 
 const CYCLE_MS_DEFAULT = 60 * 60 * 1000;
 const RECONNECT_DELAY_MS_DEFAULT = 2000;
@@ -129,6 +130,7 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
         .then(() => {
           logger("mqtt getSeqID done", "info");
           ctx._cycling = false;
+          ctx._getSeqRetryAttempts = 0;
         })
         .catch((error: Loose) => {
           ctx._cycling = false;
@@ -137,14 +139,14 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
           if (ctx._ending) {
             return;
           }
-          if (ctx.globalOptions.autoReconnect) {
-            const delay = conf.reconnectDelayMs + Math.floor(Math.random() * 400);
-            logger(`mqtt getSeqID will retry in ~${delay}ms`, "warn");
+          if (ctx.globalOptions.autoReconnect && !ctx._stopRequested && !ctx._getSeqRetryTimer) {
+            const attempt = (ctx._getSeqRetryAttempts || 0) + 1;
+            const delay = getMqttReconnectDelay({ attempt, baseDelayMs: conf.reconnectDelayMs, maxDelayMs: conf.maxReconnectDelayMs || 30000, jitterMs: 400, random: Math.random() });
+            ctx._getSeqRetryAttempts = attempt;
+            logger("mqtt getSeqID will retry in ~" + delay + "ms (attempt " + attempt + ")", "warn");
             ctx._getSeqRetryTimer = setTimeout(() => {
               ctx._getSeqRetryTimer = null;
-              if (!ctx._ending) {
-                getSeqIDWrapper();
-              }
+              if (!ctx._ending && !ctx._stopRequested) getSeqIDWrapper();
             }, delay);
           }
         });
@@ -222,6 +224,7 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
           clearTimeout(ctx._getSeqRetryTimer);
           ctx._getSeqRetryTimer = null;
         }
+        ctx._getSeqRetryAttempts = 0;
         if (ctx._rTimeout) {
           clearTimeout(ctx._rTimeout);
           ctx._rTimeout = null;
@@ -293,6 +296,7 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
 
     return function listenRealtime(callback?: ListenerCallback): RealtimeMessageEmitter {
       ctx._stopRequested = false;
+      ctx._getSeqRetryAttempts = 0;
 
       const stopListening = (callback2?: () => void): void => {
         const cb = callback2 || function () { };
@@ -313,6 +317,7 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
           clearTimeout(ctx._getSeqRetryTimer);
           ctx._getSeqRetryTimer = null;
         }
+        ctx._getSeqRetryAttempts = 0;
 
         ctx._ending = true;
         unsubAll(() =>
