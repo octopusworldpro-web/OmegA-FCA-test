@@ -386,6 +386,65 @@ test("resolveConfig honors legacy autoUpdate alias", () => {
   assert.strictEqual(resolved.checkUpdate.notifyIfCurrent, true);
 });
 
+test("OmegA-FCA defaults keep external login and automatic updates disabled", () => {
+  const resolved = fca.resolveConfig();
+  assert.strictEqual(resolved.autoLogin, false);
+  assert.strictEqual(resolved.apiServer, "");
+  assert.strictEqual(resolved.autoUpdate, false);
+  assert.strictEqual(resolved.checkUpdate.enabled, false);
+  assert.strictEqual(resolved.checkUpdate.install, false);
+  assert.strictEqual(resolved.checkUpdate.packageName, "@nirzon-islam/omega-fca");
+});
+
+test("external credential login does not contact a provider unless HTTPS is explicitly configured", async () => {
+  let requests = 0;
+  const auth = fca.createAuthCore({
+    config: fca.defaultConfig,
+    axiosBase: async () => {
+      requests += 1;
+      return { status: 200, data: { cookie: "c_user=123; xs=abc" } };
+    }
+  });
+
+  const disabled = await auth.loginViaAPI("owner@example.com", "not-a-real-password");
+  assert.strictEqual(disabled.ok, false);
+  assert.match(disabled.message, /disabled/i);
+  assert.strictEqual(requests, 0);
+
+  const insecure = await auth.loginViaAPI(
+    "owner@example.com",
+    "not-a-real-password",
+    null,
+    "http://untrusted.example"
+  );
+  assert.strictEqual(insecure.ok, false);
+  assert.match(insecure.message, /HTTPS/i);
+  assert.strictEqual(requests, 0);
+});
+
+test("explicit HTTPS credential provider receives normalized two-factor input", async () => {
+  let requestConfig;
+  const auth = fca.createAuthCore({
+    config: { apiServer: "", apiKey: "test-api-key" },
+    axiosBase: async (config) => {
+      requestConfig = config;
+      return { status: 200, data: { uid: "12345", cookie: "c_user=12345; xs=abc" } };
+    }
+  });
+
+  const result = await auth.loginViaAPI(
+    "owner@example.com",
+    "not-a-real-password",
+    " ab cd ",
+    "https://trusted.example/base/"
+  );
+
+  assert.strictEqual(result.ok, true);
+  assert.strictEqual(requestConfig.url, "https://trusted.example/base/api/v1/facebook/login_ios");
+  assert.strictEqual(requestConfig.data.twoFactor, "ABCD");
+  assert.strictEqual(requestConfig.headers["x-api-key"], "test-api-key");
+});
+
 test("createFcaClient reuses grouped namespaces when they already exist", () => {
   const send = () => "send-ok";
   const getInfo = () => "thread-ok";
