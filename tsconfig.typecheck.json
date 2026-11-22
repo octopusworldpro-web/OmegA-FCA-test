@@ -9,7 +9,6 @@
   ],
   "exclude": [
     "node_modules",
-    "dist",
-    "src/core/login-helper.impl.ts"
+    "dist"
   ]
 }
