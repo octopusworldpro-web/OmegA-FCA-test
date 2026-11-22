@@ -543,6 +543,31 @@ test("credential provider requests do not follow redirects", async () => {
   assert.strictEqual(requestConfig.maxRedirects, 0);
 });
 
+test("session backups are encrypted at rest and bound to account and type", () => {
+  const { encryptSessionBackup, decryptSessionBackup, isEncryptedSessionBackup } = require("../dist/session/backup-crypto.js");
+  const previousKey = process.env.OMEGA_FCA_SESSION_BACKUP_KEY;
+  const previousLegacy = process.env.OMEGA_FCA_ALLOW_LEGACY_PLAINTEXT_BACKUPS;
+  process.env.OMEGA_FCA_SESSION_BACKUP_KEY = "11".repeat(32);
+  delete process.env.OMEGA_FCA_ALLOW_LEGACY_PLAINTEXT_BACKUPS;
+  try {
+    const secret = "c_user=12345; xs=private-session";
+    const encrypted = encryptSessionBackup(secret, "12345", "cookie");
+    assert.ok(isEncryptedSessionBackup(encrypted));
+    assert.ok(!encrypted.includes("private-session"));
+    assert.strictEqual(decryptSessionBackup(encrypted, "12345", "cookie"), secret);
+    assert.strictEqual(decryptSessionBackup(encrypted, "99999", "cookie"), null);
+    assert.strictEqual(decryptSessionBackup(encrypted, "12345", "appstate"), null);
+    assert.strictEqual(decryptSessionBackup("legacy-plaintext", "12345", "cookie"), null);
+    process.env.OMEGA_FCA_SESSION_BACKUP_KEY = "22".repeat(32);
+    assert.strictEqual(decryptSessionBackup(encrypted, "12345", "cookie"), null);
+  } finally {
+    if (previousKey === undefined) delete process.env.OMEGA_FCA_SESSION_BACKUP_KEY;
+    else process.env.OMEGA_FCA_SESSION_BACKUP_KEY = previousKey;
+    if (previousLegacy === undefined) delete process.env.OMEGA_FCA_ALLOW_LEGACY_PLAINTEXT_BACKUPS;
+    else process.env.OMEGA_FCA_ALLOW_LEGACY_PLAINTEXT_BACKUPS = previousLegacy;
+  }
+});
+
 test("createFcaClient reuses grouped namespaces when they already exist", () => {
   const send = () => "send-ok";
   const getInfo = () => "thread-ok";
