@@ -4,7 +4,8 @@ import type { FcaContext } from "../../../core/state";
 import { resolveThreadMutationTransport } from "../../../session/capability-resolver";
 import type { LegacyDefaultFuncs } from "../../../transport/contracts/request";
 import { setThreadTitleViaHttp } from "../../../transport/http/threads";
-import { publishRealtimeMessage } from "../../../transport/realtime/publish";
+import type { MqttRequestClient } from "../../../transport/contracts/request";
+import { publishLsRequestWithAck } from "../../../transport/realtime/ls-requests";
 
 export interface SetTitleCommandDeps {
   defaultFuncs: LegacyDefaultFuncs;
@@ -73,14 +74,15 @@ export function createSetTitleCommand(deps: SetTitleCommandDeps) {
     const transport = resolveThreadMutationTransport(ctx);
 
     if (transport === "mqtt") {
-      if (typeof ctx.wsReqNumber !== "number") {
-        ctx.wsReqNumber = 0;
-      }
+      if (typeof ctx.wsReqNumber !== "number" || !Number.isSafeInteger(ctx.wsReqNumber)) ctx.wsReqNumber = 0;
+      if (typeof ctx.wsTaskNumber !== "number" || !Number.isSafeInteger(ctx.wsTaskNumber)) ctx.wsTaskNumber = 0;
+      const requestId = ++ctx.wsReqNumber;
+      const taskId = ++ctx.wsTaskNumber;
 
-      publishRealtimeMessage({
-        client: ctx.mqttClient as Loose,
-        topic: "/ls_req",
-        payload: {
+      publishLsRequestWithAck({
+        client: ctx.mqttClient as MqttRequestClient,
+        requestId,
+        content: {
           app_id: "2220391788200892",
           payload: JSON.stringify({
             epoch_id: generateOfflineThreadingID(),
@@ -94,17 +96,18 @@ export function createSetTitleCommand(deps: SetTitleCommandDeps) {
                   sync_group: 1
                 }),
                 queue_name: actualThreadID,
-                task_id: Math.floor(Math.random() * 1001)
+                task_id: taskId
               }
             ],
             version_id: "8798795233522156"
           }),
-          request_id: ++ctx.wsReqNumber,
+          request_id: requestId,
           type: 3
-        }
+        },
+        extract: () => ({ success: true })
       })
-        .then(() => {
-          cb(null, { success: true });
+        .then((result) => {
+          cb(null, result);
         })
         .catch((error: Loose) => {
           logError?.("setTitle", error);
