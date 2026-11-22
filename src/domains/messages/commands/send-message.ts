@@ -193,7 +193,11 @@ export function createSendMessageCommand(deps: SendMessageCommandDeps) {
     const attachmentValue = "attachment" in normalized ? normalized.attachment : undefined;
     const forwardAttachmentIdsValue =
       "forwardAttachmentIds" in normalized ? normalized.forwardAttachmentIds : undefined;
-    const requestId = Math.floor(100 + Math.random() * 900);
+    if (typeof ctx.wsReqNumber !== "number" || !Number.isSafeInteger(ctx.wsReqNumber)) ctx.wsReqNumber = 0;
+    if (typeof ctx.wsTaskNumber !== "number" || !Number.isSafeInteger(ctx.wsTaskNumber)) ctx.wsTaskNumber = 0;
+    const requestId = ++ctx.wsReqNumber;
+    const sendTaskId = ++ctx.wsTaskNumber;
+    const readTaskId = ++ctx.wsTaskNumber;
     const epoch = (BigInt(Date.now()) << 22n).toString();
 
     const payload0: Record<string, Loose> = {
@@ -305,7 +309,7 @@ export function createSendMessageCommand(deps: SendMessageCommandDeps) {
             label: "46",
             payload: payload0,
             queue_name: String(threadID),
-            task_id: 400,
+            task_id: sendTaskId,
             failure_count: null
           },
           {
@@ -316,7 +320,7 @@ export function createSendMessageCommand(deps: SendMessageCommandDeps) {
               sync_group: 1
             },
             queue_name: String(threadID),
-            task_id: 401,
+            task_id: readTaskId,
             failure_count: null
           }
         ],
