@@ -4,6 +4,7 @@
  */
 import formatMod from "../../utils/format";
 import { getMqttReconnectDelay, parseMqttJsonPayload } from "../../domains/realtime/reconnect-policy";
+import { buildMqttWebSocketUrl, getMqttWebSocketHost } from "./mqtt-url";
 
 const { formatID } = formatMod;
 
@@ -95,10 +96,12 @@ function createListenMqtt(deps: Loose) {
     };
 
     const cookies = api.getCookies();
-    let host;
-    if (ctx.mqttEndpoint) host = `${ctx.mqttEndpoint}&sid=${sessionID}&cid=${ctx.clientId}`;
-    else if (ctx.region) host = `wss://edge-chat.facebook.com/chat?region=${ctx.region.toLowerCase()}&sid=${sessionID}&cid=${ctx.clientId}`;
-    else host = `wss://edge-chat.facebook.com/chat?sid=${sessionID}&cid=${ctx.clientId}`;
+    const host = buildMqttWebSocketUrl({
+      endpoint: ctx.mqttEndpoint || null,
+      region: ctx.region || null,
+      sessionId: sessionID,
+      clientId: ctx.clientId
+    });
 
     const options: Loose = {
       clientId: "mqttwsclient",
@@ -112,7 +115,7 @@ function createListenMqtt(deps: Loose) {
           Origin: "https://www.facebook.com",
           "User-Agent": ctx.globalOptions.userAgent || "Mozilla/5.0",
           Referer: "https://www.facebook.com/",
-          Host: "edge-chat.facebook.com",
+          Host: getMqttWebSocketHost(host),
           Connection: "Upgrade",
           Pragma: "no-cache",
           "Cache-Control": "no-cache",
