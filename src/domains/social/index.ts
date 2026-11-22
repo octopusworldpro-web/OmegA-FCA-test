@@ -55,7 +55,7 @@ function runMutation(
 export function createSocialDomain(deps: SocialDomainDeps) {
   const reactToComment = (
     commentID: string,
-    reaction: string | number = "like",
+    reaction: string | number | CallbackResult = "like",
     callback?: CallbackResult
   ) => {
     let cb = callback;
@@ -68,7 +68,7 @@ export function createSocialDomain(deps: SocialDomainDeps) {
     try {
       const id = normalizeId(commentID, "commentID");
       const reactionId = typeof kind === "number" ? kind : REACTIONS[String(kind).toLowerCase()];
-      if (!Number.isInteger(reactionId) || reactionId < 0 || reactionId > 16) {
+      if (!Number.isInteger(reactionId) || ![0, 1, 2, 3, 4, 7, 8, 16].includes(reactionId)) {
         throw new Error("Invalid comment reaction");
       }
       const feedbackId = Buffer.from("feedback:" + id).toString("base64");
@@ -120,7 +120,10 @@ export function createSocialDomain(deps: SocialDomainDeps) {
           attachments: null,
           feedback_id: feedbackId,
           formatting_style: null,
+          vod_video_timestamp: null,
           message: { ranges: [], text },
+          attribution_id_v2: "ProfileCometTimelineListViewRoot.react,comet.profile.timeline.list,tap_bookmark," + Date.now() + ",271712," + deps.ctx.userID + ",,",
+          vod_video_timestamp: null,
           feedback_referrer: "/",
           is_tracking_encrypted: true,
           tracking: [],
@@ -150,10 +153,12 @@ export function createSocialDomain(deps: SocialDomainDeps) {
 
   const sharePost = (
     postID: string,
-    message = "",
+    message: string | CallbackResult = "",
     callback?: CallbackResult
   ) => {
-    const { callback: done, promise } = callbackPromise<Loose>(callback);
+    const effectiveCallback = typeof message === "function" ? message : callback;
+    const shareMessage = typeof message === "string" ? message : "";
+    const { callback: done, promise } = callbackPromise<Loose>(effectiveCallback);
     try {
       const id = normalizeId(postID, "postID");
       const shareScrapeData = JSON.stringify({ share_type: 22, share_params: [id] });
@@ -170,9 +175,10 @@ export function createSocialDomain(deps: SocialDomainDeps) {
           audience: { privacy: { allow: [], base_state: "EVERYONE", deny: [], tag_expansion_state: "UNSPECIFIED" } },
           is_tracking_encrypted: true,
           tracking: [],
-          message: { ranges: [], text: String(message || "") },
+          message: { ranges: [], text: String(shareMessage || "") },
           logging: { composer_session_id: sessionId },
-          event_share_metadata: { surface: "timeline" },
+          navigation_data: { attribution_id_v2: "CometHomeRoot.react,comet.home,logo," + Date.now() + ",152156,4748854339,," },
+          event_share_metadata: { surface: "newsfeed" },
           actor_id: deps.ctx.userID,
           client_mutation_id: "2"
         },
@@ -201,6 +207,29 @@ export function createSocialDomain(deps: SocialDomainDeps) {
         hashtag: null,
         canUserManageOffers: false,
         __relay_internal__pv__CometUFIShareActionMigrationrelayprovider: true,
+        __relay_internal__pv__CometUFI_dedicated_comment_routable_dialog_gkrelayprovider: false,
+        __relay_internal__pv__CometUFICommentAvatarStickerAnimatedImagerelayprovider: false,
+        __relay_internal__pv__CometUFICommentActionLinksRewriteEnabledrelayprovider: false,
+        __relay_internal__pv__IsWorkUserrelayprovider: false,
+        __relay_internal__pv__CometUFIReactionsEnableShortNamerelayprovider: false,
+        __relay_internal__pv__CometUFISingleLineUFIrelayprovider: false,
+        __relay_internal__pv__TestPilotShouldIncludeDemoAdUseCaserelayprovider: false,
+        __relay_internal__pv__FBReels_deprecate_short_form_video_context_gkrelayprovider: true,
+        __relay_internal__pv__FBReels_enable_view_dubbed_audio_type_gkrelayprovider: true,
+        __relay_internal__pv__CometImmersivePhotoCanUserDisable3DMotionrelayprovider: false,
+        __relay_internal__pv__WorkCometIsEmployeeGKProviderrelayprovider: false,
+        __relay_internal__pv__IsMergQAPollsrelayprovider: false,
+        __relay_internal__pv__FBReels_enable_meta_ai_labelrelayprovider: true,
+        __relay_internal__pv__FBReelsMediaFooter_comet_enable_reels_adsrelayprovider: true,
+        __relay_internal__pv__StoriesArmadilloReplyEnabledrelayprovider: true,
+        __relay_internal__pv__FBReelsIFUTileContent_reelsIFUPlayOnHoverrelayprovider: true,
+        __relay_internal__pv__GroupsCometGYSJFeedItemHeightrelayprovider: 206,
+        __relay_internal__pv__ShouldEnableBakedInTextStoriesrelayprovider: false,
+        __relay_internal__pv__StoriesShouldIncludeFbNotesrelayprovider: false,
+        __relay_internal__pv__groups_comet_use_glvrelayprovider: true,
+        __relay_internal__pv__GHLShouldChangeSponsoredAuctionDistanceFieldNamerelayprovider: true,
+        __relay_internal__pv__GHLShouldUseSponsoredAuctionLabelFieldNameV1relayprovider: false,
+        __relay_internal__pv__GHLShouldUseSponsoredAuctionLabelFieldNameV2relayprovider: true,
         __relay_internal__pv__GHLShouldChangeSponsoredDataFieldNamerelayprovider: true,
         __relay_internal__pv__GHLShouldChangeAdIdFieldNamerelayprovider: true
       };
