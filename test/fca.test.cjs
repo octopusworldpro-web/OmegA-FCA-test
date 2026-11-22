@@ -1419,7 +1419,7 @@ test("social sharePost builds a share mutation with post ID and caption", async 
     ctx: { userID: "actor-1", jar: {} },
     defaultFuncs: { post: async (url, jar, form) => {
       sent = form;
-      return { status: 200, data: { data: { story_create: { story: { id: "shared-1" } } } };
+      return { status: 200, data: { data: { story_create: { story: { id: "shared-1" } } } } };
     } },
     sendMessage: async () => ({})
   });
