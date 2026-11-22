@@ -1631,6 +1631,6 @@ test("Signal direct-message helpers establish sessions, encrypt and decrypt prek
   assert.deepEqual(calls.map((entry) => entry[0]), ["bundle", "decrypt-prekey", "decrypt"]);
   assert.equal(calls[0][1].value.name, "remote-user");
   assert.equal(calls[0][2].value.name, "local-user");
-  assert.throws(() => fca.encryptSignalDirectMessage({ ...deps, localAddress: { name: "", deviceId: 1 } }, { name: "remote-user", deviceId: 2 }, "x"), /local/);
+  await assert.rejects(fca.encryptSignalDirectMessage({ ...deps, localAddress: { name: "", deviceId: 1 } }, { name: "remote-user", deviceId: 2 }, "x"), /local/);
   await assert.rejects(fca.decryptSignalDirectMessage(deps, { name: "remote-user", deviceId: 2 }, { type: 7, body: Buffer.from("x").toString("base64") }), /Unsupported direct-message/);
 });
