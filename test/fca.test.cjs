@@ -473,6 +473,29 @@ test("MQTT payload decoder accepts objects and buffers and rejects malformed fra
   assert.equal(parse("null"), null);
 });
 
+test("GoatBot login contract exposes session getters and emitter methods", async () => {
+  const emitter = new (require("node:events").EventEmitter)();
+  const state = [{ key: "c_user", value: "123456789" }, { key: "xs", value: "session" }];
+  const api = fca.createApiFacade({
+    globalOptions: { online: false },
+    jar: {},
+    userID: "123456789",
+    emitter,
+    setOptions: () => {},
+    getAppState: () => state,
+    cookieHeaderFromJar: () => "c_user=123456789; xs=session",
+    getLatestBackup: async (_uid, type) => type === "appstate" ? JSON.stringify(state) : "c_user=123456789; xs=session"
+  });
+  assert.deepEqual(api.getAppState(), state);
+  assert.equal(api.getCookies(), "c_user=123456789; xs=session");
+  assert.deepEqual(await api.getLatestAppStateFromDB(), state);
+  assert.equal(await api.getLatestCookieFromDB(), "c_user=123456789; xs=session");
+  let emitted = false;
+  api.once("goatbot-contract", () => { emitted = true; });
+  emitter.emit("goatbot-contract");
+  assert.equal(emitted, true);
+});
+
 test("public exports are available", () => {
   assert.strictEqual(typeof fca.login, "function");
   assert.strictEqual(typeof fca.createFcaClient, "function");
