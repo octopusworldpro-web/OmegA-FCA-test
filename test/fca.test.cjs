@@ -396,6 +396,26 @@ test("OmegA-FCA defaults keep external login and automatic updates disabled", ()
   assert.strictEqual(resolved.checkUpdate.packageName, "@nirzon-islam/omega-fca");
 });
 
+test("legacy upstream config is migrated away from old package and login services", () => {
+  const migrated = fca.resolveConfig({
+    autoLogin: true,
+    apiServer: "https://minhdong.site",
+    apiKey: "legacy-key",
+    checkUpdate: {
+      enabled: true,
+      install: true,
+      packageName: "@dongdev/fca-unofficial"
+    }
+  });
+
+  assert.strictEqual(migrated.autoLogin, false);
+  assert.strictEqual(migrated.apiServer, "");
+  assert.strictEqual(migrated.apiKey, "");
+  assert.strictEqual(migrated.checkUpdate.packageName, "@nirzon-islam/omega-fca");
+  assert.strictEqual(migrated.checkUpdate.enabled, false);
+  assert.strictEqual(migrated.checkUpdate.install, false);
+});
+
 test("external credential login does not contact a provider unless HTTPS is explicitly configured", async () => {
   let requests = 0;
   const auth = fca.createAuthCore({
