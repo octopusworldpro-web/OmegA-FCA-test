@@ -6,6 +6,7 @@ import formatMod from "../../utils/format";
 import { getMqttReconnectDelay, parseMqttJsonPayload } from "../../domains/realtime/reconnect-policy";
 import { buildMqttWebSocketUrl, getMqttWebSocketHost } from "./mqtt-url";
 import { buildInitialMqttSyncQueue, normalizeMqttSyncState, validateMqttSubscriptionAck } from "./sync-protocol";
+import { consumeMqttTaskResponse } from "./task-registry";
 
 const { formatID } = formatMod;
 
@@ -340,16 +341,8 @@ function createListenMqtt(deps: Loose) {
           if (!parsedPayload || typeof parsedPayload !== "object" || Array.isArray(parsedPayload)) return;
           const reqID = jsonMessage.request_id;
           const tasks = ctx.tasks;
-          if (tasks && tasks instanceof Map && tasks.has(reqID)) {
-            const taskData = tasks.get(reqID);
-            // Consume before invoking user code: duplicate /ls_resp frames cannot fire twice.
-            tasks.delete(reqID);
-            if (!taskData || taskData.completed || typeof taskData.callback !== "function") return;
-            taskData.completed = true;
-            const taskType = taskData.type;
-            const taskRespData = getTaskResponseData(taskType, parsedPayload);
-            if (taskRespData == null) taskData.callback("error", null);
-            else taskData.callback(null, Object.assign({ type: taskType, reqID }, taskRespData));
+          if (tasks && tasks instanceof Map) {
+            consumeMqttTaskResponse(tasks, reqID, parsedPayload, getTaskResponseData);
           }
         }
       } catch (ex: Loose) {
