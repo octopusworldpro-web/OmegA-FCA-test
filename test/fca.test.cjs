@@ -394,6 +394,30 @@ test("AppState and Cookie inputs normalize into consistent login credentials", (
   assert.strictEqual(fromJsonAppState.Cookie, undefined);
 });
 
+test("sessionGuard atomically saves only the active account AppState", () => {
+  const dir = fs.mkdtempSync(path.join(require("os").tmpdir(), "omega-session-"));
+  const target = path.join(dir, "account.txt");
+  const validState = [
+    { key: "c_user", value: "123456789", domain: ".facebook.com", path: "/" },
+    { key: "xs", value: "session-token", domain: ".facebook.com", path: "/" }
+  ];
+  try {
+    const guard = fca.createSessionGuard(target, "123456789", () => validState, () => {}, { interval: 10000, debounce: 0 });
+    guard.saveNow();
+    const saved = JSON.parse(fs.readFileSync(target, "utf8"));
+    assert.equal(saved[0].key, "c_user");
+    assert.equal(fs.statSync(target).mode & 0o077, 0);
+    const previous = fs.readFileSync(target, "utf8");
+    const invalid = fca.createSessionGuard(target, "987654321", () => validState, () => {}, { interval: 10000, debounce: 0 });
+    invalid.saveNow();
+    assert.equal(fs.readFileSync(target, "utf8"), previous);
+    guard.stop();
+    invalid.stop();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("public exports are available", () => {
   assert.strictEqual(typeof fca.login, "function");
   assert.strictEqual(typeof fca.createFcaClient, "function");
