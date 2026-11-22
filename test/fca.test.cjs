@@ -460,8 +460,19 @@ test("MQTT reconnect backoff is exponential, capped, and jitter bounded", () => 
   const delay = fca.getMqttReconnectDelay;
   assert.equal(delay({ attempt: 1, baseDelayMs: 1000, maxDelayMs: 8000, jitterMs: 400, random: 0 }), 1000);
   assert.equal(delay({ attempt: 2, baseDelayMs: 1000, maxDelayMs: 8000, jitterMs: 400, random: 0.5 }), 2200);
-  assert.equal(delay({ attempt: 5, baseDelayMs: 1000, maxDelayMs: 8000, jitterMs: 400, random: 0.999 }), 8400);
+  assert.equal(delay({ attempt: 5, baseDelayMs: 1000, maxDelayMs: 8000, jitterMs: 400, random: 0.999 }), 8000);
   assert.equal(delay({ attempt: 99, baseDelayMs: 1000, maxDelayMs: 8000, jitterMs: 400, random: 0 }), 8000);
+});
+
+
+test("MQTT reconnect delay never exceeds configured cap, including jitter", () => {
+  const delay = fca.getMqttReconnectDelay;
+  for (const attempt of [1, 2, 5, 20, 100]) {
+    for (const random of [0, 0.5, 0.999999]) {
+      assert.ok(delay({ attempt, baseDelayMs: 2500, maxDelayMs: 7000, jitterMs: 400, random }) <= 7000);
+    }
+  }
+  assert.equal(delay({ attempt: 1, baseDelayMs: 1000, maxDelayMs: 8000, jitterMs: 400, random: 0.999 }), 1399);
 });
 
 test("MQTT payload decoder accepts objects and buffers and rejects malformed frames", () => {
