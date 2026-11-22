@@ -304,8 +304,11 @@ function formatEventData(event: Loose) {
   }
 }
 
-function formatMessagesGraphQLResponse(data: Loose) {
-  const messageThread = data.o0.data.message_thread;
+export function formatMessagesGraphQLResponse(data: Loose) {
+  const messageThread = data?.o0?.data?.message_thread;
+  if (!messageThread || !Array.isArray(messageThread.messages?.nodes)) {
+    throw new Error("getThreadHistory: invalid message_thread response");
+  }
   const threadID = messageThread.thread_key.thread_fbid
     ? messageThread.thread_key.thread_fbid
     : messageThread.thread_key.other_user_id;
@@ -339,9 +342,12 @@ function formatMessagesGraphQLResponse(data: Loose) {
         }
 
         const mentionsObj: Record<string, string> = {};
-        if (message.message !== null) {
+        if (message.message?.text != null && Array.isArray(message.message.ranges)) {
           message.message.ranges.forEach((entry: Loose) => {
-            mentionsObj[entry.entity.id] = message.message.text.substr(entry.offset, entry.length);
+            const entityID = entry?.entity?.id;
+            if (entityID != null) {
+              mentionsObj[String(entityID)] = message.message.text.substr(entry.offset, entry.length);
+            }
           });
         }
 
@@ -362,8 +368,8 @@ function formatMessagesGraphQLResponse(data: Loose) {
           timestamp: message.timestamp_precise,
           mentions: mentionsObj,
           isUnread: message.unread,
-          messageReactions: message.message_reactions
-            ? message.message_reactions.map(formatReactionsGraphQL)
+          messageReactions: Array.isArray(message.message_reactions)
+            ? message.message_reactions.filter((reaction: Loose) => reaction?.user?.id != null).map(formatReactionsGraphQL)
             : null,
           isSponsored: message.is_sponsored,
           snippet: message.snippet
@@ -513,6 +519,18 @@ export function createGetThreadHistoryQuery(deps: GetThreadHistoryQueryDeps) {
     callback?: (err: Loose, data?: Loose) => void
   ) {
     const { callback: cb, promise } = createLegacyPromise<Loose>(callback, []);
+    if (threadID == null || String(threadID).trim() === "") {
+      cb(new Error("getThreadHistory: threadID is required"));
+      return promise;
+    }
+    if (!Number.isInteger(amount) || Number(amount) <= 0) {
+      cb(new Error("getThreadHistory: amount must be a positive integer"));
+      return promise;
+    }
+    if (timestamp != null && (!Number.isFinite(Number(timestamp)) || !Number.isInteger(Number(timestamp)))) {
+      cb(new Error("getThreadHistory: timestamp must be an integer or null"));
+      return promise;
+    }
 
     postGraphqlBatch({
       defaultFuncs,
@@ -534,11 +552,13 @@ export function createGetThreadHistoryQuery(deps: GetThreadHistoryQueryDeps) {
       }
     })
       .then((resData: Loose) => {
-        if (resData.error) {
-          throw resData;
+        if (resData?.error) throw resData;
+        if (!Array.isArray(resData) || resData.length < 2) {
+          throw new Error("getThreadHistory: invalid GraphQL batch response");
         }
-        if (resData[resData.length - 1].error_results !== 0) {
-          throw new Error("There was an error_result.");
+        const tail = resData[resData.length - 1];
+        if (!tail || Number(tail.error_results) > 0 || tail.error_results == null) {
+          throw new Error("getThreadHistory: GraphQL batch reported an error");
         }
 
         cb(null, formatMessagesGraphQLResponse(resData[0]));
