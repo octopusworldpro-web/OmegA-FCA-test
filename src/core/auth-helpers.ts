@@ -225,17 +225,15 @@ export function createAuthCore(opts: {
 
   function setJarFromPairs(j: Loose, pairs: string[], domain: string) {
     const expires = new Date(Date.now() + 31536e6).toUTCString();
+    // Session cookies must only be installed for HTTPS origins.
     const urls = [
       "https://www.facebook.com",
       "https://facebook.com",
-      "https://m.facebook.com",
-      "http://www.facebook.com",
-      "http://facebook.com",
-      "http://m.facebook.com"
+      "https://m.facebook.com"
     ];
 
     for (const kv of pairs) {
-      const cookieStr = `${kv}; expires=${expires}; domain=${domain}; path=/;`;
+      const cookieStr = `${kv}; expires=${expires}; domain=${domain}; path=/; Secure;`;
       for (const url of urls) {
         try {
           if (typeof j.setCookieSync === "function") {
