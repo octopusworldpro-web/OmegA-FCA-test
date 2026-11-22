@@ -123,24 +123,33 @@ function createParseDelta(deps: Loose) {
               }).then(parseAndCheckLogin(ctx, defaultFuncs)).then((resData: Loose) => {
                 if (resData[resData.length - 1].error_results > 0) throw resData[0].o0.errors;
                 if (resData[resData.length - 1].successful_results === 0) throw { error: "forcedFetch: there was no successful_results", res: resData };
-                const fetchData = resData[0].o0.data.message;
+                const fetchData = resData?.[0]?.o0?.data?.message;
+                if (!fetchData?.message || !fetchData?.message_sender) {
+                  throw new Error("Quoted message response is missing message or sender data");
+                }
+                const fetchedMessage = fetchData.message;
+                const fetchedBody = String(fetchedMessage.text || "");
                 const mobj: Record<string, Loose> = {};
-                for (const n in fetchData.message.ranges) {
-                  mobj[fetchData.message.ranges[n].entity.id] = (fetchData.message.text || "").substr(fetchData.message.ranges[n].offset, fetchData.message.ranges[n].length);
+                const ranges = Array.isArray(fetchedMessage.ranges) ? fetchedMessage.ranges : [];
+                for (const range of ranges) {
+                  const entityID = range?.entity?.id;
+                  if (entityID == null) continue;
+                  const offset = Number(range.offset) || 0;
+                  const length = Number(range.length) || 0;
+                  mobj[String(entityID)] = fetchedBody.substring(offset, offset + length);
                 }
                 callbackToReturn.messageReply = {
                   type: "Message",
                   threadID: callbackToReturn.threadID,
-                  messageID: fetchData.message_id,
-                  senderID: fetchData.message_sender.id.toString(),
-                  attachments: fetchData.message.blob_attachment.map((att: Loose) =>
-                    formatIncomingAttachment({ blob_attachment: att })
-                  ),
-                  args: (fetchData.message.text || "").trim().split(/\s+/) || [],
-                  body: fetchData.message.text || "",
+                  messageID: String(fetchData.message_id || ""),
+                  senderID: String(fetchData.message_sender.id || ""),
+                  attachments: (Array.isArray(fetchedMessage.blob_attachment) ? fetchedMessage.blob_attachment : [])
+                    .map((att: Loose) => formatIncomingAttachment({ blob_attachment: att })),
+                  args: fetchedBody.trim() ? fetchedBody.trim().split(/\s+/) : [],
+                  body: fetchedBody,
                   isGroup: callbackToReturn.isGroup,
                   mentions: mobj,
-                  timestamp: parseInt(fetchData.timestamp_precise)
+                  timestamp: Number.parseInt(String(fetchData.timestamp_precise || 0), 10) || 0
                 };
               }).catch((err: Loose) => {
                 const errMsg = err && err.message ? err.message : String(err || "Unknown error");
