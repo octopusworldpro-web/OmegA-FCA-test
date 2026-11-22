@@ -100,3 +100,5 @@ export {
   createGetThreadInfoQuery,
   type GetThreadInfoQueryDeps
 } from "./domains/threads/queries/get-thread-info";
+
+export { createShareContactCommand, type ShareContactCommandDeps } from "./domains/messages/commands/share-contact";
