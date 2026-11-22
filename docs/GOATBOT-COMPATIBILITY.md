@@ -157,3 +157,12 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - Reply metadata is carried from either the legacy fourth `replyToMessage` argument or the structured payload's `replyToMessage` field into Messenger's `reply_metadata` structure.
 - Added synthetic MQTT-ACK tests covering text body, thread routing, reply metadata, callback-once behavior, ID progression, and listener cleanup.
 - The edit and unsend command paths remain exposed through the legacy API and grouped message domain; authenticated Facebook-side edit/unsend semantics still require a live session test.
+
+
+## Task 14 — Media and file attachments
+
+- Attachment upload command and HTTP transport are exported for direct integration/testing.
+- Existing upload input normalization supports Buffer, readable streams, local file paths, HTTPS/HTTP URL downloads, data URLs, and descriptor objects containing buffer/data/stream/url/path plus filename/content type.
+- Upload transport uses the active Facebook cookie jar, obtains/caches upload form tokens, posts multipart data to the Mercury upload endpoint, maps returned image/video/audio/file IDs and metadata, and detects checkpoint responses.
+- Message send tests cover Buffer upload handoff, caption preservation, uploaded attachment ID serialization, and pre-uploaded attachment tuple handling without a redundant upload.
+- Multi-file transport and authenticated Facebook upload/send still require a live account test; CI verifies the synthetic command contract only.
