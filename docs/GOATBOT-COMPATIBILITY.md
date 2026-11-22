@@ -122,3 +122,12 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - `/t_ms` sequence IDs are accepted only as non-negative safe integers; invalid values cannot poison the stored sequence state. Valid sync tokens and sequence updates are retained, and malformed delta collections are ignored.
 - `/ls_resp` accepts JSON text or an already-decoded object and ignores invalid payload shapes.
 - Synthetic protocol tests cover complete/rejected SUBACKs, fresh/resumed sync queues, and valid/invalid sequence state. Live Facebook subscription grants and event delivery still require authorized runtime verification.
+
+
+## Task 10 — Reconnect, retry, jitter and readiness
+
+- MQTT reconnect scheduling now checks stop/ending state and an existing timer before incrementing the attempt counter, so duplicate close/error/disconnect notifications cannot inflate backoff attempts.
+- Reconnect delay uses bounded exponential backoff with jitter and a strict configured maximum, including the jitter component. The default remains 30 seconds.
+- Sequence-ID bootstrap failures use the same bounded exponential retry policy, retain their own attempt counter, avoid duplicate retry timers, and reset the counter after successful bootstrap. Stop/shutdown clears the retry timer and counter.
+- MQTT reconnect attempts are reset only after the `/t_ms` sync-ready response; a raw WebSocket/MQTT connect does not count as ready.
+- Synthetic tests cover exponential growth, jitter bounds, strict maximum cap, and existing stop-cancels-reconnect behavior. Actual broker outages, `/t_ms` readiness and reconnect recovery still require authorized live-session verification.
