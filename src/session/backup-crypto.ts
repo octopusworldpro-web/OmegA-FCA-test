@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 const PREFIX = "omega-fca:enc:v1:";
 const KEY_ENV = "OMEGA_FCA_SESSION_BACKUP_KEY";
