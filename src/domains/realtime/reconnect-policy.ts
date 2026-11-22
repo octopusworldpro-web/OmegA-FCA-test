@@ -14,7 +14,7 @@ export function getMqttReconnectDelay(options: MqttReconnectDelayOptions): numbe
   const jitter = Math.max(0, Math.floor(Number(options.jitterMs) || 0));
   const random = Math.min(0.999999, Math.max(0, Number(options.random) || 0));
   const exponential = Math.min(max, base * Math.pow(2, Math.min(attempt - 1, 30)));
-  return Math.min(max + jitter, exponential + Math.floor(random * (jitter + 1)));
+  return Math.min(max, exponential + Math.floor(random * (jitter + 1)));
 }
 
 /** Decode an MQTT JSON payload without allowing malformed frames to escape the handler. */
