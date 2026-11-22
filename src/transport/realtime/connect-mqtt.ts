@@ -3,6 +3,7 @@
  * Connects to edge-chat.facebook.com, subscribes to topics, parses deltas and typing/presence.
  */
 import formatMod from "../../utils/format";
+import { getMqttReconnectDelay, parseMqttJsonPayload } from "../../domains/realtime/reconnect-policy";
 
 const { formatID } = formatMod;
 
@@ -22,26 +23,28 @@ function createListenMqtt(deps: Loose) {
     function scheduleReconnect(delayMs?: number) {
       const d = (ctx._mqttOpt && ctx._mqttOpt.reconnectDelayMs) || DEFAULT_RECONNECT_DELAY_MS;
       const base = typeof delayMs === "number" ? delayMs : d;
-      const ms = base + Math.floor(Math.random() * RECONNECT_JITTER_MS);
+      const attempt = (ctx._mqttReconnectAttempts || 0) + 1;
+      ctx._mqttReconnectAttempts = attempt;
+      const ms = getMqttReconnectDelay({ attempt, baseDelayMs: base, maxDelayMs: (ctx._mqttOpt && ctx._mqttOpt.maxReconnectDelayMs) || 30000, jitterMs: RECONNECT_JITTER_MS, random: Math.random() });
       if (ctx._reconnectTimer) {
         logger("mqtt reconnect already scheduled", "warn");
         return; // debounce
       }
-      if (ctx._ending) {
-        logger("mqtt reconnect skipped - ending", "warn");
+      if (ctx._ending || ctx._stopRequested) {
+        logger("mqtt reconnect skipped - ending/stopped", "warn");
         return;
       }
       logger(`mqtt will reconnect in ~${ms}ms`, "warn");
       ctx._reconnectTimer = setTimeout(() => {
         ctx._reconnectTimer = null;
-        if (!ctx._ending) {
+        if (!ctx._ending && !ctx._stopRequested) {
           listenMqtt(defaultFuncs, api, ctx, globalCallback);
         }
       }, ms);
     }
 
     function isActiveClient(client: Loose): boolean {
-      return ctx.mqttClient === client && !ctx._ending;
+      return ctx.mqttClient === client && !ctx._ending && !ctx._stopRequested;
     }
 
     /** Hủy timer reconnect đang chờ — sắp mở kết nối mới */
@@ -186,6 +189,7 @@ function createListenMqtt(deps: Loose) {
         process.env.OnStatus = "true";
       }
       ctx._cycling = false;
+      ctx._mqttReconnectAttempts = 0;
 
       const d = (ctx._mqttOpt && ctx._mqttOpt.reconnectDelayMs) || DEFAULT_RECONNECT_DELAY_MS;
       const topicList = topics.slice() as string[];
@@ -268,12 +272,10 @@ function createListenMqtt(deps: Loose) {
     mqttClient.on("message", function (topic: string, message: Loose) {
       if (ctx._ending || ctx.mqttClient !== mqttClient) return;
       try {
-        let jsonMessage = Buffer.isBuffer(message) ? Buffer.from(message).toString() : message;
-        try {
-          jsonMessage = JSON.parse(jsonMessage);
-        } catch (parseErr: Loose) {
-          logger(`mqtt message parse error for topic ${topic}: ${parseErr && parseErr.message ? parseErr.message : String(parseErr)}`, "warn");
-          jsonMessage = {};
+        const jsonMessage = parseMqttJsonPayload(message);
+        if (!jsonMessage) {
+          logger(`mqtt message ignored: invalid JSON object on topic ${topic}`, "warn");
+          return;
         }
 
         if (jsonMessage.type === "jewel_requests_add") {
@@ -333,8 +335,10 @@ function createListenMqtt(deps: Loose) {
         return;
       }
       logger("mqtt connection closed", "warn");
-      if (ctx.globalOptions.autoReconnect && !ctx._ending && !ctx._cycling) {
+      if (ctx.globalOptions.autoReconnect && !ctx._ending && !ctx._cycling && !ctx._stopRequested) {
         scheduleReconnect();
+      } else if (!ctx._ending && !ctx._cycling && !ctx._stopRequested) {
+        globalCallback({ type: "stop_listen", error: "Connection closed and autoReconnect is disabled" }, null);
       }
     });
 
@@ -347,8 +351,10 @@ function createListenMqtt(deps: Loose) {
         return;
       }
       logger("mqtt disconnected", "warn");
-      if (ctx.globalOptions.autoReconnect && !ctx._ending && !ctx._cycling) {
+      if (ctx.globalOptions.autoReconnect && !ctx._ending && !ctx._cycling && !ctx._stopRequested) {
         scheduleReconnect();
+      } else if (!ctx._ending && !ctx._cycling && !ctx._stopRequested) {
+        globalCallback({ type: "stop_listen", error: "Disconnected and autoReconnect is disabled" }, null);
       }
     });
   };
