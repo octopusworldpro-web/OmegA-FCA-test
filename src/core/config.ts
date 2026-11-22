@@ -47,12 +47,12 @@ export interface LoadedFcaConfig {
 }
 
 const DEFAULT_REGISTRY_URL = "https://registry.npmjs.org";
-const DEFAULT_PACKAGE_NAME = "@dongdev/fca-unofficial";
+const DEFAULT_PACKAGE_NAME = "@nirzon-islam/omega-fca";
 
 export const defaultConfig: FcaConfig = {
-  autoUpdate: true,
+  autoUpdate: false,
   checkUpdate: {
-    enabled: true,
+    enabled: false,
     install: false,
     notifyIfCurrent: false,
     packageName: DEFAULT_PACKAGE_NAME,
@@ -60,8 +60,10 @@ export const defaultConfig: FcaConfig = {
     timeoutMs: 10000
   },
   mqtt: { enabled: true, reconnectInterval: 3600 },
-  autoLogin: true,
-  apiServer: "https://minhdong.site",
+  autoLogin: false,
+  // Password-based login must never silently send credentials to a third party.
+  // Set an HTTPS endpoint explicitly only after reviewing and trusting that service.
+  apiServer: "",
   apiKey: "",
   credentials: { email: "", password: "", twofactor: "" },
   antiGetInfo: {
