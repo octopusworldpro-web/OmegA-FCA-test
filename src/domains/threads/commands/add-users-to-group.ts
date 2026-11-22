@@ -33,17 +33,13 @@ export function createAddUsersToGroupCommand(deps: AddUsersToGroupCommandDeps) {
         throw new Error("ThreadID should be of type Number or String.");
       }
 
-      const userIDs = Array.isArray(userID) ? userID : [userID];
-      if (!userIDs.length) {
-        throw new Error("userID is required");
+      const userIDs = [...new Set((Array.isArray(userID) ? userID : [userID]).map((id) => String(id).trim()))];
+      if (!userIDs.length || userIDs.some((id) => !id)) {
+        throw new Error("userID must contain at least one valid ID");
       }
 
-      if (typeof ctx.wsReqNumber !== "number") {
-        ctx.wsReqNumber = 0;
-      }
-      if (typeof ctx.wsTaskNumber !== "number") {
-        ctx.wsTaskNumber = 0;
-      }
+      if (typeof ctx.wsReqNumber !== "number" || !Number.isSafeInteger(ctx.wsReqNumber)) ctx.wsReqNumber = 0;
+      if (typeof ctx.wsTaskNumber !== "number" || !Number.isSafeInteger(ctx.wsTaskNumber)) ctx.wsTaskNumber = 0;
 
       const requestId = ++ctx.wsReqNumber;
       const taskId = ++ctx.wsTaskNumber;
