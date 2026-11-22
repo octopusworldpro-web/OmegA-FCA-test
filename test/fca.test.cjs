@@ -1440,7 +1440,7 @@ test("social shareLink delegates a URL-bearing message through the existing Mess
     sendMessage: async (message, threadID) => { sent = { message, threadID }; return { messageID: "m1" }; }
   });
   const result = await social.shareLink("https://example.com", "thread-1", "Check this");
-  assert.deepEqual(sent, { message: { body: "Check this\\nhttps://example.com" }, threadID: "thread-1" });
+  assert.deepEqual(sent, { message: { body: "Check this\nhttps://example.com" }, threadID: "thread-1" });
   assert.equal(result.messageID, "m1");
   await assert.rejects(social.shareLink("javascript:alert(1)", "thread-1"), /http\(s\) URL/);
 });
