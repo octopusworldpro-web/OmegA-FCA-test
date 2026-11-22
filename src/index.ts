@@ -46,3 +46,5 @@ export { requestWithRetry } from "./utils/request/retry";
 export { buildMqttWebSocketUrl, getMqttWebSocketHost, type MqttWebSocketUrlOptions } from "./transport/realtime/mqtt-url";
 
 export { validateMqttSubscriptionAck, normalizeMqttSyncState, buildInitialMqttSyncQueue } from "./transport/realtime/sync-protocol";
+
+export { consumeMqttTaskResponse } from "./transport/realtime/task-registry";
