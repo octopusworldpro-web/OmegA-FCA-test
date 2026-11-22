@@ -1374,3 +1374,74 @@ test("shareContact rejects blank identifiers without publishing", async () => {
   assert.equal(publishes, 0);
 });
 
+test("social postComment uses the documented Comet comment mutation and validates inputs", async () => {
+  let sent;
+  const social = fca.createSocialDomain({
+    ctx: { userID: "actor-1", jar: {} },
+    defaultFuncs: { post: async (url, jar, form) => {
+      sent = { url, form };
+      return { status: 200, data: { data: { comment_create: { comment: { id: "comment-1" } } } } };
+    } },
+    sendMessage: async () => ({})
+  });
+  const result = await social.postComment("owner_12345", "Nice post!");
+  assert.equal(sent.url, "https://www.facebook.com/api/graphql/");
+  assert.equal(sent.form.doc_id, "33964973576450400");
+  assert.equal(sent.form.fb_api_req_friendly_name, "useCometUFICreateCommentMutation");
+  const variables = JSON.parse(sent.form.variables);
+  assert.equal(variables.input.feedback_id, Buffer.from("feedback:12345").toString("base64"));
+  assert.equal(variables.input.message.text, "Nice post!");
+  assert.equal(result.data.comment_create.comment.id, "comment-1");
+  await assert.rejects(social.postComment("123", "  "), /Comment text is required/);
+});
+
+test("social reactToComment uses comment feedback ID and validates reaction names", async () => {
+  let sent;
+  const social = fca.createSocialDomain({
+    ctx: { userID: "actor-1", jar: {} },
+    defaultFuncs: { post: async (url, jar, form) => {
+      sent = form;
+      return { status: 200, data: { data: { feedback_react: { feedback: { id: "feedback:comment-2" } } } } };
+    } },
+    sendMessage: async () => ({})
+  });
+  await social.reactToComment("comment-2", "haha");
+  assert.equal(sent.doc_id, "7616998081714004");
+  const variables = JSON.parse(sent.variables);
+  assert.equal(variables.input.feedback_id, Buffer.from("feedback:comment-2").toString("base64"));
+  assert.equal(variables.input.feedback_reaction_id, 4);
+  await assert.rejects(social.reactToComment("comment-2", "not-a-reaction"), /Invalid comment reaction/);
+});
+
+test("social sharePost builds a share mutation with post ID and caption", async () => {
+  let sent;
+  const social = fca.createSocialDomain({
+    ctx: { userID: "actor-1", jar: {} },
+    defaultFuncs: { post: async (url, jar, form) => {
+      sent = form;
+      return { status: 200, data: { data: { story_create: { story: { id: "shared-1" } } } };
+    } },
+    sendMessage: async () => ({})
+  });
+  const result = await social.sharePost("actor_98765", "Worth sharing");
+  assert.equal(sent.doc_id, "26264075519853494");
+  const variables = JSON.parse(sent.variables);
+  assert.equal(variables.input.actor_id, "actor-1");
+  assert.equal(JSON.parse(variables.input.attachments[0].link.share_scrape_data).share_params[0], "98765");
+  assert.equal(variables.input.message.text, "Worth sharing");
+  assert.equal(result.data.story_create.story.id, "shared-1");
+});
+
+test("social shareLink delegates a URL-bearing message through the existing Messenger sender", async () => {
+  let sent;
+  const social = fca.createSocialDomain({
+    ctx: { userID: "actor-1" },
+    defaultFuncs: { post: async () => ({ status: 200, data: {} }) },
+    sendMessage: async (message, threadID) => { sent = { message, threadID }; return { messageID: "m1" }; }
+  });
+  const result = await social.shareLink("https://example.com", "thread-1", "Check this");
+  assert.deepEqual(sent, { message: { body: "Check this\\nhttps://example.com" }, threadID: "thread-1" });
+  assert.equal(result.messageID, "m1");
+  await assert.rejects(social.shareLink("javascript:alert(1)", "thread-1"), /http\(s\) URL/);
+});
+
