@@ -211,3 +211,14 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - getMessage(threadID, messageID) now returns the same message/reply structure with normalized media, args, mention maps, participant IDs and messageReply.
 - GoatBot compatibility is covered through the raw getMessage API and client.messages.get, client.messages.uploadAttachment and client.messages.forwardAttachment facade mappings. Synthetic tests cover incoming photo/video/audio/file media, malformed Mercury JSON, mentions, participants, quote metadata and GoatBot reply event fields.
 - **Validation boundary:** build, tests, TypeScript, lint and package dry-run validate local parsing and API shape. Real Facebook attachment payload variations, CDN URL resolution, forced-fetch reply lookup and end-to-end GoatBot command handling still require an authorized live session.
+
+
+## Task 19 — Signal key material and session persistence
+
+- Added an account-bound Signal key store for identity key pairs, registration IDs, signed prekeys, one-time prekeys, serialized per-device sessions and trusted remote identities.
+- Key/session records are opaque base64-encoded bytes. This layer does not generate Signal keys, implement X3DH/Double Ratchet, or claim Messenger interoperability; those cryptographic operations must be supplied by a compatible Signal Protocol implementation.
+- The local store is encrypted with AES-256-GCM. A caller-provided secret of at least 32 bytes is key-derived with scrypt; each save uses a fresh salt and nonce. Files are written with restrictive permissions and same-directory atomic rename.
+- Store state is bound to the configured account ID. Opening it for another account or with the wrong secret fails closed. One-time prekeys, sessions and trusted identities have explicit store/load/remove operations.
+- Added tests for persistence/reopen, encrypted-at-rest output, account isolation, wrong-key rejection, prekey removal, session removal and trust identity updates.
+- The Signal library currently published by Signal is `@signalapp/libsignal-client`; it is an official-client library whose APIs are subject to change and whose upstream project explicitly says use outside Signal is unsupported. OmegA-FCA has not yet integrated or validated its Node bindings against Messenger's private provisioning and device protocol.
+- **Validation boundary:** this task delivers encrypted key/session storage only. Signal key generation, prekey bundle exchange, session establishment, encrypt/decrypt interoperability, device sync and Facebook live acceptance remain open for later E2EE tasks.
