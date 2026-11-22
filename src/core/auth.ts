@@ -142,9 +142,8 @@ export function normalizeLoginCredentials(credentials: LoginCredentials): LoginC
     appState = credentials.appState;
   }
 
-  const appStatePairs = appState ? cookiePairsFromInput(appState) : [];
   const explicitCookiePairs = cookiePairsFromInput(cookieInput);
-  const Cookie = dedupeCookiePairs([...appStatePairs, ...explicitCookiePairs]).join("; ");
+  const Cookie = dedupeCookiePairs(explicitCookiePairs).join("; ");
   return { appState, Cookie: Cookie || undefined };
 }
 
