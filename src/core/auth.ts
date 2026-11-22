@@ -213,25 +213,19 @@ export function login(
 ): Promise<FcaContext> | void {
   if (typeof optionsOrCallback === "function") {
     const cb = optionsOrCallback;
-    void loginAsync(credentials, {})
-      .then((ctx) => {
-        cb(null, (ctx as Loose).api);
-      })
-      .catch((err: Loose) => {
-        cb(err instanceof Error ? err : new Error(String(err?.message ?? err)));
-      });
+    void loginAsync(credentials, {}).then(
+      (ctx) => cb(null, (ctx as Loose).api),
+      (err: Loose) => cb(err instanceof Error ? err : new Error(String(err?.message ?? err)))
+    );
     return;
   }
 
   if (typeof callback === "function") {
     const opts = (optionsOrCallback || {}) as FcaOptions;
-    void loginAsync(credentials, opts)
-      .then((ctx) => {
-        callback!(null, (ctx as Loose).api);
-      })
-      .catch((err: Loose) => {
-        callback!(err instanceof Error ? err : new Error(String(err?.message ?? err)));
-      });
+    void loginAsync(credentials, opts).then(
+      (ctx) => callback!(null, (ctx as Loose).api),
+      (err: Loose) => callback!(err instanceof Error ? err : new Error(String(err?.message ?? err)))
+    );
     return;
   }
 
@@ -250,7 +244,10 @@ export function loginLegacy(
 
   const p = loginAsync(credentials, (options || {}) as FcaOptions);
   if (typeof callback === "function") {
-    p.then((res) => callback?.(null, res)).catch((err) => callback?.(err));
+    void p.then(
+      (res) => callback?.(null, res),
+      (err) => callback?.(err instanceof Error ? err : new Error(String(err?.message ?? err)))
+    );
     return;
   }
   return p;
