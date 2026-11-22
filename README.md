@@ -183,7 +183,7 @@ The intended integration target is **[OmegA-Goatbot](https://github.com/nirzon-i
 
 The goal is a drop-in FCA experience: preserve the bot's existing login pattern, callback/event lifecycle and expected `api` methods, so the bot can use the npm package without an extra bridge or a separate login system.
 
-The compatibility audit is still in progress. GoatBot-specific extensions such as `sessionGuard` and its `e2ee` API are not implemented in the uploaded OmegA-FCA source archive. Do not replace the bot's current FCA dependency until the compatibility matrix and bot-side regression tests confirm the required methods and lifecycle behavior.
+The compatibility audit is still in progress. GoatBot's `sessionGuard()` / `stopSessionGuard()` API is implemented with account-bound atomic AppState snapshots; its live session-refresh behavior still needs runtime validation. The `e2ee` API remains unimplemented. Do not replace the bot's current FCA dependency until the compatibility matrix and bot-side regression tests confirm the required methods and lifecycle behavior.
 
 - [EryXen API Compatibility Audit](docs/ERYXEN-API-COMPATIBILITY.md)
 - [GoatBot Compatibility Notes](docs/GOATBOT-COMPATIBILITY.md)
