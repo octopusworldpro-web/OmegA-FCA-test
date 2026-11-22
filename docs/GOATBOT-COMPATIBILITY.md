@@ -199,7 +199,7 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - Implemented `shareLink` as an URL-bearing Messenger send through the existing message sender; `reactToPost` is exposed as an alias of the existing `setPostReaction` GraphQL command.
 - Added `postComment`, `reactToComment` and `sharePost` GraphQL commands using the Comet mutation contracts documented by public request examples. Comment creation uses `useCometUFICreateCommentMutation` (`33964973576450400`); comment reaction uses `CometUFIFeedbackReactMutation` (`7616998081714004`); post sharing uses `ComposerStoryCreateMutation` (`26264075519853494`). These identifiers/payloads are version-sensitive community-observed contracts, not official stable APIs.
 - Exposed the methods on the legacy API and `createFcaClient` message/account namespaces. Added synthetic tests for mutation IDs, payload fields, ID normalization, reaction mapping, URL validation, and sender delegation.
-- `createPost` is not listed in the EryXen README social API and is not part of this task's compatibility target.
+- `createPost` is outside this task's compatibility target.
 - **Validation boundary:** CI verifies local request construction, callback/Promise plumbing and API exposure. Live Facebook acceptance of these private GraphQL mutations, share previews and read/delivery receipts remains unverified.
 
 ## Task 18 — Incoming media, quoted replies and GoatBot message API
