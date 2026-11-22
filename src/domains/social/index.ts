@@ -58,12 +58,8 @@ export function createSocialDomain(deps: SocialDomainDeps) {
     reaction: string | number | CallbackResult = "like",
     callback?: CallbackResult
   ) => {
-    let cb = callback;
-    let kind: string | number = reaction;
-    if (typeof reaction === "function") {
-      cb = reaction as unknown as CallbackResult;
-      kind = "like";
-    }
+    const cb = typeof reaction === "function" ? reaction : callback;
+    const kind: string | number = typeof reaction === "function" ? "like" : reaction;
     const { callback: done, promise } = callbackPromise<Loose>(cb);
     try {
       const id = normalizeId(commentID, "commentID");
@@ -120,7 +116,6 @@ export function createSocialDomain(deps: SocialDomainDeps) {
           attachments: null,
           feedback_id: feedbackId,
           formatting_style: null,
-          vod_video_timestamp: null,
           message: { ranges: [], text },
           attribution_id_v2: "ProfileCometTimelineListViewRoot.react,comet.profile.timeline.list,tap_bookmark," + Date.now() + ",271712," + deps.ctx.userID + ",,",
           vod_video_timestamp: null,
