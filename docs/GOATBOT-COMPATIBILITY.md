@@ -142,3 +142,10 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - Forced cycling is skipped during another lifecycle transition and only schedules a reconnect after cleanup completes.
 - Pending MQTT request tasks are rejected during teardown; /ls_resp consumes matching tasks before invoking callbacks, preventing duplicate callback delivery and stale map entries. Unknown/expired request IDs are ignored.
 - Synthetic tests cover one-shot task response consumption and unknown request IDs. Authenticated live listener recovery still requires a real session runtime test.
+
+
+## Task 12 — Message send/receive request lifecycle
+
+- Hardened the shared MQTT `/ls_req` → `/ls_resp` acknowledgement helper used by message sending. It now validates request IDs and timeouts, matches only the corresponding response, handles Buffer/string payloads, and rejects on MQTT error/close/offline/end instead of waiting for a timeout.
+- Publish exceptions and publish callback errors settle the request and remove every registered listener/timer. The timeout is installed before publish, avoiding a synchronous publish-error timer leak.
+- Added synthetic tests for matching ACKs, cleanup, synchronous publish failures, connection loss and invalid timeout values. Existing send-message payload construction and receive-event dispatch remain wired through the legacy API and grouped `client.messages` namespace; authenticated Facebook send/receive still needs a live account test.
