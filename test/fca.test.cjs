@@ -1541,7 +1541,7 @@ test("incoming MQTT message preserves media, mentions, participants and quoted r
     participants: ["sender-1", "sender-2", "sender-3"],
     repliedToMessage: quoted
   });
-  assert.equal(event.type, "message");
+  assert.equal(event.type, "message_reply");
   assert.equal(event.senderID, "sender-1");
   assert.equal(event.threadID, "thread-9");
   assert.equal(event.messageID, "message-1");
