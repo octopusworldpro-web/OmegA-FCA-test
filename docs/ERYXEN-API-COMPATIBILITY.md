@@ -100,3 +100,17 @@ The current facade is a compatibility layer, not proof that every underlying met
 ### Task 1 audit conclusion
 
 Static source and contract review is complete for the available OmegA-FCA files and GoatBot `main` manifest. EryXen's public API documentation has been inventoried, but its full repository/tarball could not be independently inspected; this is recorded as an explicit limitation, not treated as a successful source audit. The package is excluded for security reasons. No dependency was added and no credentials or live Facebook session were used.
+
+
+## Task 2 — Login callback and Promise bridge
+
+- `login(credentials, callback)` uses the classic FCA callback shape and returns no Promise.
+- `login(credentials, options, callback)` applies supplied options and uses the same flat API callback result.
+- `login(credentials, options?)` returns a Promise resolving to the OmegA-FCA context.
+- `loginAsync(credentials, options?)` is the explicit Promise/context entry point.
+- `loginLegacy` remains available for callers that expect a callback with the context object.
+- CommonJS package root and `dist/cjs.cjs` expose callable default login plus named properties; ESM exposes default login and named exports.
+
+**Fix in Task 2:** callback handlers previously used `.then(success).catch(failure)`. If user callback code threw, that exception could be mistaken for a login failure and invoke the callback a second time. The bridge now uses the Promise `.then(success, failure)` rejection branch, so callback exceptions are not fed back into the same callback as a second invocation.
+
+**Validation boundary:** package export-shape tests and CI validate CJS/ESM entrypoints, build, typecheck and lint. Live success/failure login callback behavior still requires a controlled authenticated integration test; it is not claimed as live-verified here.
