@@ -202,3 +202,12 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - `createPost` is not listed in the EryXen README social API and is not part of this task's compatibility target.
 - **Validation boundary:** CI verifies local request construction, callback/Promise plumbing and API exposure. Live Facebook acceptance of these private GraphQL mutations, share previews and read/delivery receipts remains unverified.
 
+## Task 18 — Incoming media, quoted replies and GoatBot message API
+
+- Added a shared incoming-attachment normalizer for MQTT delta attachments and GraphQL getMessage results. It accepts Mercury JSON strings, Mercury-wrapped attachments and GraphQL blob_attachment records.
+- Normalized photo, video, audio, file, sticker, animated-image and extensible/share attachments through the existing legacy formatter. If optional or malformed media metadata prevents full formatting, the event retains a safe unknown attachment record with available ID/URL/filename and a diagnostic string instead of dropping the entire incoming message.
+- Incoming NewMessage events retain the legacy message fields: type, senderID, threadID, messageID, body, args, attachments, mentions, timestamp, isGroup, participantIDs and isUnread. A quoted message is exposed as event.messageReply and the event type is message_reply.
+- MQTT deltaMessageReply now uses the same quoted-message formatter for both the replying message and its quoted parent. If the inline quoted object is missing its thread metadata, the existing GraphQL forced-fetch path remains available; fetched blob attachments also use the resilient normalizer.
+- getMessage(threadID, messageID) now returns the same message/reply structure with normalized media, args, mention maps, participant IDs and messageReply.
+- GoatBot compatibility is covered through the raw getMessage API and client.messages.get, client.messages.uploadAttachment and client.messages.forwardAttachment facade mappings. Synthetic tests cover incoming photo/video/audio/file media, malformed Mercury JSON, mentions, participants, quote metadata and GoatBot reply event fields.
+- **Validation boundary:** build, tests, TypeScript, lint and package dry-run validate local parsing and API shape. Real Facebook attachment payload variations, CDN URL resolution, forced-fetch reply lookup and end-to-end GoatBot command handling still require an authorized live session.
