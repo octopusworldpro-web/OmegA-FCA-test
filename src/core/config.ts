@@ -214,6 +214,27 @@ export function resolveConfig(input?: Loose): FcaConfig {
     normalizeNumber(config.checkUpdate.timeoutMs, defaultConfig.checkUpdate.timeoutMs)
   );
 
+  // Migrate legacy upstream defaults instead of silently keeping their
+  // package updater or sending credentials to the old third-party login API.
+  if (config.checkUpdate.packageName === "@dongdev/fca-unofficial") {
+    config.checkUpdate.packageName = DEFAULT_PACKAGE_NAME;
+    config.checkUpdate.enabled = false;
+    config.checkUpdate.install = false;
+    config.checkUpdate.notifyIfCurrent = false;
+  }
+
+  try {
+    const legacyApiHosts = new Set(["minhdong.site", "donixdev.com"]);
+    const configuredHost = config.apiServer ? new URL(config.apiServer).hostname.toLowerCase() : "";
+    if (legacyApiHosts.has(configuredHost)) {
+      config.apiServer = "";
+      config.autoLogin = false;
+      config.apiKey = "";
+    }
+  } catch {
+    // Invalid endpoints are rejected by the credential-login helper.
+  }
+
   config.autoUpdate = config.checkUpdate.enabled;
   return config;
 }
