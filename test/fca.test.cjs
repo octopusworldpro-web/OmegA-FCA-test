@@ -418,6 +418,43 @@ test("sessionGuard atomically saves only the active account AppState", () => {
   }
 });
 
+test("MQTT stop APIs are safe when called through the legacy API and cancel queued reconnect", async () => {
+  let connectCalls = 0;
+  const ctx = {
+    firstListen: true,
+    lastSeqId: 123,
+    globalOptions: { autoReconnect: true },
+    tasks: new Map()
+  };
+  const api = {};
+  const listener = fca.createRealtimeListener({
+    EventEmitter: require("node:events").EventEmitter,
+    logger: () => {},
+    emitAuth: () => {},
+    createMiddlewareSystem: () => ({
+      use: () => true,
+      remove: () => true,
+      clear: () => {},
+      list: () => [],
+      setEnabled: () => true,
+      wrapCallback: (callback) => callback,
+      count: 0
+    }),
+    topics: [],
+    listenMqttCore: () => { connectCalls += 1; },
+    getSeqIDFactory: async () => {}
+  });
+  listener({}, api, ctx, { cycleMs: 0, reconnectDelayMs: 15, reconnectAfterStop: true });
+  assert.equal(connectCalls, 1);
+  assert.equal(typeof api.stopListening, "function");
+  assert.equal(typeof api.stopListeningAsync, "function");
+  await api.stopListeningAsync();
+  await api.stopListeningAsync();
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(connectCalls, 1);
+  assert.equal(ctx._reconnectTimer, null);
+});
+
 test("public exports are available", () => {
   assert.strictEqual(typeof fca.login, "function");
   assert.strictEqual(typeof fca.createFcaClient, "function");
