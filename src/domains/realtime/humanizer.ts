@@ -102,6 +102,7 @@ export function createHumanizerController(
         maxPerMinute: clamp(merged.maxPerMinute, DEFAULTS.maxPerMinute, 1000),
         perThread: merged.perThread !== false
       };
+      if (options.enabled) install();
       return { ...options };
     },
     getOptions() { return { ...options }; },
