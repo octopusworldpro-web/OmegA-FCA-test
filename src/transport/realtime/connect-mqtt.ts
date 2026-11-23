@@ -276,7 +276,6 @@ function createListenMqtt(deps: Loose) {
         const publishNext = (index: number) => {
           if (!isActiveClient(mqttClient) || !mqttClient.connected) return;
           if (index >= outbound.length) {
-            startTmsTimeout();
             return;
           }
           const item = outbound[index];
@@ -293,6 +292,10 @@ function createListenMqtt(deps: Loose) {
             publishNext(index + 1);
           });
         };
+        // Arm the /t_ms waiter BEFORE publishing the initial sync queue.
+        // Facebook may answer /messenger_sync_create_queue immediately; waiting
+        // until all three QoS1 publish callbacks finish can miss that response.
+        startTmsTimeout();
         publishNext(0);
       });
     });
@@ -311,6 +314,7 @@ function createListenMqtt(deps: Loose) {
         } else if (jsonMessage.type === "jewel_requests_remove_old") {
           globalCallback(null, { type: "friend_request_cancel", actorFbId: jsonMessage.from.toString(), timestamp: Date.now().toString() });
         } else if (topic === "/t_ms") {
+          logger("mqtt /t_ms received", "info");
           if (ctx.tmsWait && typeof ctx.tmsWait == "function") ctx.tmsWait();
           const syncState = normalizeMqttSyncState(jsonMessage, { lastSeqId: ctx.lastSeqId, syncToken: ctx.syncToken });
           ctx.lastSeqId = syncState.lastSeqId;
