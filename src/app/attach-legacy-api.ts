@@ -1,6 +1,7 @@
 import { createAccountDomain } from "../domains/account";
 import { createHttpDomain } from "../domains/http";
 import { createMessagesDomain } from "../domains/messages";
+import { createMediaShortcuts } from "../domains/messages/media-shortcuts";
 import { createUploadAttachmentCommand } from "../domains/messages/commands/upload-attachment";
 import { createRealtimeListener } from "../domains/realtime/listener";
 import { createRealtimeMiddlewareSystem } from "../domains/realtime/middleware";
@@ -210,10 +211,17 @@ export function attachLegacyApiSurface(
     }
   }) as Record<string, Loose>;
 
+  const mediaShortcuts = createMediaShortcuts({ sendMessage: messages.send as Loose });
+
   const social = createSocialDomain({
     defaultFuncs,
     ctx,
     sendMessage: messages.send,
+    sendImage: mediaShortcuts.sendImage,
+    sendVideo: mediaShortcuts.sendVideo,
+    sendAudio: mediaShortcuts.sendAudio,
+    sendFile: mediaShortcuts.sendFile,
+    sendLocation: mediaShortcuts.sendLocation,
     logError
   });
 
@@ -520,6 +528,11 @@ export function attachLegacyApiSurface(
   const namespaces: FcaClientNamespaces = {
     messages: compactNamespace({
       send: messages.send,
+      sendImage: mediaShortcuts.sendImage,
+      sendVideo: mediaShortcuts.sendVideo,
+      sendAudio: mediaShortcuts.sendAudio,
+      sendFile: mediaShortcuts.sendFile,
+      sendLocation: mediaShortcuts.sendLocation,
       edit: messages.edit,
       delete: messages.delete,
       unsend: messages.unsend,
