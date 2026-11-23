@@ -34,7 +34,7 @@ function normalizeDelay(value: HumanizerOptions["reactDelayMs"]): number | [numb
     const second = clamp(value[1], first, 60000);
     return [Math.min(first, second), Math.max(first, second)];
   }
-  return clamp(value, DEFAULTS.reactDelayMs, 60000);
+  return clamp(value, 3000, 60000);
 }
 
 export function createHumanizerController(
