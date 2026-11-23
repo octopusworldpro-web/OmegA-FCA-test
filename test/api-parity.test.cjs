@@ -47,36 +47,76 @@ async function main() {
   assert.throws(() => shortcuts.sendLocation(0, 0, ""), /threadID/);
   assert.throws(() => shortcuts.sendImage("", "thread"), /file path/);
 
-  const legacy = {
-    listenMqtt() {},
-    getHumanizer() { return { enabled: true }; },
-    markAsDelivered() {},
-    markAsRead() {},
-    unsendMessage() {},
-    getCurrentUserID() { return "123456789"; },
-    getThreadList() {},
-    setOptions() {},
-    sendImage() {},
-    sendVideo() {},
-    sendAudio() {},
-    sendFile() {},
-    sendLocation() {}
-  };
+  // Mirror the flat FCA methods consumed by GoatBot and verify every
+  // documented namespace alias remains available through createFcaClient().
+  const methodNames = [
+    "listenMqtt", "stopListening", "stopListeningAsync",
+    "getHumanizer", "markAsDelivered", "markAsRead", "markAsReadAll",
+    "markAsSeen", "unsendMessage", "deleteMessage", "editMessage",
+    "getCurrentUserID", "getAppState", "getCookies", "setOptions",
+    "sendMessage", "sendImage", "sendVideo", "sendAudio", "sendFile",
+    "sendLocation", "sendTypingIndicator", "setMessageReaction",
+    "shareContact", "shareLink", "uploadAttachment", "forwardAttachment",
+    "getThreadList", "getThreadInfo", "getThreadHistory", "getThreadPictures",
+    "createNewGroup", "addUserToGroup", "removeUserFromGroup",
+    "changeAdminStatus", "changeGroupImage", "changeThreadColor",
+    "changeThreadEmoji", "changeNickname", "setTitle", "muteThread",
+    "changeArchivedStatus", "deleteThread", "createPoll", "createThemeAI",
+    "getThemePictures", "handleMessageRequest", "searchForThread",
+    "getUserID", "getUserInfo", "getUserInfoV2", "getFriendsList",
+    "addExternalModule", "changeAvatar", "changeBio", "logout",
+    "refreshFb_dtsg", "setPostReaction", "reactToPost", "reactToComment",
+    "postComment", "sharePost", "unfriend", "changeBlockedStatus",
+    "httpGet", "httpPost", "postFormData"
+  ];
+  const legacy = Object.fromEntries(methodNames.map((name) => [name, function () {
+    return name;
+  }]));
+  legacy.threadColors = [];
+  legacy.scheduler = { schedule() {} };
+
   const client = createFcaClient(legacy);
-  assert.equal(typeof client.realtime.listen, "function");
-  assert.equal(typeof client.account.getHumanizer, "function");
-  assert.equal(client.account.getCurrentUserID(), "123456789");
-  assert.equal(typeof client.account.setOptions, "function");
-  assert.equal(typeof client.messages.markDelivered, "function");
-  assert.equal(typeof client.messages.markRead, "function");
-  assert.equal(typeof client.messages.unsend, "function");
-  assert.equal(typeof client.messages.sendImage, "function");
-  assert.equal(typeof client.messages.sendVideo, "function");
-  assert.equal(typeof client.messages.sendAudio, "function");
-  assert.equal(typeof client.messages.sendFile, "function");
-  assert.equal(typeof client.messages.sendLocation, "function");
-  assert.equal(typeof client.threads.getList, "function");
-  console.log("FCA media API parity tests passed.");
+  const namespaceMethods = {
+    realtime: ["listen", "stop", "stopAsync"],
+    messages: [
+      "send", "sendImage", "sendVideo", "sendAudio", "sendFile",
+      "sendLocation", "edit", "delete", "unsend", "markRead",
+      "markReadAll", "markSeen", "markDelivered", "typing", "react",
+      "shareContact", "shareLink", "uploadAttachment", "forwardAttachment"
+    ],
+    threads: [
+      "getInfo", "getList", "getHistory", "getPictures", "createGroup",
+      "addUsers", "removeUser", "setAdmin", "setImage", "setColor",
+      "setEmoji", "setNickname", "setTitle", "mute", "archive",
+      "delete", "createPoll", "createThemeAI", "getThemePictures",
+      "handleMessageRequest", "search"
+    ],
+    users: ["getID", "getInfo", "getInfoV2", "getFriends"],
+    account: [
+      "getCurrentUserID", "getAppState", "getCookies", "setOptions",
+      "getHumanizer", "logout", "changeAvatar", "changeBio"
+    ],
+    http: ["get", "post", "postFormData"]
+  };
+
+  for (const [namespace, names] of Object.entries(namespaceMethods)) {
+    for (const name of names) {
+      assert.equal(
+        typeof client[namespace][name],
+        "function",
+        `Missing ${namespace}.${name} FCA compatibility alias`
+      );
+    }
+  }
+  assert.equal(client.raw, legacy);
+  assert.equal(client.account.getCurrentUserID(), "getCurrentUserID");
+  assert.equal(client.messages.send(), "sendMessage");
+  assert.equal(client.threads.getList(), "getThreadList");
+  assert.equal(client.users.getInfo(), "getUserInfo");
+  assert.equal(client.http.get(), "httpGet");
+  assert.deepEqual(client.threads.colors, []);
+
+  console.log("FCA media and legacy API parity tests passed.");
 }
 
 main().catch((error) => {
