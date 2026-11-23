@@ -33,7 +33,7 @@ async function main() {
   assert.equal(asyncCount, 2);
 
   system.clear();
-  system.use("drop", (_event, next) => { next(); return false; });
+  system.use("drop", () => false);
   const dropped = await runProcess(system, { type: "message" });
   assert.equal(dropped.result, null);
 
