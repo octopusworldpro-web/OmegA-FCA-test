@@ -38,12 +38,7 @@ export function createRealtimeMiddlewareSystem(logger?: (text: string, type?: st
       throw new Error("Middleware must be a function or (name, function)");
     }
 
-    const wrapped: MiddlewareEntry = {
-      name,
-      fn: middlewareFn,
-      enabled: true
-    };
-
+    const wrapped: MiddlewareEntry = { name, fn: middlewareFn, enabled: true };
     middlewareStack.push(wrapped);
     logger?.(`Middleware "${name}" added`, "info");
 
@@ -57,27 +52,13 @@ export function createRealtimeMiddlewareSystem(logger?: (text: string, type?: st
   }
 
   function remove(identifier: string | MiddlewareFunction) {
-    if (typeof identifier === "string") {
-      const index = middlewareStack.findIndex((item) => item.name === identifier);
-      if (index !== -1) {
-        const removed = middlewareStack.splice(index, 1)[0];
-        logger?.(`Middleware "${removed.name}" removed`, "info");
-        return true;
-      }
-      return false;
-    }
-
-    if (typeof identifier === "function") {
-      const index = middlewareStack.findIndex((item) => item.fn === identifier);
-      if (index !== -1) {
-        const removed = middlewareStack.splice(index, 1)[0];
-        logger?.(`Middleware "${removed.name}" removed`, "info");
-        return true;
-      }
-      return false;
-    }
-
-    return false;
+    const index = typeof identifier === "string"
+      ? middlewareStack.findIndex((item) => item.name === identifier)
+      : middlewareStack.findIndex((item) => item.fn === identifier);
+    if (index === -1) return false;
+    const removed = middlewareStack.splice(index, 1)[0];
+    logger?.(`Middleware "${removed.name}" removed`, "info");
+    return true;
   }
 
   function clear() {
@@ -92,12 +73,10 @@ export function createRealtimeMiddlewareSystem(logger?: (text: string, type?: st
 
   function setEnabled(name: string, enabled: boolean) {
     const middleware = middlewareStack.find((item) => item.name === name);
-    if (middleware) {
-      middleware.enabled = enabled;
-      logger?.(`Middleware "${name}" ${enabled ? "enabled" : "disabled"}`, "info");
-      return true;
-    }
-    return false;
+    if (!middleware) return false;
+    middleware.enabled = enabled;
+    logger?.(`Middleware "${name}" ${enabled ? "enabled" : "disabled"}`, "info");
+    return true;
   }
 
   function process(event: Loose, finalCallback: MiddlewareCallback) {
@@ -144,10 +123,8 @@ export function createRealtimeMiddlewareSystem(logger?: (text: string, type?: st
           finish(null, null);
         }
       } catch (invokeErr: Loose) {
-        logger?.(
-          \`Middleware "\${middleware.name}" error: \${invokeErr && invokeErr.message ? invokeErr.message : String(invokeErr)}\`,
-          "error"
-        );
+        const detail = invokeErr && invokeErr.message ? invokeErr.message : String(invokeErr);
+        logger?.(`Middleware "${middleware.name}" error: ${detail}`, "error");
         advance(invokeErr);
       }
     }
@@ -157,21 +134,12 @@ export function createRealtimeMiddlewareSystem(logger?: (text: string, type?: st
 
   function wrapCallback(callback: MiddlewareCallback) {
     return function wrappedCallback(err: Loose, event: Loose) {
-      if (err) {
-        return callback(err, null);
-      }
-
-      if (!event) {
-        return callback(null, null);
-      }
+      if (err) return callback(err, null);
+      if (!event) return callback(null, null);
 
       process(event, (middlewareErr, processedEvent) => {
-        if (middlewareErr) {
-          return callback(middlewareErr, null);
-        }
-        if (processedEvent === null) {
-          return;
-        }
+        if (middlewareErr) return callback(middlewareErr, null);
+        if (processedEvent === null) return;
         callback(null, processedEvent);
       });
     };
