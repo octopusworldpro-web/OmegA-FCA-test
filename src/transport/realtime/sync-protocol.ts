@@ -20,7 +20,7 @@ export function validateMqttSubscriptionAck(
   return { ok: true };
 }
 
-function sequenceNumber(value: unknown): number | null {
+export function normalizeMqttSequenceId(value: unknown): number | null {
   if (typeof value !== "number" && typeof value !== "string") return null;
   if (typeof value === "string" && !/^\d+$/.test(value.trim())) return null;
   const parsed = Number(value);
@@ -32,8 +32,8 @@ export function normalizeMqttSyncState(
   current: { lastSeqId?: number; syncToken?: string }
 ): { lastSeqId?: number; syncToken?: string } {
   const next: { lastSeqId?: number; syncToken?: string } = {};
-  const first = sequenceNumber(message.firstDeltaSeqId);
-  const last = sequenceNumber(message.lastIssuedSeqId);
+  const first = normalizeMqttSequenceId(message.firstDeltaSeqId);
+  const last = normalizeMqttSequenceId(message.lastIssuedSeqId);
   if (first !== null) next.lastSeqId = first;
   if (last !== null) next.lastSeqId = last;
   const token = message.syncToken;
