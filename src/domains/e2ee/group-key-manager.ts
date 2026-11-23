@@ -61,7 +61,9 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
     const recipients = normalizeMembers(await deps.listMemberDevices(groupId, sender), sender);
     if (!recipients.length) throw new Error("group has no remote member devices for Sender Key distribution");
     const distribution = await deps.groups.createDistribution(groupId, sender);
-    const sent = distributed.get(keyId(groupId, sender)) ?? new Set<string>();
+    const distributionKey = keyId(groupId, sender);
+    const sent = distributed.get(distributionKey) ?? new Set<string>();
+    distributed.set(distributionKey, sent);
     const newlySent: SignalGroupDevice[] = [];
     for (const recipient of recipients) {
       if (sent.has(deviceId(recipient))) continue;
