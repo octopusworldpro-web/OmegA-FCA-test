@@ -332,3 +332,32 @@ login(credentials, {
 **E2EE distinction:** these are standard Messenger receipts. The existing Signal read-receipt payload helper is not yet connected to the authenticated E2EE session or MQTT transport. Encrypted E2EE read receipts remain pending for the E2EE integration/action steps and are not claimed complete here.
 
 Validation status: source and test changes committed; GitHub Actions/local test execution still pending. Live Facebook receipt behavior has not been verified.
+
+
+## Step 3 — Opt-in E2EE core runtime
+
+- Added `createSignalE2EERuntime` to assemble the encrypted account-bound key store, libsignal store adapters, identity initialization, signed-prekey persistence, direct-message operations, encrypted action helpers and group Sender Keys operations.
+- Login accepts an explicit `e2ee` option. When `enabled: true`, a verified account UID, encrypted-store path, 32-byte-minimum secret, positive local Signal device ID and caller-supplied compatible libsignal module are required. The runtime is attached as both `ctx.e2ee` and `api.e2ee`.
+- E2EE remains disabled by default. Existing FCA login behavior is unchanged unless explicitly enabled. If opted-in initialization fails, login reports the E2EE initialization error rather than silently presenting an uninitialized E2EE API.
+- `api.e2ee.close()` closes the encrypted key store. The runtime initializes local Signal state only; it does not register a Facebook device, fetch/publish Messenger prekey bundles, route Messenger E2EE envelopes, or claim live Messenger interoperability.
+- The libsignal module is injected by the application; no mandatory dependency or license choice is imposed by OmegA-FCA. Consumers must review the chosen implementation's license and platform support.
+
+Example:
+
+```js
+const ctx = await login(credentials, {
+  e2ee: {
+    enabled: true,
+    storagePath: "./private-data/account.signal",
+    encryptionKey: process.env.OMEGA_SIGNAL_STORE_KEY,
+    localDeviceId: 1,
+    signalModule: require("@signalapp/libsignal-client")
+  }
+});
+const api = ctx.api;
+await api.e2ee.close();
+```
+
+Use a unique secret per deployment/account, keep the store file and secret out of Git, and provision the local device ID according to the selected Messenger registration flow. Do not use the example device ID without verifying it for your registered device.
+
+Validation boundary: an injected-module lifecycle test is included. Local npm build/test/typecheck, CI, actual libsignal native-module compatibility, Facebook device registration, Messenger E2EE envelope exchange and authorized live interoperability remain unverified.
