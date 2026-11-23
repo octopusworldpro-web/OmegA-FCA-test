@@ -113,7 +113,7 @@ export { formatIncomingAttachment } from "./utils/format/attachment";
 export { formatDeltaMessage, formatDeltaQuotedMessage } from "./utils/format/delta";
 export { formatFetchedMessage } from "./domains/messages/queries/get-message";
 
-export { createSignalKeyStore, type SignalKeyStore, type SignalStoreOptions, type SignalKeyPairRecord, type SignalSignedPreKeyRecord, type SignalSessionAddress } from "./domains/e2ee/signal-key-store";
+export { createSignalKeyStore, type SignalKeyStore, type SignalStoreOptions, type SignalKeyPairRecord, type SignalSignedPreKeyRecord, type SignalSessionAddress, type SignalDeviceRecord } from "./domains/e2ee/signal-key-store";
 
 export { createLibsignalStores, ensureSignalIdentity, createSignalSignedPreKey, createSignalPreKey, createSignalKyberPreKey } from "./domains/e2ee/libsignal-adapter";
 export { establishSignalDirectSession, encryptSignalDirectMessage, decryptSignalDirectMessage, createSignalDirectMessages, type SignalPeerAddress, type SignalCiphertext, type SignalDirectMessageDeps } from "./domains/e2ee/direct-messages";
