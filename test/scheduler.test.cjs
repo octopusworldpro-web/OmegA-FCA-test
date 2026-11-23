@@ -42,9 +42,10 @@ async function main() {
   scheduler.cleanup();
   assert.equal(scheduler.getScheduledCount(), 1, "cleanup must not discard a pending message");
 
+  currentTime += 2_147_483_647;
   timeouts[0].fn();
   assert.equal(sent.length, 0, "message must not send before its timestamp");
-  assert.equal(timeouts[1].delay, farFuture - currentTime - 2_147_483_647);
+  assert.equal(timeouts[1].delay, farFuture - currentTime);
 
   currentTime = farFuture;
   timeouts[1].fn();
