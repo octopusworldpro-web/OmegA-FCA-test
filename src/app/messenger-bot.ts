@@ -189,7 +189,11 @@ export class MessengerBot extends EventEmitter implements MessengerBotLike {
     const match =
       typeof trigger === "string"
         ? (text: string) => text.toLowerCase().includes(trigger.toLowerCase())
-        : (text: string) => trigger.test(text);
+        : (text: string) => {
+            // Reset stateful RegExp instances between incoming messages.
+            trigger.lastIndex = 0;
+            return trigger.test(text);
+          };
 
     this.use(async (ctx, next) => {
       const text = ctx.text;
@@ -282,15 +286,39 @@ export class MessengerBot extends EventEmitter implements MessengerBotLike {
       return;
     }
     const mqtt = this._mqtt;
-    const asyncStop = mqtt.stopListeningAsync;
-    if (typeof asyncStop === "function") {
-      await asyncStop();
-    } else {
-      mqtt.stopListening?.();
+    try {
+      const asyncStop = mqtt.stopListeningAsync;
+      if (typeof asyncStop === "function") {
+        await asyncStop();
+      } else if (typeof mqtt.stopListening === "function") {
+        await new Promise<void>((resolve, reject) => {
+          let settled = false;
+          const finish = (error?: unknown) => {
+            if (settled) return;
+            settled = true;
+            if (error) reject(error);
+            else resolve();
+          };
+          try {
+            const result = mqtt.stopListening(finish);
+            if (result && typeof result.then === "function") {
+              result.then(() => finish(), finish);
+            } else if (mqtt.stopListening.length === 0) {
+              finish();
+            }
+          } catch (error) {
+            finish(error);
+          }
+        });
+      }
+    } finally {
+      // Always release local listeners/state, even when transport shutdown fails.
+      mqtt.removeAllListeners?.();
+      if (this._mqtt === mqtt) {
+        this._mqtt = null;
+        this._listening = false;
+      }
     }
-    mqtt.removeAllListeners?.();
-    this._mqtt = null;
-    this._listening = false;
   }
 
   private enqueueComposerIfNeeded(event: MqttEvent): void {
