@@ -141,7 +141,7 @@ export async function registerFacebookE2EEDevice(
     throw new Error("Facebook returned an invalid ICDC device list");
   }
 
-  const identities = fetched.device_identities.map((value) => {
+  const identities: Buffer[] = fetched.device_identities.map((value) => {
     if (typeof value !== "string" || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) {
       throw new Error("Facebook returned a malformed ICDC identity");
     }
