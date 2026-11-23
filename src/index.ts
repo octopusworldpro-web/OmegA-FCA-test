@@ -126,3 +126,5 @@ export { createSignalSenderKeyGroups, type SenderKeyDistribution, type SenderKey
 export { createSignalEncryptedGroupMedia, type EncryptedGroupMediaDescriptor } from "./domains/e2ee/encrypted-group-media";
 
 export { createMediaShortcuts, type MediaShortcutDeps } from "./domains/messages/media-shortcuts";
+
+export { registerFacebookE2EEDevice, type FacebookE2EERegistrationOptions, type FacebookE2EERegistrationResult } from "./domains/e2ee/device-registration";
