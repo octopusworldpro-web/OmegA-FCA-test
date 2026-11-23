@@ -303,7 +303,8 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
       }));
     }
 
-    return function listenRealtime(callback?: ListenerCallback): RealtimeMessageEmitter {
+    return function listenRealtime(callback?: ListenerCallback, opts?: Record<string, Loose>): RealtimeMessageEmitter {
+      if (opts) conf = mqttConf(ctx, opts);
       ctx._stopRequested = false;
       ctx._getSeqRetryAttempts = 0;
 
