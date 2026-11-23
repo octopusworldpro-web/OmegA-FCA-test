@@ -1714,7 +1714,7 @@ test("Signal E2EE read receipts are encrypted application actions and never call
 test("Signal E2EE action decoder rejects malformed and non-receipt payloads", async () => {
   const actions = fca.createSignalE2EEActions({
     encrypt: async () => ({ type: 2, body: "eA==" }),
-    decrypt: async () => Buffer.from(JSON.stringify({ version: 1, kind: "typing", threadID: "t", messageIDs: ["m"], readAt: 1 }))
+    decrypt: async () => Buffer.from(JSON.stringify({ version: 1, kind: "typing", threadID: "t", active: true, sentAt: 1, expiresAt: 10001 }))
   });
   await assert.rejects(actions.decryptReadReceipt({ name: "peer", deviceId: 1 }, { type: 2, body: "eA==" }), /Invalid E2EE read receipt/);
   const malformed = fca.createSignalE2EEActions({
