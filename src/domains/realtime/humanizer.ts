@@ -75,7 +75,7 @@ export function createHumanizerController(
         ? Math.round(delayRange[0] + Math.random() * (delayRange[1] - delayRange[0]))
         : delayRange;
       const wait = Math.max(delay, cooldownRemaining);
-      lastRun.set(key, now + wait);
+      lastRun.set(key, now);
 
       const threadID = event.threadID ?? event.threadId;
       if (wait > 0 && threadID != null && typeof sendTypingIndicator === "function") {
