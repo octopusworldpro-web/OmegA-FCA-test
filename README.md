@@ -169,6 +169,24 @@ The source also contains an optional email/password token-provider integration. 
 - No checkpoint bypass is promised or provided.
 - Never commit `appstate.json`, `account.txt`, cookie exports, passwords, 2FA seeds, API keys, or populated `fca-config.json` files.
 
+### Adaptive safety & backward compatibility
+
+The adaptive safety handler is additive: existing login signatures, callback/event flow, and message payloads remain supported. Normal successful requests keep their existing behavior; retry handling only activates for retryable failures, and message deduplication is opt-in through an `idempotencyKey` on the message object.
+
+When an explicit Facebook checkpoint/challenge response is detected, outgoing actions are paused and a `checkpoint` event is emitted. The account owner must resolve the challenge. The library does not bypass checkpoints or automatically unlock the account.
+
+After the owner resolves it, the caller may explicitly verify the session and resume:
+
+```js
+api.resumeAfterCheckpoint(async () => {
+  // Return true only after your own authenticated session check succeeds.
+  return await verifyMyFacebookSession();
+});
+```
+
+The verifier must return `true`; a failed/throwing check leaves outgoing actions paused. The namespaced client exposes the same method at `client.account.resumeAfterCheckpoint`. New events are `checkpoint` and `safety_resumed`; existing event names are unchanged.
+
+
 <details>
 <summary><b>Security review documents</b></summary>
 
