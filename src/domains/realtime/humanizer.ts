@@ -16,7 +16,7 @@ export interface HumanizerController {
 }
 
 const DEFAULTS: Required<HumanizerOptions> = {
-  enabled: true,
+  enabled: false,
   reactDelayMs: 3000,
   cooldownMs: 5500,
   maxPerMinute: 20,
