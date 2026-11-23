@@ -39,6 +39,11 @@ function createFallbackNamespaces(api: LegacyApiLike): FcaClientNamespaces {
   return {
     messages: compactNamespace({
       send: bindOptionalMethod(api, "sendMessage"),
+      sendImage: bindOptionalMethod(api, "sendImage"),
+      sendVideo: bindOptionalMethod(api, "sendVideo"),
+      sendAudio: bindOptionalMethod(api, "sendAudio"),
+      sendFile: bindOptionalMethod(api, "sendFile"),
+      sendLocation: bindOptionalMethod(api, "sendLocation"),
       edit: bindOptionalMethod(api, "editMessage"),
       delete: bindOptionalMethod(api, "deleteMessage"),
       unsend: bindOptionalMethod(api, "unsendMessage"),
