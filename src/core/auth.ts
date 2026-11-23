@@ -6,6 +6,7 @@ import { setOptions } from "./options";
 import { loadConfig } from "./config";
 import { runConfiguredUpdateCheck } from "./update-check";
 import loginHelper from "./login-helper";
+import { createSignalE2EERuntime } from "../domains/e2ee/runtime";
 
 const { getType } = format;
 
@@ -239,6 +240,27 @@ export async function loginAsync(
       ctx.cookieString = String(api.getCookies() || ctx.cookieString || "");
     }
   } catch { }
+
+  if (customOptions.e2ee?.enabled === true) {
+    try {
+      const accountId = String(ctx.userID || ctx.fbid || "");
+      if (!accountId) throw new Error("A verified Facebook account UID is required for E2EE");
+      const runtime = await createSignalE2EERuntime({
+        accountId,
+        storagePath: customOptions.e2ee.storagePath,
+        encryptionKey: customOptions.e2ee.encryptionKey,
+        localDeviceId: customOptions.e2ee.localDeviceId,
+        signedPreKeyId: customOptions.e2ee.signedPreKeyId,
+        signal: customOptions.e2ee.signalModule
+      });
+      (ctx as Loose).e2ee = runtime;
+      (api as Loose).e2ee = runtime;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger(`E2EE initialization failed: ${message}`, "error");
+      throw new Error(`E2EE initialization failed: ${message}`);
+    }
+  }
 
   return ctx;
 }
