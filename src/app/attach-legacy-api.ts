@@ -4,6 +4,7 @@ import { createMessagesDomain } from "../domains/messages";
 import { createUploadAttachmentCommand } from "../domains/messages/commands/upload-attachment";
 import { createRealtimeListener } from "../domains/realtime/listener";
 import { createRealtimeMiddlewareSystem } from "../domains/realtime/middleware";
+import { createHumanizerController, type HumanizerOptions } from "../domains/realtime/humanizer";
 import { createSchedulerDomain } from "../domains/scheduler";
 import { createThreadsDomain } from "../domains/threads";
 import { createUsersDomain } from "../domains/users";
@@ -430,7 +431,18 @@ export function attachLegacyApiSurface(
   }) as Record<string, Loose>;
 
   const attachRealtimeListener = createLegacyListenMqttFactory(logger);
-  const listenMqtt = attachRealtimeListener(defaultFuncs, api, ctx);
+  const rawListenMqtt = attachRealtimeListener(defaultFuncs, api, ctx);
+  let humanizer: ReturnType<typeof createHumanizerController> | undefined;
+  let pendingHumanizerOptions: HumanizerOptions = {};
+  const getHumanizer = () => humanizer;
+  const listenMqtt = (callback?: Loose, options?: Loose) => {
+    const emitter = rawListenMqtt(callback, options);
+    if (!humanizer && ctx._middleware) {
+      humanizer = createHumanizerController(ctx._middleware, api.sendTypingIndicator);
+      humanizer.setOptions(pendingHumanizerOptions);
+    }
+    return emitter;
+  };
 
   if (!ctx._scheduler) {
     ctx._scheduler = createSchedulerDomain({
@@ -565,7 +577,7 @@ export function attachLegacyApiSurface(
       logout: account.logout,
       refreshDtsg: account.refreshFb_dtsg,
       changeBlockedStatus: account.changeBlockedStatus,
-      setOptions: api.setOptions,
+      setOptions: api.setOptions,\n      getHumanizer,
       setPostReaction: account.setPostReaction,
       reactToPost: account.setPostReaction,
       reactToComment: social.reactToComment,
@@ -577,7 +589,7 @@ export function attachLegacyApiSurface(
       getCookies: api.getCookies
     }),
     realtime: compactNamespace({
-      listen: listenMqtt,
+      listen: listenMqtt,\n      getHumanizer,
       stop: bindLiveMethod(api, "stopListening"),
       stopAsync: bindLiveMethod(api, "stopListeningAsync"),
       useMiddleware: bindLiveMethod(api, "useMiddleware"),
