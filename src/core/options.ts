@@ -34,6 +34,10 @@ export function setOptions(
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
         break;
       }
+      case "e2ee": {
+        globalOptions.e2ee = options.e2ee as FcaOptions["e2ee"];
+        break;
+      }
       case "proxy": {
         if (typeof options.proxy !== "string") {
           delete globalOptions.proxy;
