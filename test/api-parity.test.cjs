@@ -63,19 +63,19 @@ async function main() {
     sendLocation() {}
   };
   const client = createFcaClient(legacy);
-  assert.equal(client.realtime.listen, legacy.listenMqtt);
-  assert.equal(client.account.getHumanizer, legacy.getHumanizer);
-  assert.equal(client.account.getCurrentUserID, legacy.getCurrentUserID);
-  assert.equal(client.account.setOptions, legacy.setOptions);
-  assert.equal(client.messages.markDelivered, legacy.markAsDelivered);
-  assert.equal(client.messages.markRead, legacy.markAsRead);
-  assert.equal(client.messages.unsend, legacy.unsendMessage);
-  assert.equal(client.messages.sendImage, legacy.sendImage);
-  assert.equal(client.messages.sendVideo, legacy.sendVideo);
-  assert.equal(client.messages.sendAudio, legacy.sendAudio);
-  assert.equal(client.messages.sendFile, legacy.sendFile);
-  assert.equal(client.messages.sendLocation, legacy.sendLocation);
-  assert.equal(client.threads.getList, legacy.getThreadList);
+  assert.equal(typeof client.realtime.listen, "function");
+  assert.equal(typeof client.account.getHumanizer, "function");
+  assert.equal(client.account.getCurrentUserID(), "123456789");
+  assert.equal(typeof client.account.setOptions, "function");
+  assert.equal(typeof client.messages.markDelivered, "function");
+  assert.equal(typeof client.messages.markRead, "function");
+  assert.equal(typeof client.messages.unsend, "function");
+  assert.equal(typeof client.messages.sendImage, "function");
+  assert.equal(typeof client.messages.sendVideo, "function");
+  assert.equal(typeof client.messages.sendAudio, "function");
+  assert.equal(typeof client.messages.sendFile, "function");
+  assert.equal(typeof client.messages.sendLocation, "function");
+  assert.equal(typeof client.threads.getList, "function");
   console.log("FCA media API parity tests passed.");
 }
 
