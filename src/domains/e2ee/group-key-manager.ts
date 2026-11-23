@@ -52,6 +52,7 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
   }
 
   const distributed = new Map<string, Set<string>>();
+  const distributionCache = new Map<string, SenderKeyDistribution>();
   const keyId = (groupId: string, sender: SignalPeerAddress) => `${groupId}|${sender.name}.${sender.deviceId}`;
   const deviceId = (device: SignalGroupDevice) => `${device.name}.${device.deviceId}`;
 
@@ -60,7 +61,11 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
     const sender = validAddress(senderInput, "local sender");
     const recipients = normalizeMembers(await deps.listMemberDevices(groupId, sender), sender);
     if (!recipients.length) throw new Error("group has no remote member devices for Sender Key distribution");
-    const distribution = await deps.groups.createDistribution(groupId, sender);
+    let distribution = distributionCache.get(distributionKey);
+    if (!distribution) {
+      distribution = await deps.groups.createDistribution(groupId, sender);
+      distributionCache.set(distributionKey, distribution);
+    }
     const distributionKey = keyId(groupId, sender);
     const sent = distributed.get(distributionKey) ?? new Set<string>();
     distributed.set(distributionKey, sent);
@@ -91,6 +96,7 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
     const sender = validAddress(senderInput, "local sender");
     await deps.store.removeSenderKey(sender, groupId);
     distributed.delete(keyId(groupId, sender));
+    distributionCache.delete(keyId(groupId, sender));
     return distribute(groupId, sender);
   }
 
