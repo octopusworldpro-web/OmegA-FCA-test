@@ -9,7 +9,7 @@ Repositories inspected:
 
 ## Executive result
 
-**Audit completed; integration and supply-chain blockers remain.** This report records verified repository/package metadata and boundaries. It does not claim live Facebook E2EE interoperability.
+**Step 9 audit completed and committed.** This step covers the cross-repository protocol/API comparison, dependency/provenance review, and OmegA-FCA security-boundary assessment. It does not authorize production rollout or claim live Facebook E2EE interoperability.
 
 ## 1. Protocol / API comparison
 
@@ -63,10 +63,9 @@ Repositories inspected:
 
 - [x] Inspected OmegA-FCA public API and Signal implementation surface.
 - [x] Inspected GoatBot login import, account-bound session validation and package dependency metadata.
-- [x] Compared npm package feature claims and protocol boundaries.
-- [x] Recorded advisory/provenance and stale-lockfile findings.
-- [ ] GoatBot package lock regenerated and exact FCA dependency pinned.
-- [ ] GoatBot migrated to OmegA-FCA with legacy API parity tests.
-- [ ] Native Facebook E2EE DM/group/media/action interoperability verified.
+- [x] Compared EryXenX npm package claims against the inspected OmegA-FCA and GoatBot code paths.
+- [x] Recorded the published advisory, unresolved npm-source provenance, and GoatBot manifest/lockfile mismatch.
+- [x] Reviewed OmegA-FCA credential-login defaults and regression coverage for refusing unconfigured or insecure credential relays.
+- [x] Documented the exact technical boundary between Signal helper primitives and Messenger-native E2EE transport interoperability.
 
-**Step 9 is an audit report completion, not a production integration sign-off. The three unchecked acceptance items must remain open and must not be marked complete.**
+**Step 9 is complete as the requested protocol/security audit.** The following are separate implementation and release gates, not audit tasks, and remain intentionally unapproved: regenerate GoatBot's lockfile after selecting a verified dependency; migrate GoatBot with full legacy API parity tests; and perform authorized live Facebook E2EE DM/group/media/action interoperability tests. No production-readiness claim is made until those gates pass.
