@@ -7,6 +7,7 @@ export interface FcaOptions {
   updatePresence?: boolean;
   forceLogin?: boolean;
   autoMarkRead?: boolean;
+  autoMarkDelivery?: boolean;
   autoReconnect?: boolean;
   online?: boolean;
   emitReady?: boolean;
