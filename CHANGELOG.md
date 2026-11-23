@@ -10,6 +10,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [0.2.2] - 2026-11-23
+
+### Changed
+
+- Increment package version for republishing after the previous npm package was unpublished.
+- No new feature changes are included relative to v0.2.1.
+
+### Validation notes
+
+- Re-run CI and package dry-run before publishing.
+- Authorized live Facebook account interoperability remains unverified; native Messenger E2EE remains unimplemented.
+
+---
+
 ## [0.2.1] - 2026-11-23
 
 ### Added
