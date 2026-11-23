@@ -1,5 +1,6 @@
 import type { ListenMqttError, MqttEvent } from "../../types/events";
 import { getMqttReconnectDelay } from "./reconnect-policy";
+import { detectFacebookCheckpoint } from "../../utils/request/checkpoint";
 
 const CYCLE_MS_DEFAULT = 60 * 60 * 1000;
 const RECONNECT_DELAY_MS_DEFAULT = 2000;
@@ -76,7 +77,35 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
       }
 
       function postSafe(...args: Loose[]) {
-        return rawPost(...args).catch((error: Loose) => {
+        if (ctx._checkpointActive) {
+          const blocked = new Error("Outgoing request paused: Facebook checkpoint/challenge is active.") as Loose;
+          blocked.code = "FCA_CHECKPOINT_ACTIVE";
+          throw blocked;
+        }
+
+        return rawPost(...args).then((response: Loose) => {
+          const checkpoint = detectFacebookCheckpoint(response);
+          if (checkpoint.detected && !ctx._checkpointActive) {
+            ctx._checkpointActive = true;
+            ctx._checkpointDetectedAt = Date.now();
+            const event = {
+              type: "checkpoint",
+              reason: checkpoint.reason,
+              url: checkpoint.url,
+              timestamp: ctx._checkpointDetectedAt,
+              outgoingPaused: true
+            };
+            logger("Facebook checkpoint/challenge detected; outgoing actions paused", "error");
+            try {
+              if (ctx._emitter && typeof ctx._emitter.emit === "function") {
+                ctx._emitter.emit("checkpoint", event);
+              }
+            } catch (error: Loose) {
+              logger("checkpoint notification error: " + String(error), "warn");
+            }
+          }
+          return response;
+        }).catch((error: Loose) => {
           const message = (error && error.error) || (error && error.message) || String(error || "");
           if (/Not logged in|blocked the login/i.test(message)) {
             emitAuth(
