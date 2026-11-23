@@ -15,24 +15,20 @@ export interface SchedulerDomainDeps {
   clearIntervalFn?: typeof clearInterval;
 }
 
-function toTimestamp(when: Date | number | string): number {
-  if (when instanceof Date) {
-    return when.getTime();
-  }
-  if (typeof when === "number") {
-    return when;
-  }
-  if (typeof when === "string") {
-    return new Date(when).getTime();
-  }
+const MAX_TIMER_DELAY = 2_147_483_647;
+const CLEANUP_INTERVAL = 5 * 60 * 1000;
 
+function toTimestamp(when: Date | number | string): number {
+  if (when instanceof Date) return when.getTime();
+  if (typeof when === "number") return when;
+  if (typeof when === "string") return new Date(when).getTime();
   return Number.NaN;
 }
 
 export function createSchedulerDomain(deps: SchedulerDomainDeps): SchedulerDomain {
   const {
     sendMessage,
-    logger = () => { },
+    logger = () => {},
     now = () => Date.now(),
     setTimeoutFn = setTimeout,
     clearTimeoutFn = clearTimeout,
@@ -42,6 +38,42 @@ export function createSchedulerDomain(deps: SchedulerDomainDeps): SchedulerDomai
 
   const scheduledMessages = new Map<string, ScheduledMessageInternal>();
   let nextId = 1;
+  let destroyed = false;
+
+  function removeScheduled(id: string) {
+    const scheduled = scheduledMessages.get(id);
+    if (!scheduled) return false;
+    scheduled.cancelled = true;
+    clearTimeoutFn(scheduled.timeout);
+    scheduledMessages.delete(id);
+    return true;
+  }
+
+  function sendWhenDue(scheduled: ScheduledMessageInternal) {
+    if (destroyed || scheduled.cancelled) return;
+    const remaining = scheduled.timestamp - now();
+    if (remaining > 0) {
+      scheduled.timeout = setTimeoutFn(() => sendWhenDue(scheduled), Math.min(remaining, MAX_TIMER_DELAY));
+      return;
+    }
+
+    logger(`Sending scheduled message ${scheduled.id}`, "info");
+    Promise.resolve(
+      sendMessage(
+        scheduled.message,
+        scheduled.threadID,
+        scheduled.options.callback || (() => {}),
+        scheduled.options.replyMessageID,
+        scheduled.options.isGroup
+      )
+    ).then(() => {
+      logger(`Scheduled message ${scheduled.id} sent successfully`, "info");
+      scheduledMessages.delete(scheduled.id);
+    }).catch((error: Loose) => {
+      logger(`Error sending scheduled message ${scheduled.id}: ${error?.message || String(error)}`, "error");
+      scheduledMessages.delete(scheduled.id);
+    });
+  }
 
   function scheduleMessage(
     message: Loose,
@@ -49,19 +81,17 @@ export function createSchedulerDomain(deps: SchedulerDomainDeps): SchedulerDomai
     when: Date | number | string,
     options: SchedulerOptions = {}
   ) {
+    if (destroyed) throw new Error("Scheduler has been destroyed");
     const timestamp = toTimestamp(when);
-    if (Number.isNaN(timestamp)) {
+    if (!Number.isFinite(timestamp)) {
       throw new Error("Invalid 'when' parameter. Must be Date, number (timestamp), or ISO string");
     }
 
     const currentTime = now();
-    if (timestamp <= currentTime) {
-      throw new Error("Scheduled time must be in the future");
-    }
+    if (timestamp <= currentTime) throw new Error("Scheduled time must be in the future");
 
     const id = `scheduled_${nextId++}_${currentTime}`;
     const delay = timestamp - currentTime;
-
     const scheduled = {
       id,
       message,
@@ -77,57 +107,19 @@ export function createSchedulerDomain(deps: SchedulerDomainDeps): SchedulerDomai
       timeout: undefined as unknown as ReturnType<typeof setTimeout>
     } as ScheduledMessageInternal;
 
-    scheduled.timeout = setTimeoutFn(() => {
-      if (scheduled.cancelled) {
-        return;
-      }
-
-      logger(`Sending scheduled message ${id}`, "info");
-
-      Promise.resolve(
-        sendMessage(
-          message,
-          threadID,
-          scheduled.options.callback || (() => { }),
-          scheduled.options.replyMessageID,
-          scheduled.options.isGroup
-        )
-      )
-        .then(() => {
-          logger(`Scheduled message ${id} sent successfully`, "info");
-          scheduledMessages.delete(id);
-        })
-        .catch((error: Loose) => {
-          logger(`Error sending scheduled message ${id}: ${error?.message || String(error)}`, "error");
-          scheduledMessages.delete(id);
-        });
-    }, delay);
-
+    scheduled.timeout = setTimeoutFn(() => sendWhenDue(scheduled), Math.min(delay, MAX_TIMER_DELAY));
     scheduledMessages.set(id, scheduled);
     logger(`Message scheduled: ${id} (in ${Math.round(delay / 1000)}s)`, "info");
-
     return id;
   }
 
   function cancelScheduledMessage(id: string) {
-    const scheduled = scheduledMessages.get(id);
-    if (!scheduled || scheduled.cancelled) {
-      return false;
-    }
-
-    clearTimeoutFn(scheduled.timeout);
-    scheduled.cancelled = true;
-    scheduledMessages.delete(id);
-    logger(`Scheduled message ${id} cancelled`, "info");
-    return true;
+    const cancelled = removeScheduled(id);
+    if (cancelled) logger(`Scheduled message ${id} cancelled`, "info");
+    return cancelled;
   }
 
-  function getScheduledMessage(id: string): ScheduledMessageInfo | null {
-    const scheduled = scheduledMessages.get(id);
-    if (!scheduled || scheduled.cancelled) {
-      return null;
-    }
-
+  function toPublicInfo(scheduled: ScheduledMessageInternal, currentTime: number): ScheduledMessageInfo {
     return {
       id: scheduled.id,
       message: scheduled.message,
@@ -135,33 +127,28 @@ export function createSchedulerDomain(deps: SchedulerDomainDeps): SchedulerDomai
       timestamp: scheduled.timestamp,
       createdAt: scheduled.createdAt,
       options: { ...scheduled.options },
-      timeUntilSend: scheduled.timestamp - now()
+      timeUntilSend: Math.max(0, scheduled.timestamp - currentTime)
     };
+  }
+
+  function getScheduledMessage(id: string): ScheduledMessageInfo | null {
+    const scheduled = scheduledMessages.get(id);
+    if (!scheduled || scheduled.cancelled) return null;
+    return toPublicInfo(scheduled, now());
   }
 
   function listScheduledMessages() {
     const currentTime = now();
-    const list = Array.from(scheduledMessages.values())
+    return Array.from(scheduledMessages.values())
       .filter((scheduled) => !scheduled.cancelled)
-      .map((scheduled) => ({
-        id: scheduled.id,
-        message: scheduled.message,
-        threadID: scheduled.threadID,
-        timestamp: scheduled.timestamp,
-        createdAt: scheduled.createdAt,
-        options: { ...scheduled.options },
-        timeUntilSend: scheduled.timestamp - currentTime
-      }));
-
-    return list.sort((a, b) => a.timestamp - b.timestamp);
+      .map((scheduled) => toPublicInfo(scheduled, currentTime))
+      .sort((a, b) => a.timestamp - b.timestamp);
   }
 
   function cancelAllScheduledMessages() {
     let count = 0;
-    for (const id of scheduledMessages.keys()) {
-      if (cancelScheduledMessage(id)) {
-        count += 1;
-      }
+    for (const id of Array.from(scheduledMessages.keys())) {
+      if (removeScheduled(id)) count += 1;
     }
     logger(`Cancelled ${count} scheduled messages`, "info");
     return count;
@@ -172,22 +159,21 @@ export function createSchedulerDomain(deps: SchedulerDomainDeps): SchedulerDomai
   }
 
   function cleanup() {
-    const currentTime = now();
-    let cleaned = 0;
-    for (const [id, scheduled] of scheduledMessages.entries()) {
-      if (scheduled.cancelled || scheduled.timestamp < currentTime) {
-        scheduledMessages.delete(id);
-        cleaned += 1;
-      }
-    }
-    if (cleaned > 0) {
-      logger(`Cleaned up ${cleaned} scheduled messages`, "info");
+    // Pending messages are retained until their timer sends them; deleting an
+    // expired entry here could silently discard a message before its callback runs.
+    for (const [id, scheduled] of scheduledMessages) {
+      if (scheduled.cancelled) scheduledMessages.delete(id);
     }
   }
 
-  const cleanupInterval = setIntervalFn(cleanup, 5 * 60 * 1000);
+  const cleanupInterval = setIntervalFn(cleanup, CLEANUP_INTERVAL);
+  if (cleanupInterval && typeof (cleanupInterval as Loose).unref === "function") {
+    (cleanupInterval as Loose).unref();
+  }
 
   function destroy() {
+    if (destroyed) return 0;
+    destroyed = true;
     clearIntervalFn(cleanupInterval);
     const count = cancelAllScheduledMessages();
     logger("Scheduler destroyed and all resources cleaned up", "info");
