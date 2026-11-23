@@ -6,6 +6,7 @@ const fca = require("../dist/index.js");
   const sessions = new Set();
   const established = [];
   const encrypted = [];
+  const fetched = [];
   const devices = [{ name: "peer-1", deviceId: 2 }, { name: "peer-1", deviceId: 1 }];
   const manager = fca.createSignalPeerManager({
     store: { loadSession: (address) => sessions.has(`${address.name}.${address.deviceId}`) ? "stored" : undefined },
@@ -13,10 +14,12 @@ const fca = require("../dist/index.js");
       assert.equal(name, "peer-1");
       return devices;
     },
-    fetchPreKeyBundle: async (device) => ({ deviceId: device.deviceId }),
+    fetchPreKeyBundle: async (device) => { fetched.push(device.deviceId); return { remoteDeviceId: device.deviceId }; },
+    parsePreKeyBundle: (payload, device) => ({ deviceId: payload.remoteDeviceId, parsedFor: device.deviceId }),
     directMessages: {
       establishSession: async (device, bundle) => {
         assert.equal(bundle.deviceId, device.deviceId);
+        assert.equal(bundle.parsedFor, device.deviceId);
         established.push(device.deviceId);
         sessions.add(`${device.name}.${device.deviceId}`);
       },
@@ -28,6 +31,8 @@ const fca = require("../dist/index.js");
     }
   });
 
+  await Promise.all([manager.preparePeer("peer-1"), manager.preparePeer("peer-1")]);
+  assert.deepEqual(fetched, [1, 2], "concurrent preparation must fetch each device bundle once");
   const outgoing = await manager.encryptForPeer("peer-1", "hello");
   assert.deepEqual(established, [1, 2]);
   assert.deepEqual(outgoing.map((item) => item.recipient.deviceId), [1, 2]);
@@ -43,6 +48,7 @@ const fca = require("../dist/index.js");
     store: { loadSession: () => undefined },
     listDevices: async () => [{ name: "peer-1", deviceId: 1 }, { name: "peer-1", deviceId: 1 }],
     fetchPreKeyBundle: async () => ({}),
+    parsePreKeyBundle: (payload) => payload,
     directMessages: { establishSession: async () => {}, encrypt: async () => ({}), decrypt: async () => new Uint8Array() }
   });
   await assert.rejects(duplicateManager.resolveDevices("peer-1"), /duplicate Signal device ID/);
