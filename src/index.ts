@@ -133,3 +133,5 @@ export { registerFacebookE2EEDevice, type FacebookE2EERegistrationOptions, type 
 export { dispatchAutomaticReceipts, type AutomaticReceiptMessage, type AutomaticReceiptOptions } from "./domains/realtime/auto-receipts";
 
 export { createSignalE2EERuntime, type SignalRuntimeOptions, type SignalE2EERuntime } from "./domains/e2ee/runtime";
+
+export { createSignalPeerManager, type SignalPeerManagerDeps, type SignalRemoteDevice } from "./domains/e2ee/peer-manager";
