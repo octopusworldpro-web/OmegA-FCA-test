@@ -39,7 +39,7 @@ interface MessengerBotRuntimeOptions {
 interface MqttEmitterLike {
   on(event: string | symbol, listener: (...args: Loose[]) => void): this;
   removeAllListeners?(event?: string | symbol): this;
-  stopListening?: (cb?: () => void) => void;
+  stopListening?: (cb?: () => void) => unknown;
   stopListeningAsync?: () => Promise<void>;
 }
 
@@ -290,8 +290,9 @@ export class MessengerBot extends EventEmitter implements MessengerBotLike {
       const asyncStop = mqtt.stopListeningAsync;
       if (typeof asyncStop === "function") {
         await asyncStop();
-      } else if (typeof mqtt.stopListening === "function") {
-        await new Promise<void>((resolve, reject) => {
+      } else {
+        const stopListening = mqtt.stopListening;
+        if (typeof stopListening === "function") await new Promise<void>((resolve, reject) => {
           let settled = false;
           const finish = (error?: unknown) => {
             if (settled) return;
@@ -300,10 +301,10 @@ export class MessengerBot extends EventEmitter implements MessengerBotLike {
             else resolve();
           };
           try {
-            const result = mqtt.stopListening(finish);
-            if (result && typeof result.then === "function") {
-              result.then(() => finish(), finish);
-            } else if (mqtt.stopListening.length === 0) {
+            const result: unknown = stopListening.call(mqtt, finish);
+            if (result && typeof (result as { then?: unknown }).then === "function") {
+              Promise.resolve(result).then(() => finish(), finish);
+            } else if (stopListening.length === 0) {
               finish();
             }
           } catch (error) {
