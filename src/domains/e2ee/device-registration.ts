@@ -192,11 +192,18 @@ export async function registerFacebookE2EEDevice(
       Number(registered.wa_device_id) < 1) {
     throw new Error("Facebook rejected E2EE device registration or returned an invalid device ID");
   }
-  return {
+  const result = {
     deviceId,
     waDeviceId: Number(registered.wa_device_id),
     registrationId,
     signedPreKeyId: availableSigned.keyId,
     icdcSequence: sequence
   };
+  await options.store.setDeviceRecord({
+    deviceId,
+    waDeviceId: result.waDeviceId,
+    registeredAt: timestamp,
+    icdcSequence: sequence
+  });
+  return result;
 }
