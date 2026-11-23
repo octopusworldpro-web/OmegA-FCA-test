@@ -289,10 +289,14 @@ export async function createSignalKeyStore(options: SignalStoreOptions): Promise
       const id = String(requireId(keyId, "kyberPreKeyId"));
       const signedId = requireId(signedPreKeyId, "signedPreKeyId");
       const normalizedBaseKey = requireBytes(baseKey, "baseKey");
+      if (!draft.kyberPreKeys[id]) throw new Error(`Kyber pre-key ${id} not found`);
       const existing = draft.usedKyberPreKeys[id] || [];
-      const marker = `${signedId}:${normalizedBaseKey}`;
-      if (existing.includes(marker)) throw new Error("Kyber pre-key base key reuse detected");
-      draft.usedKyberPreKeys[id] = [...existing, marker];
+      if (existing.length > 0) {
+        const marker = `${signedId}:${normalizedBaseKey}`;
+        if (existing.includes(marker)) throw new Error("Kyber pre-key base key reuse detected");
+        throw new Error("Kyber pre-key has already been consumed");
+      }
+      draft.usedKyberPreKeys[id] = [`${signedId}:${normalizedBaseKey}`];
     }),
     hasKyberPreKeyBeenUsed: (keyId) => Boolean(snapshot().usedKyberPreKeys[String(requireId(keyId, "kyberPreKeyId"))]?.length),
     storeSenderKey: (address, groupId, serializedRecord) => mutate((draft) => {
