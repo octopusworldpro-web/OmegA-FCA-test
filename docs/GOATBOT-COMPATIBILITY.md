@@ -372,3 +372,11 @@ Validation boundary: an injected-module lifecycle test is included. Local npm bu
 - Added synthetic tests for device ordering, per-device session establishment/reuse, multi-device encryption, sender-device decrypt routing and duplicate-device rejection.
 
 **Validation boundary:** source and tests are committed, but no local npm build/test/typecheck, GitHub Actions run, real libsignal native-module test, Messenger bundle transport, or live Facebook E2EE acceptance has been executed. This step is protocol orchestration scaffolding, not proof of Messenger interoperability.
+
+
+### Step 4 hardening
+
+- Bundle transport is now split into explicit `fetchPreKeyBundle` and `parsePreKeyBundle` providers. The parser must return the native libsignal PreKeyBundle object; transport JSON is never passed directly into libsignal by assumption.
+- Session preparation is serialized per peer/device inside the manager, preventing concurrent sends from racing to establish the same missing session.
+- After session establishment, the manager verifies that the session store now contains the device session before allowing message encryption.
+- Tests now cover native-bundle parsing handoff and concurrent preparation deduplication in addition to multi-device routing and duplicate-device rejection.
