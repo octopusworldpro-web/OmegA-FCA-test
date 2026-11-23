@@ -3,6 +3,7 @@
  */
 import logger from "../../func/logger";
 import formatMod from "../../utils/format";
+import { dispatchAutomaticReceipts } from "./auto-receipts";
 
 const {
   formatDeltaEvent,
@@ -50,6 +51,7 @@ function createParseDelta(deps: Loose) {
                 ctx._updateThreadFromMessage(fmtMsg);
               } catch { }
             }
+            dispatchAutomaticReceipts(api, ctx.globalOptions || {}, fmtMsg, logger);
             globalCallback(null, fmtMsg);
           }
         } else {
