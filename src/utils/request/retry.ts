@@ -38,6 +38,7 @@ async function requestWithRetry<T>(
 
   for (let i = 0; i < retries; i++) {
     try {
+      // Normal successful requests pass through immediately: no cooldown, retry, or safety event.
       return await fn();
     } catch (rawError) {
       const e = rawError as RetryError;
