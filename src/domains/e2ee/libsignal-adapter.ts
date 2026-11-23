@@ -113,6 +113,7 @@ export function createLibsignalStores(signal: Dynamic, store: SignalKeyStore) {
       await store.storeKyberPreKey(id, bytesToBase64(record.serialize()));
     }
     async getKyberPreKey(id: number): Promise<Dynamic> {
+      if (store.hasKyberPreKeyBeenUsed(id)) throw new Error(`Kyber prekey ${id} has already been consumed`);
       const serialized = required(store.loadKyberPreKey(id), `Kyber prekey ${id}`);
       return signal.KyberPreKeyRecord.deserialize(fromBase64(serialized));
     }
