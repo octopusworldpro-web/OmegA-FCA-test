@@ -158,7 +158,8 @@ export async function registerFacebookE2EEDevice(
   const timestamp = Math.floor((options.now ? options.now() : Date.now()) / 1000);
   const details = encodeIdentityList(sequence, timestamp, identities, signingIndex);
   const privateKey = options.signal.PrivateKey.deserialize(Buffer.from(identity.privateKey, "base64"));
-  const signingInput = Buffer.alloc(details.length);
+  // Buffer.alloc creates an owned ArrayBuffer; narrow the Node Buffer generic for libsignal's signing API.
+  const signingInput = Buffer.alloc(details.length) as Buffer<ArrayBuffer>;
   details.copy(signingInput);
   const signature = Buffer.from(privateKey.sign(signingInput));
   const signedList = encodeSignedIdentityList(details, signature);
