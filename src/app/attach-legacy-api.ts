@@ -590,7 +590,8 @@ export function attachLegacyApiSurface(
       getCookies: api.getCookies
     }),
     realtime: compactNamespace({
-      listen: listenMqtt,\n      getHumanizer,
+      listen: listenMqtt,
+      getHumanizer,
       stop: bindLiveMethod(api, "stopListening"),
       stopAsync: bindLiveMethod(api, "stopListeningAsync"),
       useMiddleware: bindLiveMethod(api, "useMiddleware"),
