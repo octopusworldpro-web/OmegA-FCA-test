@@ -153,12 +153,15 @@ export interface SignalKeyStore {
   getRegistrationId(): number | undefined;
   storeSignedPreKey(record: SignalSignedPreKeyRecord): Promise<void>;
   loadSignedPreKey(keyId: number): SignalSignedPreKeyRecord | undefined;
+  listSignedPreKeyIds(): number[];
   removeSignedPreKey(keyId: number): Promise<void>;
   storePreKey(keyId: number, record: SignalKeyPairRecord): Promise<void>;
   loadPreKey(keyId: number): SignalKeyPairRecord | undefined;
+  listPreKeyIds(): number[];
   removePreKey(keyId: number): Promise<void>;
   storeKyberPreKey(keyId: number, serializedRecord: string): Promise<void>;
   loadKyberPreKey(keyId: number): string | undefined;
+  listKyberPreKeyIds(): number[];
   markKyberPreKeyUsed(keyId: number, signedPreKeyId: number, baseKey: string): Promise<void>;
   hasKyberPreKeyBeenUsed(keyId: number): boolean;
   storeSenderKey(address: SignalSessionAddress, groupId: string, serializedRecord: string): Promise<void>;
@@ -265,6 +268,7 @@ export async function createSignalKeyStore(options: SignalStoreOptions): Promise
       };
     }),
     loadSignedPreKey: (keyId) => snapshot().signedPreKeys[String(requireId(keyId, "keyId"))],
+    listSignedPreKeyIds: () => Object.keys(snapshot().signedPreKeys).map(Number).sort((a, b) => a - b),
     removeSignedPreKey: (keyId) => mutate((draft) => { delete draft.signedPreKeys[String(requireId(keyId, "keyId"))]; }),
     storePreKey: (keyId, record) => mutate((draft) => {
       const id = requireId(keyId, "keyId");
@@ -274,11 +278,13 @@ export async function createSignalKeyStore(options: SignalStoreOptions): Promise
       };
     }),
     loadPreKey: (keyId) => snapshot().oneTimePreKeys[String(requireId(keyId, "keyId"))],
+    listPreKeyIds: () => Object.keys(snapshot().oneTimePreKeys).map(Number).sort((a, b) => a - b),
     removePreKey: (keyId) => mutate((draft) => { delete draft.oneTimePreKeys[String(requireId(keyId, "keyId"))]; }),
     storeKyberPreKey: (keyId, serializedRecord) => mutate((draft) => {
       draft.kyberPreKeys[String(requireId(keyId, "kyberPreKeyId"))] = requireBytes(serializedRecord, "Kyber pre-key record");
     }),
     loadKyberPreKey: (keyId) => snapshot().kyberPreKeys[String(requireId(keyId, "kyberPreKeyId"))],
+    listKyberPreKeyIds: () => Object.keys(snapshot().kyberPreKeys).map(Number).sort((a, b) => a - b),
     markKyberPreKeyUsed: (keyId, signedPreKeyId, baseKey) => mutate((draft) => {
       const id = String(requireId(keyId, "kyberPreKeyId"));
       const signedId = requireId(signedPreKeyId, "signedPreKeyId");
