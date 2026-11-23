@@ -1,6 +1,6 @@
-# GoatBot compatibility — OmegA-FCA 0.2.0
+# GoatBot compatibility — OmegA-FCA 0.2.1-beta.1
 
-Target bot: [nirzon-islam/OmegA-Goatbot](https://github.com/nirzon-islam/OmegA-Goatbot), branch `main`.
+Target bot: [nirzon-islam/OmegA-Goatbot](https://github.com/nirzon-islam/OmegA-Goatbot), branch `fca-migration-cleanup`.
 
 ## Confirmed from source inspection
 
@@ -277,3 +277,33 @@ This is a synthetic API-contract check; an actual account login, MQTT-ready tran
 - The upload helper sends only encrypted bytes as `application/octet-stream`, using an `.enc` filename, and returns the group-safe descriptor separately. Decryption validates group/sender routing, dimensions, digest and MAC before returning plaintext.
 - Tests cover group key wrapping, media round-trip, upload ciphertext isolation, routing mismatch and tampering.
 - **Validation boundary:** this is a reusable Signal Sender Keys and encrypted-media layer. It does not claim Messenger-compatible private E2EE group envelope or media CDN interoperability. Per-device SKDM fanout, group membership/epoch lifecycle, Messenger's attachment metadata and transport, and live Facebook group E2EE acceptance remain unverified.
+
+
+## API parity verification — Step 1
+
+Repository references used for this audit:
+
+- OmegA-FCA: `octopusworldpro-web/OmegA-FCA-test`, branch `main`.
+- GoatBot: `nirzon-islam/OmegA-Goatbot`, branch `fca-migration-cleanup`.
+- GoatBot installs `@nirzon-islam/omega-fca@0.2.1-beta.1` and its provider requires a callable CommonJS login export.
+
+The legacy API surface attached by `attachLegacyApiSurface()` includes the following compatibility groups:
+
+- Login/account: current user ID, AppState/cookie access, options, logout, profile/account actions, session guard and stop.
+- Realtime: `listenMqtt`, listener stop methods, humanizer and middleware controls.
+- Messages: send, edit, delete, unsend, reactions, typing, mark-read/seen/delivered, attachment upload/forward and media shortcuts.
+- Threads: list/info/history/pictures, group creation and membership/admin actions, title/color/emoji/nickname, archive/mute/delete, polls and search.
+- Users: ID lookup, profile lookup (including V2) and friends list.
+- HTTP/scheduler: HTTP get/post/form-data and scheduler facade.
+
+The namespace facade maps the flat FCA names into `client.messages`, `client.threads`, `client.users`, `client.account`, `client.realtime` and `client.http`. The parity test now checks the mapped methods and representative calls against a GoatBot-style flat API mock.
+
+### Step 1 result
+
+- [x] Confirm package name/version and CommonJS callable-export contract from both repositories.
+- [x] Confirm the GoatBot branch used for this migration.
+- [x] Expand synthetic legacy-to-namespaced API parity coverage.
+- [ ] Execute the expanded test suite and CI on GitHub Actions.
+- [ ] Validate actual Facebook API acceptance with an authorized live session.
+
+A passing synthetic parity test proves only local method mapping and call forwarding. It does not prove private Facebook endpoints or live MQTT/message operations. Do not treat this step as fully complete until the test/CI checks above are green.
