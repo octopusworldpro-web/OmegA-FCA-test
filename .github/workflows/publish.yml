@@ -52,4 +52,10 @@ jobs:
       - name: Publish public package with provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --provenance --access public
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$VERSION" == *-* ]]; then
+            npm publish --tag beta --provenance --access public
+          else
+            npm publish --tag latest --provenance --access public
+          fi
