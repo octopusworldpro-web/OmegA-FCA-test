@@ -143,4 +143,5 @@ export * from "./queries/get-message";
 export * from "./queries/get-emoji-url";
 export * from "./queries/get-thread-colors";
 export * from "./queries/resolve-photo-url";
-\nexport { createMediaShortcuts, type MediaShortcutDeps } from "./media-shortcuts";\n
+
+export { createMediaShortcuts, type MediaShortcutDeps } from "./media-shortcuts";
