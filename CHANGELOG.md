@@ -10,13 +10,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
-## [0.2.1-beta.2] - 2026-11-23
+## [0.2.1] - 2026-11-23
 
-### Release notes
+### Added
 
-- Second beta candidate for OmegA-FCA.
-- Includes the current main-branch implementation and protocol security audit documentation.
-- Native Facebook Messenger E2EE interoperability and authorized live-account validation remain outside automated-test evidence.
+- Smart adaptive safety handling for Facebook 429 rate limits and temporary network failures.
+- Opt-in in-flight duplicate-send protection through `idempotencyKey`.
+- Facebook checkpoint/challenge detection, outgoing-action pause, and explicit verified recovery API.
+- Typed `checkpoint` and `safety_resumed` events with backward-compatible exports.
+
+### Changed
+
+- Preserve existing login signatures, callback/event flow, and default message-send behavior.
+- Document adaptive safety behavior and checkpoint recovery.
+
+### Validation notes
+
+- Automated CI passed build/tests, TypeScript, lint, dependency audit, and package dry run.
+- Authorized live Facebook account interoperability has not been verified; native Messenger E2EE remains unimplemented.
 
 ---
 
