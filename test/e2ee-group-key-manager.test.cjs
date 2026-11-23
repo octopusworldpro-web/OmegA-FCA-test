@@ -63,6 +63,31 @@ const fca = require("../dist/index.js");
   assert.equal(created.length, 2, "membership sync rotates local sender key");
   await assert.rejects(manager.distribute("", sender), /groupId/);
 
+  let concurrentCreates = 0;
+  let concurrentSends = 0;
+  const concurrent = fca.createSignalGroupKeyManager({
+    store: { removeSenderKey: async () => {} },
+    groups: {
+      ...groups,
+      createDistribution: async (...args) => {
+        concurrentCreates++;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        return groups.createDistribution(...args);
+      }
+    },
+    listMemberDevices: async () => [{ name: "alice", deviceId: 1 }],
+    sendDistribution: async () => {
+      concurrentSends++;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  });
+  await Promise.all([
+    concurrent.distribute("group-concurrent", sender),
+    concurrent.distribute("group-concurrent", sender)
+  ]);
+  assert.equal(concurrentCreates, 1, "concurrent calls share one SKDM creation");
+  assert.equal(concurrentSends, 1, "concurrent calls do not duplicate SKDM delivery");
+
   const duplicate = fca.createSignalGroupKeyManager({
     store: { removeSenderKey: async () => {} }, groups,
     listMemberDevices: async () => [{ name: "alice", deviceId: 1 }, { name: "alice", deviceId: 1 }],
