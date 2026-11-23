@@ -11,8 +11,10 @@ export interface SignalPeerManagerDeps {
   };
   /** Resolve the currently active Signal devices for a peer from the application's trusted directory. */
   listDevices(peerName: string): Promise<SignalRemoteDevice[]>;
-  /** Fetch and parse a native libsignal PreKeyBundle for the exact peer device. */
+  /** Fetch the transport response for this exact device. */
   fetchPreKeyBundle(device: SignalRemoteDevice): Promise<unknown>;
+  /** Parse/validate the transport response into the native libsignal PreKeyBundle object. */
+  parsePreKeyBundle(payload: unknown, device: SignalRemoteDevice): Promise<unknown> | unknown;
 }
 
 function validatePeerName(value: unknown): string {
@@ -34,31 +36,59 @@ function normalizeDevices(peerName: string, devices: SignalRemoteDevice[]): Sign
 }
 
 /**
- * Transport-neutral per-device session manager. The caller supplies the trusted
- * device directory and bundle transport; this module never guesses Messenger endpoints.
+ * Transport-neutral per-device session manager. The caller supplies a trusted
+ * device directory plus bundle fetch/parser; this module never guesses Messenger endpoints.
  */
 export function createSignalPeerManager(deps: SignalPeerManagerDeps) {
   if (!deps?.store || typeof deps.store.loadSession !== "function" ||
       !deps.directMessages || typeof deps.directMessages.establishSession !== "function" ||
       typeof deps.directMessages.encrypt !== "function" || typeof deps.directMessages.decrypt !== "function" ||
-      typeof deps.listDevices !== "function" || typeof deps.fetchPreKeyBundle !== "function") {
-    throw new TypeError("Signal peer manager requires store, direct-message operations and device/bundle providers");
+      typeof deps.listDevices !== "function" || typeof deps.fetchPreKeyBundle !== "function" ||
+      typeof deps.parsePreKeyBundle !== "function") {
+    throw new TypeError("Signal peer manager requires store, direct-message operations, device directory and bundle fetch/parser");
   }
+
+  const pendingSessions = new Map<string, Promise<void>>();
+  const addressKey = (device: SignalRemoteDevice) => `${device.name}.${device.deviceId}`;
 
   async function resolveDevices(peerNameInput: string): Promise<SignalRemoteDevice[]> {
     const peerName = validatePeerName(peerNameInput);
     return normalizeDevices(peerName, await deps.listDevices(peerName));
   }
 
+  async function ensureSession(device: SignalRemoteDevice): Promise<void> {
+    if (deps.store.loadSession(device)) return;
+    const key = addressKey(device);
+    const pending = pendingSessions.get(key);
+    if (pending) return pending;
+
+    const operation = (async () => {
+      if (deps.store.loadSession(device)) return;
+      const payload = await deps.fetchPreKeyBundle(device);
+      if (payload === undefined || payload === null) {
+        throw new Error(`no PreKeyBundle payload for ${key}`);
+      }
+      const bundle = await deps.parsePreKeyBundle(payload, device);
+      if (!bundle || typeof bundle !== "object") {
+        throw new Error(`bundle parser returned an invalid native PreKeyBundle for ${key}`);
+      }
+      await deps.directMessages.establishSession(device, bundle);
+      if (!deps.store.loadSession(device)) {
+        throw new Error(`libsignal did not persist a session for ${key}`);
+      }
+    })();
+    pendingSessions.set(key, operation);
+    try {
+      await operation;
+    } finally {
+      if (pendingSessions.get(key) === operation) pendingSessions.delete(key);
+    }
+  }
+
   async function preparePeer(peerNameInput: string): Promise<SignalRemoteDevice[]> {
     const devices = await resolveDevices(peerNameInput);
     if (!devices.length) throw new Error("peer has no active Signal devices");
-    for (const device of devices) {
-      if (deps.store.loadSession(device)) continue;
-      const bundle = await deps.fetchPreKeyBundle(device);
-      if (!bundle || typeof bundle !== "object") throw new Error(`no valid PreKeyBundle for ${device.name}.${device.deviceId}`);
-      await deps.directMessages.establishSession(device, bundle);
-    }
+    for (const device of devices) await ensureSession(device);
     return devices;
   }
 
