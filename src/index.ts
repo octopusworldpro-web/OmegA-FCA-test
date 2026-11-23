@@ -15,6 +15,7 @@ export { createDefaultContext, createFcaState, createApiFacade } from "./core/st
 export { createRequestHelper } from "./core/request";
 export { listenMqtt } from "./core/mqtt";
 export { createSessionGuard } from "./core/session-guard";
+export { extractExpectedSessionUserId, assertSessionIdentity } from "./core/session-validation";
 export { createAuthCore } from "./core/auth-helpers";
 export { defaultConfig, loadConfig, resolveConfig, writeConfigTemplate } from "./core/config";
 export { attachThreadInfoRealtimeSync } from "./core/thread-info-realtime-sync";
