@@ -59,6 +59,7 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
   async function distribute(groupIdInput: string, senderInput: SignalPeerAddress) {
     const groupId = validGroupId(groupIdInput);
     const sender = validAddress(senderInput, "local sender");
+    const distributionKey = keyId(groupId, sender);
     const recipients = normalizeMembers(await deps.listMemberDevices(groupId, sender), sender);
     if (!recipients.length) throw new Error("group has no remote member devices for Sender Key distribution");
     let distribution = distributionCache.get(distributionKey);
@@ -66,7 +67,6 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
       distribution = await deps.groups.createDistribution(groupId, sender);
       distributionCache.set(distributionKey, distribution);
     }
-    const distributionKey = keyId(groupId, sender);
     const sent = distributed.get(distributionKey) ?? new Set<string>();
     distributed.set(distributionKey, sent);
     const newlySent: SignalGroupDevice[] = [];
@@ -109,7 +109,21 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
     distribute,
     encrypt,
     processIncomingDistribution,
-    decrypt: (ciphertext: SenderKeyCiphertext) => deps.groups.decrypt(ciphertext),
+    decrypt: (ciphertext: SenderKeyCiphertext, expected?: { groupId?: string; sender?: SignalPeerAddress }) => {
+      if (!ciphertext || typeof ciphertext !== "object") throw new TypeError("group ciphertext is required");
+      const groupId = validGroupId(ciphertext.groupId);
+      const sender = validAddress(ciphertext.sender, "ciphertext sender");
+      if (expected?.groupId !== undefined && validGroupId(expected.groupId) !== groupId) {
+        throw new Error("group ciphertext groupId does not match expected group");
+      }
+      if (expected?.sender !== undefined) {
+        const expectedSender = validAddress(expected.sender, "expected sender");
+        if (expectedSender.name !== sender.name || expectedSender.deviceId !== sender.deviceId) {
+          throw new Error("group ciphertext sender does not match expected sender device");
+        }
+      }
+      return deps.groups.decrypt({ ...ciphertext, groupId, sender });
+    },
     rotate,
     syncMembership
   };
