@@ -9,7 +9,8 @@ const {
   getMqttReconnectDelay,
   parseMqttJsonPayload,
   disposePreviousMqttClient,
-  isValidSessionUserId
+  isValidSessionUserId,
+  normalizeMqttSequenceId
 } = require("../dist/index.js");
 
 async function main() {
@@ -24,6 +25,11 @@ async function main() {
   assert.equal(isValidSessionUserId("123456"), true);
   assert.equal(isValidSessionUserId("0"), false);
   assert.equal(isValidSessionUserId("abc"), false);
+  assert.equal(normalizeMqttSequenceId("12345"), 12345);
+  assert.equal(normalizeMqttSequenceId(0), 0);
+  assert.equal(normalizeMqttSequenceId(-1), null);
+  assert.equal(normalizeMqttSequenceId("1.5"), null);
+  assert.equal(normalizeMqttSequenceId(Number.MAX_SAFE_INTEGER + 1), null);
 
   let removed = 0;
   let ended = 0;
