@@ -57,3 +57,9 @@ export function assertSessionIdentity(expectedUserId: string | null, authenticat
     throw new Error(`Session identity mismatch: supplied c_user belongs to account ${expectedUserId}, but Facebook authenticated account ${actual}. Login rejected.`);
   }
 }
+
+/** Return true only for a positive numeric Facebook account UID. */
+export function isValidSessionUserId(value: unknown): boolean {
+  const userId = String(value ?? "").trim();
+  return /^\d{1,30}$/.test(userId) && !/^0+$/.test(userId);
+}
