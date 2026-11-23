@@ -414,3 +414,13 @@ Validation boundary: an injected-module lifecycle test is included. Local npm bu
 - Added a dedicated test covering binary round-trip, ciphertext-only upload, download/decrypt, expected group/sender rejection, digest tampering, MAC tampering, wrapped-key routing, malformed metadata, and transport callback failures.
 
 **Validation boundary:** implementation and synthetic tests are committed. CI must pass before this step is marked verified. Messenger-specific encrypted attachment descriptor/envelope format, CDN upload/download behavior, native libsignal interoperability, and authorized live Facebook group-media acceptance remain unverified; no live Messenger E2EE media claim is made.
+
+## Step 8 — Encrypted E2EE actions and receipts
+
+- Extended the Signal application-action layer with encrypted read receipts, delivery receipts, typing start/stop and presence states (`online`, `away`, `busy`, `offline`).
+- Receipt message IDs are validated, trimmed and deduplicated (maximum 500). Typing actions carry a bounded expiry (10 seconds for active typing; immediate expiry for stop) so stale indicators can be discarded by consumers.
+- Added a single `decryptAction` decoder that validates action version, kind, identifiers, timestamps and typing expiry. The existing `decryptReadReceipt` API remains backward-compatible and rejects other action kinds.
+- Exported the action payload types and added a dedicated automated test covering round-trip encrypted payloads, receipt deduplication, typing lifecycle, presence validation and malformed payload rejection.
+- These are encrypted application-level Signal actions. They do not call ordinary Messenger `markAsRead`, `markAsDelivered`, `sendTypingIndicator` or presence endpoints, and they do not claim compatibility with Messenger's private E2EE action envelope.
+
+**Validation boundary:** implementation and synthetic tests are committed; CI verification is pending. Messenger-specific device routing, authenticated envelope delivery/receipt synchronization and live Facebook E2EE action acceptance remain unverified.
