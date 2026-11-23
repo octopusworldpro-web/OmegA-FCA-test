@@ -14,6 +14,15 @@ export interface FcaOptions {
   userAgent?: string;
   proxy?: string;
   pageID?: string;
+  /** Explicit opt-in. Supply a compatible libsignal module and a private, account-specific key-store secret. */
+  e2ee?: {
+    enabled: boolean;
+    storagePath: string;
+    encryptionKey: string | Buffer;
+    localDeviceId: number;
+    signedPreKeyId?: number;
+    signalModule: unknown;
+  };
 }
 
 export interface FcaContext {
