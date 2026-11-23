@@ -101,40 +101,54 @@ export function createRealtimeMiddlewareSystem(logger?: (text: string, type?: st
   }
 
   function process(event: Loose, finalCallback: MiddlewareCallback) {
-    if (!middlewareStack.length) {
-      return finalCallback(null, event);
-    }
-
-    let index = 0;
     const enabledMiddleware = middlewareStack.filter((item) => item.enabled);
+    let index = 0;
+    let finished = false;
+
+    const finish = (error: Loose, result: Loose) => {
+      if (finished) return;
+      finished = true;
+      finalCallback(error, result);
+    };
 
     function next(err?: Loose) {
-      if (err && err !== false && err !== null) {
-        return finalCallback(err, null);
-      }
-
-      if (err === false || err === null) {
-        return finalCallback(null, null);
-      }
-
-      if (index >= enabledMiddleware.length) {
-        return finalCallback(null, event);
-      }
+      if (finished) return;
+      if (err && err !== false && err !== null) return finish(err, null);
+      if (err === false || err === null) return finish(null, null);
+      if (index >= enabledMiddleware.length) return finish(null, event);
 
       const middleware = enabledMiddleware[index++];
+      let continued = false;
+      const advance = (nextError?: Loose) => {
+        if (continued || finished) return;
+        continued = true;
+        next(nextError);
+      };
+
       try {
-        const result = middleware.fn(event, next);
+        const result = middleware.fn(event, advance);
         if (result && typeof result.then === "function") {
-          result.then(() => next()).catch((promiseErr: Loose) => next(promiseErr));
-        } else if (result === false || result === null) {
-          finalCallback(null, null);
+          Promise.resolve(result).then(
+            (value: Loose) => {
+              if ((value === false || value === null) && !continued) {
+                continued = true;
+                finish(null, null);
+              } else {
+                advance();
+              }
+            },
+            (promiseErr: Loose) => advance(promiseErr)
+          );
+        } else if ((result === false || result === null) && !continued) {
+          continued = true;
+          finish(null, null);
         }
       } catch (invokeErr: Loose) {
         logger?.(
-          `Middleware "${middleware.name}" error: ${invokeErr && invokeErr.message ? invokeErr.message : String(invokeErr)}`,
+          \`Middleware "\${middleware.name}" error: \${invokeErr && invokeErr.message ? invokeErr.message : String(invokeErr)}\`,
           "error"
         );
-        next(invokeErr);
+        advance(invokeErr);
       }
     }
 
