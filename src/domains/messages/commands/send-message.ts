@@ -27,6 +27,8 @@ export interface SendMessageCommandDeps {
   logError?: (scope: string, error: Loose) => void;
 }
 
+const inFlightSendActions = new Map<string, Promise<SendMessageResult>>();
+
 const EMOJI_SIZES: Record<string, number> = {
   small: 1,
   medium: 2,
@@ -152,7 +154,7 @@ function isPreUploadedAttachmentTuple(value: Loose): value is [string, string | 
 export function createSendMessageCommand(deps: SendMessageCommandDeps) {
   const { ctx, uploadAttachment, generateOfflineThreadingID, isReadableStream, logError } = deps;
 
-  return async function sendMessage(
+  const sendMessageOnce = async function sendMessage(
     msg: SendMessagePayload,
     threadID: string,
     callback?: NodeStyleCallback<SendMessageResult> | string,
@@ -362,6 +364,43 @@ export function createSendMessageCommand(deps: SendMessageCommandDeps) {
       logError?.("sendMessage", error);
       cb(error);
       throw error;
+    }
+  };
+
+  return async function sendMessageWithIdempotency(
+    msg: SendMessagePayload,
+    threadID: string,
+    callback?: NodeStyleCallback<SendMessageResult> | string,
+    replyToMessage?: string
+  ): Promise<SendMessageResult> {
+    const idempotencyKey =
+      msg && typeof msg === "object" && "idempotencyKey" in msg
+        ? String((msg as Record<string, Loose>).idempotencyKey || "").trim()
+        : "";
+
+    // Without an explicit key, preserve the original one-call/one-send behavior.
+    if (!idempotencyKey) {
+      return sendMessageOnce(msg, threadID, callback, replyToMessage);
+    }
+
+    const scopedKey = String(threadID || "") + ":" + idempotencyKey;
+    const existing = inFlightSendActions.get(scopedKey);
+    if (existing) {
+      // A repeated call for the same logical action joins the in-flight operation.
+      if (typeof callback === "function") {
+        existing.then((result) => callback(undefined, result), (error) => callback(error));
+      }
+      return existing;
+    }
+
+    const operation = sendMessageOnce(msg, threadID, callback, replyToMessage);
+    inFlightSendActions.set(scopedKey, operation);
+    try {
+      return await operation;
+    } finally {
+      if (inFlightSendActions.get(scopedKey) === operation) {
+        inFlightSendActions.delete(scopedKey);
+      }
     }
   };
 }
