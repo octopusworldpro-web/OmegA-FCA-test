@@ -307,3 +307,28 @@ The namespace facade maps the flat FCA names into `client.messages`, `client.thr
 - [ ] Validate actual Facebook API acceptance with an authorized live session.
 
 A passing synthetic parity test proves only local method mapping and call forwarding. It does not prove private Facebook endpoints or live MQTT/message operations. Do not treat this step as fully complete until the test/CI checks above are green.
+
+
+## Step 2 — Message delivery and read receipts
+
+Implemented in the FCA package:
+
+- `autoMarkDelivery` is a new opt-in login option and defaults to `false`.
+- Existing `autoMarkRead` is now wired to incoming MQTT `NewMessage` events; it remains opt-in and defaults to `false`.
+- When enabled, standard Messenger delivery acknowledgement calls `markAsDelivered(threadID, messageID)`.
+- When enabled, standard Messenger read acknowledgement calls `markAsRead(threadID, true)`.
+- Receipt dispatch is best-effort: it does not block incoming event delivery, and failures are logged as warnings.
+- Synthetic tests cover enabled/disabled behavior, missing identifiers, and transport failures.
+
+Example:
+
+```js
+login(credentials, {
+  autoMarkDelivery: true,
+  autoMarkRead: true
+}, callback);
+```
+
+**E2EE distinction:** these are standard Messenger receipts. The existing Signal read-receipt payload helper is not yet connected to the authenticated E2EE session or MQTT transport. Encrypted E2EE read receipts remain pending for the E2EE integration/action steps and are not claimed complete here.
+
+Validation status: source and test changes committed; GitHub Actions/local test execution still pending. Live Facebook receipt behavior has not been verified.
