@@ -217,11 +217,6 @@ export function attachLegacyApiSurface(
     defaultFuncs,
     ctx,
     sendMessage: messages.send,
-    sendImage: mediaShortcuts.sendImage,
-    sendVideo: mediaShortcuts.sendVideo,
-    sendAudio: mediaShortcuts.sendAudio,
-    sendFile: mediaShortcuts.sendFile,
-    sendLocation: mediaShortcuts.sendLocation,
     logError
   });
 
@@ -508,6 +503,11 @@ export function attachLegacyApiSurface(
     scheduler: ctx._scheduler,
     searchForThread: threads.search,
     sendMessage: messages.send,
+    sendImage: mediaShortcuts.sendImage,
+    sendVideo: mediaShortcuts.sendVideo,
+    sendAudio: mediaShortcuts.sendAudio,
+    sendFile: mediaShortcuts.sendFile,
+    sendLocation: mediaShortcuts.sendLocation,
     sendTypingIndicator: messages.typing,
     setMessageReaction: messages.react,
     setTitle: threads.setTitle,
