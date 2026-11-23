@@ -13,6 +13,7 @@ export interface FacebookE2EERegistrationOptions {
   signal: Dynamic;
   store: SignalKeyStore;
   deviceId?: string;
+  signedPreKeyId: number;
   fetch?: FetchLike;
   now?: () => number;
 }
@@ -117,10 +118,10 @@ export async function registerFacebookE2EEDevice(
   const identity = options.store.getIdentityKeyPair();
   if (!registrationId || !identity) throw new Error("Signal identity and registration ID must be initialized first");
 
-  const signedPreKey = Object.values({ key: 1 }).length
-    ? options.store.loadSignedPreKey(1) || options.store.loadSignedPreKey(0)
-    : undefined;
-  const availableSigned = signedPreKey || (() => {
+  if (!Number.isSafeInteger(options.signedPreKeyId) || options.signedPreKeyId < 0) {
+    throw new TypeError("signedPreKeyId must be a non-negative integer");
+  }
+  const availableSigned = options.store.loadSignedPreKey(options.signedPreKeyId) || (() => {
     throw new Error("A persisted signed prekey is required before Facebook device registration");
   })();
 
@@ -160,7 +161,7 @@ export async function registerFacebookE2EEDevice(
   const signature = Buffer.from(privateKey.sign(details));
   const signedList = encodeSignedIdentityList(details, signature);
   const identityHash = createHash("sha256")
-    .update(Buffer.concat([...identities].sort(Buffer.compare).reduce((all, item) => [...all, item], [] as Buffer[]).reduce((all, item) => [...all, item], Buffer.alloc(0))))
+    .update(Buffer.concat([...identities].sort(Buffer.compare)))
     .digest().subarray(0, 10);
 
   const regId = Buffer.alloc(4);
