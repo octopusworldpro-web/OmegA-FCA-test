@@ -7,6 +7,7 @@ import { getMqttReconnectDelay, parseMqttJsonPayload } from "../../domains/realt
 import { buildMqttWebSocketUrl, getMqttWebSocketHost } from "./mqtt-url";
 import { buildInitialMqttSyncQueue, normalizeMqttSyncState, validateMqttSubscriptionAck } from "./sync-protocol";
 import { consumeMqttTaskResponse } from "./task-registry";
+import { disposePreviousMqttClient } from "./client-lifecycle";
 
 const { formatID } = formatMod;
 
@@ -76,24 +77,7 @@ function createListenMqtt(deps: Loose) {
       /* ignore */
     }
 
-    const prev = ctx.mqttClient;
-    if (prev) {
-      try {
-        prev.removeAllListeners();
-      } catch {
-        /* ignore */
-      }
-      try {
-        if (prev.connected) {
-          prev.end(true);
-        }
-      } catch {
-        /* ignore */
-      }
-      if (ctx.mqttClient === prev) {
-        ctx.mqttClient = undefined;
-      }
-    }
+    disposePreviousMqttClient(ctx, logger);
 
     const chatOn = ctx.globalOptions.online;
     const sessionID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER) + 1;
