@@ -135,3 +135,5 @@ export { dispatchAutomaticReceipts, type AutomaticReceiptMessage, type Automatic
 export { createSignalE2EERuntime, type SignalRuntimeOptions, type SignalE2EERuntime } from "./domains/e2ee/runtime";
 
 export { createSignalPeerManager, type SignalPeerManagerDeps, type SignalRemoteDevice } from "./domains/e2ee/peer-manager";
+
+export { createSignalGroupKeyManager, type SignalGroupKeyManagerDeps, type SignalGroupDevice } from "./domains/e2ee/group-key-manager";
