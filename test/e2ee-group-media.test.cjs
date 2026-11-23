@@ -57,7 +57,7 @@ const fca = require("../dist/index.js");
   const tampered = Buffer.from(encrypted.ciphertext);
   tampered[0] ^= 1;
   await assert.rejects(media.decrypt(encrypted.descriptor, tampered), /digest or size mismatch/);
-  await assert.rejects(media.decrypt(encrypted.descriptor, encrypted.ciphertext.subarray(0, -16)), /digest or size mismatch|dimensions/);
+  await assert.rejects(media.decrypt(encrypted.descriptor, encrypted.ciphertext.subarray(0, -16)), /digest mismatch or size mismatch|dimensions/);
 
   const badMac = { ...encrypted.descriptor, mac: Buffer.alloc(10, 7).toString("base64") };
   await assert.rejects(media.decrypt(badMac, encrypted.ciphertext), /MAC verification failed/);
