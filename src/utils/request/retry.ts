@@ -77,6 +77,39 @@ function getRateLimitCooldown(headers: Loose, attempt: number, baseDelay: number
   return Math.min(Math.max(1000, fallback + Math.floor(Math.random() * 200)), 30000);
 }
 
+const TEMPORARY_NETWORK_CODES = new Set([
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
+  "UND_ERR_SOCKET",
+  "ETIMEDOUT",
+  "ECONNABORTED",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "EPIPE",
+  "EAI_AGAIN",
+  "ENETUNREACH",
+  "EHOSTUNREACH",
+  "ENOTFOUND",
+  "ERR_NETWORK"
+]);
+
+function isTemporaryNetworkError(error: RetryError): boolean {
+  const code = String(error && error.code ? error.code : "").toUpperCase();
+  if (TEMPORARY_NETWORK_CODES.has(code)) return true;
+
+  const message = String(error && error.message ? error.message : "");
+  return /timeout|timed out|connection reset|socket hang up|network error|fetch failed|temporary failure in name resolution/i.test(message);
+}
+
+function getNetworkRetryDelay(attempt: number, baseDelay: number): number {
+  const exponential = Math.max(0, baseDelay) * Math.pow(2, Math.max(0, attempt - 1));
+  // Equal jitter avoids synchronized retry bursts while keeping a predictable upper bound.
+  const bounded = Math.min(exponential, 30000);
+  const jitter = Math.floor(Math.random() * Math.max(1, bounded * 0.5));
+  return Math.min(Math.max(250, Math.floor(bounded * 0.5) + jitter), 30000);
+}
+
 async function requestWithRetry<T>(
   fn: () => Promise<T>,
   retries = 3,
@@ -154,29 +187,35 @@ async function requestWithRetry<T>(
         return (e.response as T) || Promise.reject(e);
       }
 
-      if (i === retries - 1) {
-        return (e.response as T) || Promise.reject(e);
-      }
-
       const netCode = e?.code || "";
       const msg = e && e.message ? e.message : String(e || "");
-      if (
-        !status &&
-        (netCode === "UND_ERR_CONNECT_TIMEOUT" ||
-          netCode === "ETIMEDOUT" ||
-          netCode === "ECONNRESET" ||
-          netCode === "ECONNREFUSED" ||
-          netCode === "ENOTFOUND" ||
-          /timeout|connect timeout|network error|fetch failed/i.test(msg))
-      ) {
+      const temporaryNetworkError = !status && isTemporaryNetworkError(e);
+
+      if (temporaryNetworkError) {
+        const retryDelay = getNetworkRetryDelay(i + 1, baseDelay);
         emit("networkError", {
           code: netCode,
           message: msg,
           url,
-          method
+          method,
+          retryAttempt: i + 1,
+          willRetry: i < retries - 1,
+          retryDelayMs: i < retries - 1 ? retryDelay : 0
         });
+
+        if (i === retries - 1) {
+          return (e.response as T) || Promise.reject(e);
+        }
+
+        await delay(retryDelay);
+        continue;
       }
 
+      if (i === retries - 1) {
+        return (e.response as T) || Promise.reject(e);
+      }
+
+      // Keep the existing fallback retry behavior for non-network server errors.
       const backoffDelay = Math.min(baseDelay * Math.pow(2, i) + Math.floor(Math.random() * 200), 30000);
       await delay(backoffDelay);
     }
