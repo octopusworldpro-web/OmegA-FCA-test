@@ -404,3 +404,13 @@ Validation boundary: an injected-module lifecycle test is included. Local npm bu
 - Replay/duplicate ciphertext rejection is delegated to the selected libsignal GroupCipher/SenderKeyRecord implementation and its sender-key iteration state. OmegA-FCA does not add a separate replay cache or claim replay resistance until this behavior is verified against the exact injected libsignal version with repeat-message tests.
 
 **Validation boundary:** source and synthetic test updates are committed. Local npm build/test/typecheck, CI, native libsignal duplicate/replay behavior, and authorized Facebook Messenger group E2EE interoperability have not been executed. Messenger group envelope transport and private membership protocol remain unimplemented/unverified.
+
+## Step 7 — Encrypted group media
+
+- Hardened `createSignalEncryptedGroupMedia` with strict descriptor, size, digest, IV/MAC, and wrapped-key routing validation. Malformed or missing wrapped sender metadata is rejected before the Signal decryptor is called.
+- Added optional expected group and sender-device context checks. Applications can bind media decryption to the group and authenticated sender expected by the surrounding message event.
+- Added `downloadAndDecrypt(descriptor, download, expectedContext)` to compose retrieval of opaque media bytes with the same integrity verification and key unwrap/decryption path. The download callback is not invoked when expected routing context is already invalid.
+- Upload continues to send ciphertext only as `application/octet-stream`; the descriptor carries the wrapped Sender Key media key and integrity metadata separately. Upload/download callbacks are transport adapters and do not pretend to implement Messenger's private media CDN protocol.
+- Added a dedicated test covering binary round-trip, ciphertext-only upload, download/decrypt, expected group/sender rejection, digest tampering, MAC tampering, wrapped-key routing, malformed metadata, and transport callback failures.
+
+**Validation boundary:** implementation and synthetic tests are committed. CI must pass before this step is marked verified. Messenger-specific encrypted attachment descriptor/envelope format, CDN upload/download behavior, native libsignal interoperability, and authorized live Facebook group-media acceptance remain unverified; no live Messenger E2EE media claim is made.
