@@ -97,6 +97,7 @@ function createFallbackNamespaces(api: LegacyApiLike): FcaClientNamespaces {
       refreshDtsg: bindOptionalMethod(api, "refreshFb_dtsg"),
       changeBlockedStatus: bindOptionalMethod(api, "changeBlockedStatus"),
       setOptions: bindOptionalMethod(api, "setOptions"),
+      getHumanizer: bindOptionalMethod(api, "getHumanizer"),
       setPostReaction: bindOptionalMethod(api, "setPostReaction"),
       reactToPost: bindOptionalMethod(api, "reactToPost"),
       reactToComment: bindOptionalMethod(api, "reactToComment"),
