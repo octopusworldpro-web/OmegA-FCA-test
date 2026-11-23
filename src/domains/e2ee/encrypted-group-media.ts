@@ -25,6 +25,10 @@ export interface EncryptedGroupMediaDescriptor {
   fileName?: string;
   contentType?: string;
 }
+export interface EncryptedGroupMediaExpectedContext {
+  groupId?: string;
+  sender?: SignalPeerAddress;
+}
 type Dynamic = any;
 
 function bytes(value: Uint8Array | Buffer): Buffer {
@@ -51,6 +55,17 @@ function validateGroup(groupId: string): string {
 }
 function mac(key: Buffer, iv: Buffer, ciphertext: Buffer): Buffer {
   return createHmac("sha256", key).update(iv).update(ciphertext).digest().subarray(0, MAC_LENGTH);
+}
+function validateExpectedContext(descriptor: EncryptedGroupMediaDescriptor, expected?: EncryptedGroupMediaExpectedContext) {
+  if (expected?.groupId !== undefined && validateGroup(expected.groupId) !== descriptor.groupId) {
+    throw new Error("Encrypted group media groupId does not match expected group");
+  }
+  if (expected?.sender !== undefined) {
+    const sender = validateSender(expected.sender);
+    if (sender.name !== descriptor.sender.name || sender.deviceId !== descriptor.sender.deviceId) {
+      throw new Error("Encrypted group media sender does not match expected sender device");
+    }
+  }
 }
 
 /** Group media uses a fresh attachment key wrapped by the group's Signal Sender Key. */
@@ -94,23 +109,34 @@ export function createSignalEncryptedGroupMedia(groups: GroupCipherPort) {
     };
   }
 
-  async function decrypt(descriptor: EncryptedGroupMediaDescriptor, ciphertextInput: Uint8Array | Buffer): Promise<Buffer> {
+  async function decrypt(
+    descriptor: EncryptedGroupMediaDescriptor,
+    ciphertextInput: Uint8Array | Buffer,
+    expected?: EncryptedGroupMediaExpectedContext
+  ): Promise<Buffer> {
     if (!descriptor || descriptor.version !== 1 || descriptor.algorithm !== "AES-256-CBC-HMAC-SHA256") throw new TypeError("Unsupported encrypted group media descriptor");
     const groupId = validateGroup(descriptor.groupId);
     const sender = validateSender(descriptor.sender);
+    validateExpectedContext({ ...descriptor, groupId, sender }, expected);
     const ciphertext = bytes(ciphertextInput);
     const iv = decode(descriptor.iv, "iv");
     const suppliedMac = decode(descriptor.mac, "mac");
     if (iv.length !== IV_LENGTH || suppliedMac.length !== MAC_LENGTH || ciphertext.length === 0 || ciphertext.length % 16 !== 0) throw new TypeError("Invalid encrypted group media dimensions");
-    if (descriptor.ciphertextSize !== ciphertext.length || createHash("sha256").update(ciphertext).digest("hex") !== descriptor.digest) throw new Error("Encrypted group media digest mismatch");
-    if (!descriptor.encryptedKey || descriptor.encryptedKey.groupId !== groupId ||
-        descriptor.encryptedKey.sender.name !== sender.name || descriptor.encryptedKey.sender.deviceId !== sender.deviceId) {
+    if (!Number.isSafeInteger(descriptor.ciphertextSize) || descriptor.ciphertextSize !== ciphertext.length ||
+        !Number.isSafeInteger(descriptor.plaintextSize) || descriptor.plaintextSize < 0 ||
+        typeof descriptor.digest !== "string" || !/^[a-f0-9]{64}$/i.test(descriptor.digest) ||
+        createHash("sha256").update(ciphertext).digest("hex") !== descriptor.digest) {
+      throw new Error("Encrypted group media digest or size mismatch");
+    }
+    const wrapped = descriptor.encryptedKey;
+    if (!wrapped || typeof wrapped !== "object" || wrapped.groupId !== groupId ||
+        !wrapped.sender || wrapped.sender.name !== sender.name || wrapped.sender.deviceId !== sender.deviceId) {
       throw new Error("Encrypted group media key routing mismatch");
     }
-    const key = Buffer.from(await groups.decrypt(descriptor.encryptedKey));
+    const key = Buffer.from(await groups.decrypt(wrapped));
     if (key.length !== KEY_LENGTH) throw new Error("Invalid decrypted group media key length");
-    const expected = mac(key.subarray(32), iv, ciphertext);
-    if (!timingSafeEqual(expected, suppliedMac)) throw new Error("Encrypted group media MAC verification failed");
+    const expectedMac = mac(key.subarray(32), iv, ciphertext);
+    if (!timingSafeEqual(expectedMac, suppliedMac)) throw new Error("Encrypted group media MAC verification failed");
     const decipher = createDecipheriv("aes-256-cbc", key.subarray(0, 32), iv);
     const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
     if (plaintext.length !== descriptor.plaintextSize) throw new Error("Decrypted group media size mismatch");
@@ -134,5 +160,19 @@ export function createSignalEncryptedGroupMedia(groups: GroupCipherPort) {
     return { descriptor: encrypted.descriptor, upload: uploaded };
   }
 
-  return { encrypt, decrypt, encryptAndUpload };
+  async function downloadAndDecrypt(
+    descriptor: EncryptedGroupMediaDescriptor,
+    download: (descriptor: EncryptedGroupMediaDescriptor) => Promise<Uint8Array | Buffer>,
+    expected?: EncryptedGroupMediaExpectedContext
+  ): Promise<Buffer> {
+    if (typeof download !== "function") throw new TypeError("download callback is required");
+    if (!descriptor || descriptor.version !== 1) throw new TypeError("Encrypted group media descriptor is required");
+    const groupId = validateGroup(descriptor.groupId);
+    const sender = validateSender(descriptor.sender);
+    validateExpectedContext({ ...descriptor, groupId, sender }, expected);
+    const downloaded = await download(descriptor);
+    return decrypt(descriptor, downloaded, expected);
+  }
+
+  return { encrypt, decrypt, encryptAndUpload, downloadAndDecrypt };
 }
