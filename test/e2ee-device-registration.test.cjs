@@ -14,6 +14,7 @@ const fca = require("../dist/index.js");
     cookies: "c_user=123456789; xs=test",
     userAgent: "test-agent",
     deviceId: "11111111-2222-4333-8444-555555555555",
+    signedPreKeyId: 1,
     signal: { PrivateKey: { deserialize: () => privateKey } },
     store: {
       getRegistrationId: () => 4567,
