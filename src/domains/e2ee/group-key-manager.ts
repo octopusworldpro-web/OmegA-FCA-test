@@ -53,31 +53,42 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
 
   const distributed = new Map<string, Set<string>>();
   const distributionCache = new Map<string, SenderKeyDistribution>();
-  const keyId = (groupId: string, sender: SignalPeerAddress) => `${groupId}|${sender.name}.${sender.deviceId}`;
+  const inFlight = new Map<string, Promise<{ distribution: SenderKeyDistribution; recipients: SignalGroupDevice[] }>>();
+  const keyId = (groupId: string, sender: SignalPeerAddress) => JSON.stringify([groupId, sender.name, sender.deviceId]);
   const deviceId = (device: SignalGroupDevice) => `${device.name}.${device.deviceId}`;
 
   async function distribute(groupIdInput: string, senderInput: SignalPeerAddress) {
     const groupId = validGroupId(groupIdInput);
     const sender = validAddress(senderInput, "local sender");
     const distributionKey = keyId(groupId, sender);
-    const recipients = normalizeMembers(await deps.listMemberDevices(groupId, sender), sender);
-    if (!recipients.length) throw new Error("group has no remote member devices for Sender Key distribution");
-    let distribution = distributionCache.get(distributionKey);
-    if (!distribution) {
-      distribution = await deps.groups.createDistribution(groupId, sender);
-      distributionCache.set(distributionKey, distribution);
+    const pending = inFlight.get(distributionKey);
+    if (pending) return pending;
+
+    const operation = (async () => {
+      const recipients = normalizeMembers(await deps.listMemberDevices(groupId, sender), sender);
+      if (!recipients.length) throw new Error("group has no remote member devices for Sender Key distribution");
+      let distribution = distributionCache.get(distributionKey);
+      if (!distribution) {
+        distribution = await deps.groups.createDistribution(groupId, sender);
+        distributionCache.set(distributionKey, distribution);
+      }
+      const sent = distributed.get(distributionKey) ?? new Set<string>();
+      distributed.set(distributionKey, sent);
+      const newlySent: SignalGroupDevice[] = [];
+      for (const recipient of recipients) {
+        if (sent.has(deviceId(recipient))) continue;
+        await deps.sendDistribution(recipient, distribution);
+        sent.add(deviceId(recipient));
+        newlySent.push(recipient);
+      }
+      return { distribution, recipients: newlySent };
+    })();
+    inFlight.set(distributionKey, operation);
+    try {
+      return await operation;
+    } finally {
+      if (inFlight.get(distributionKey) === operation) inFlight.delete(distributionKey);
     }
-    const sent = distributed.get(distributionKey) ?? new Set<string>();
-    distributed.set(distributionKey, sent);
-    const newlySent: SignalGroupDevice[] = [];
-    for (const recipient of recipients) {
-      if (sent.has(deviceId(recipient))) continue;
-      await deps.sendDistribution(recipient, distribution);
-      sent.add(deviceId(recipient));
-      newlySent.push(recipient);
-    }
-    distributed.set(keyId(groupId, sender), sent);
-    return { distribution, recipients: newlySent };
   }
 
   async function encrypt(groupIdInput: string, senderInput: SignalPeerAddress, plaintext: string | Uint8Array) {
@@ -95,8 +106,10 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
     const groupId = validGroupId(groupIdInput);
     const sender = validAddress(senderInput, "local sender");
     await deps.store.removeSenderKey(sender, groupId);
-    distributed.delete(keyId(groupId, sender));
-    distributionCache.delete(keyId(groupId, sender));
+    const distributionKey = keyId(groupId, sender);
+    distributed.delete(distributionKey);
+    distributionCache.delete(distributionKey);
+    inFlight.delete(distributionKey);
     return distribute(groupId, sender);
   }
 
