@@ -52,6 +52,8 @@ const fca = require("../dist/index.js");
     assert.equal(reopened.loadSignedPreKey(1).signature, "c2ln");
     assert.deepEqual(reopened.listPreKeyIds(), [2]);
     assert.deepEqual(reopened.listSignedPreKeyIds(), [1]);
+    assert.deepEqual(reopened.listKyberPreKeyIds(), [3]);
+    assert.equal(reopened.hasKyberPreKeyBeenUsed(3), true);
     assert.deepEqual(reopened.getDeviceRecord(), { deviceId: "device-uuid-1", waDeviceId: 42, registeredAt: 1700000000, icdcSequence: 8 });
     await reopened.setDeviceRecord({ deviceId: "device-uuid-1", waDeviceId: 42, registeredAt: 1700000000, icdcSequence: 8 });
     await reopened.removePreKey(2);
