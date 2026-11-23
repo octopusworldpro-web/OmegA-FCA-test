@@ -124,3 +124,4 @@ export { createSignalE2EEActions, type E2EEReadReceipt, type E2EEActionsDeps } f
 export { createLibsignalSenderKeyStore } from "./domains/e2ee/libsignal-adapter";
 export { createSignalSenderKeyGroups, type SenderKeyDistribution, type SenderKeyCiphertext } from "./domains/e2ee/sender-keys";
 export { createSignalEncryptedGroupMedia, type EncryptedGroupMediaDescriptor } from "./domains/e2ee/encrypted-group-media";
+\nexport { createMediaShortcuts, type MediaShortcutDeps } from "./domains/messages/media-shortcuts";\n
