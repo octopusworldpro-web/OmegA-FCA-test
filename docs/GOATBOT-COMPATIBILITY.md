@@ -393,3 +393,14 @@ Validation boundary: an injected-module lifecycle test is included. Local npm bu
 - SenderKeyRecord persistence remains in the encrypted account-bound Signal store and is covered by the key-store persistence test.
 
 **Validation boundary:** this is the Signal Sender Keys/SKDM lifecycle plus injected transport orchestration. Messenger-specific private group membership/device discovery, authenticated SKDM envelope transport, multi-device group fanout acceptance and live Facebook group E2EE remain unverified. No local npm build/test/typecheck or GitHub Actions run has been executed.
+
+
+## Step 6 — Encrypted group messaging hardening
+
+- Group encryption/decryption continues to use the libsignal Sender Keys primitives; incoming SKDM processing remains a prerequisite for decrypting a sender's group messages.
+- Group-key manager decryption now accepts optional expected group and sender-device context and rejects mismatches before invoking the Signal decryptor. This prevents application routing metadata from silently selecting an unexpected group or sender-key record.
+- Fixed the SKDM distribution cache-key initialization order so the key is defined before cache lookup.
+- Added tests for expected group and sender-device mismatch rejection.
+- Replay/duplicate ciphertext rejection is delegated to the selected libsignal GroupCipher/SenderKeyRecord implementation and its sender-key iteration state. OmegA-FCA does not add a separate replay cache or claim replay resistance until this behavior is verified against the exact injected libsignal version with repeat-message tests.
+
+**Validation boundary:** source and synthetic test updates are committed. Local npm build/test/typecheck, CI, native libsignal duplicate/replay behavior, and authorized Facebook Messenger group E2EE interoperability have not been executed. Messenger group envelope transport and private membership protocol remain unimplemented/unverified.
