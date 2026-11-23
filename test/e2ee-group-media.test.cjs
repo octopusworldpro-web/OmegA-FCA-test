@@ -30,8 +30,10 @@ const fca = require("../dist/index.js");
   assert.equal(encrypted.descriptor.contentType, "image/jpeg");
   assert.deepEqual(await media.decrypt(encrypted.descriptor, encrypted.ciphertext), plaintext);
 
+  let uploadedCiphertext;
   const uploaded = await media.encryptAndUpload("thread-1", sender, plaintext, async (body, metadata) => {
     uploads++;
+    uploadedCiphertext = Buffer.from(body);
     assert.notDeepEqual(body, plaintext, "upload receives ciphertext only");
     assert.equal(metadata.contentType, "application/octet-stream");
     assert.equal(metadata.fileName, "photo.jpg.enc");
@@ -42,7 +44,7 @@ const fca = require("../dist/index.js");
 
   const downloaded = await media.downloadAndDecrypt(uploaded.descriptor, async () => {
     downloads++;
-    return encrypted.ciphertext;
+    return uploadedCiphertext;
   }, { groupId: "thread-1", sender });
   assert.equal(downloads, 1);
   assert.deepEqual(downloaded, plaintext);
