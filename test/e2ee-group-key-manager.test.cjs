@@ -40,9 +40,9 @@ const fca = require("../dist/index.js");
   });
 
   await assert.rejects(manager.distribute("group-1", sender), /temporary transport failure/);
-  const first = await manager.distribute("group-1", sender);
-  assert.deepEqual(first.recipients.map((item) => item.name), ["alice", "bob"]);
-  assert.deepEqual(sent.map((item) => item.recipient.name), ["alice", "bob"]);
+  const retry = await manager.distribute("group-1", sender);
+  assert.deepEqual(retry.recipients.map((item) => item.name), ["bob"], "retry reports only the recipient newly delivered after the earlier partial success");
+  assert.deepEqual(sent.map((item) => item.recipient.name), ["alice", "bob"], "previously delivered SKDM is not sent again");
   const repeated = await manager.distribute("group-1", sender);
   assert.deepEqual(repeated.recipients, [], "already delivered SKDMs are not resent");
 
