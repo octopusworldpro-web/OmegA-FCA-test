@@ -361,3 +361,14 @@ await api.e2ee.close();
 Use a unique secret per deployment/account, keep the store file and secret out of Git, and provision the local device ID according to the selected Messenger registration flow. Do not use the example device ID without verifying it for your registered device.
 
 Validation boundary: an injected-module lifecycle test is included. Local npm build/test/typecheck, CI, actual libsignal native-module compatibility, Facebook device registration, Messenger E2EE envelope exchange and authorized live interoperability remain unverified.
+
+
+## Step 4 — Direct-message peer and multi-device session management
+
+- Added a transport-neutral peer manager on top of the existing Signal direct-message engine.
+- The application supplies a trusted peer-device directory and a PreKeyBundle fetch/parse provider. The manager validates peer/device identity, rejects duplicate device IDs, establishes missing sessions per device, reuses persisted sessions, and encrypts one outgoing copy for each active peer device.
+- Incoming decryption is explicitly scoped to the sender's device address.
+- No Messenger private endpoint, device-directory response shape or envelope format is guessed. The adapter boundary is ready for the authenticated Messenger transport once its protocol is verified.
+- Added synthetic tests for device ordering, per-device session establishment/reuse, multi-device encryption, sender-device decrypt routing and duplicate-device rejection.
+
+**Validation boundary:** source and tests are committed, but no local npm build/test/typecheck, GitHub Actions run, real libsignal native-module test, Messenger bundle transport, or live Facebook E2EE acceptance has been executed. This step is protocol orchestration scaffolding, not proof of Messenger interoperability.
