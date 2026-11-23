@@ -454,6 +454,45 @@ export function attachLegacyApiSurface(
     });
   }
 
+  /**
+   * Resume outgoing actions only after the caller has independently verified
+   * that the account session is healthy (for example, after resolving a challenge).
+   * A timer or an arbitrary successful request must never clear a checkpoint.
+   */
+  const resumeAfterCheckpoint = async (verifySession: () => Promise<boolean> | boolean): Promise<boolean> => {
+    if (!(ctx as Loose)._checkpointActive) return true;
+    if (typeof verifySession !== "function") {
+      throw new TypeError("resumeAfterCheckpoint requires a session verification callback");
+    }
+
+    let verified = false;
+    try {
+      verified = (await verifySession()) === true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger("checkpoint recovery verification failed: " + message, "warn");
+      return false;
+    }
+
+    if (!verified) {
+      logger("checkpoint remains active: session verification did not pass", "warn");
+      return false;
+    }
+
+    (ctx as Loose)._checkpointActive = false;
+    delete (ctx as Loose)._checkpointDetectedAt;
+    if (ctx.mqttClient) (ctx.mqttClient as Loose)._checkpointActive = false;
+
+    const event = {
+      type: "safety_resumed",
+      timestamp: Date.now(),
+      outgoingResumed: true
+    };
+    try { (ctx as Loose)._emitter?.emit?.("safety_resumed", event); } catch { }
+    logger("checkpoint recovery verified; outgoing actions resumed", "info");
+    return true;
+  };
+
   const legacySurface: Record<string, Loose> = {
     addExternalModule: account.addExternalModule,
     changeAvatar: account.changeAvatar,
@@ -464,6 +503,7 @@ export function attachLegacyApiSurface(
     handleFriendRequest: account.handleFriendRequest,
     logout: account.logout,
     refreshFb_dtsg: account.refreshFb_dtsg,
+    resumeAfterCheckpoint,
     setPostReaction: account.setPostReaction,
     reactToPost: account.setPostReaction,
     reactToComment: social.reactToComment,
@@ -590,6 +630,7 @@ export function attachLegacyApiSurface(
       handleFriendRequest: account.handleFriendRequest,
       logout: account.logout,
       refreshDtsg: account.refreshFb_dtsg,
+      resumeAfterCheckpoint,
       changeBlockedStatus: account.changeBlockedStatus,
       setOptions: api.setOptions,
       getHumanizer,

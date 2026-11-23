@@ -22,6 +22,13 @@ export async function publishLsRequestWithAck<TResult>(params: PublishLsRequestO
       typeof client.removeListener !== "function") {
     throw new Error("MQTT client is not initialized");
   }
+  if ((client as Loose)._checkpointActive) {
+    const error = Object.assign(
+      new Error("Outgoing realtime action paused: Facebook checkpoint/challenge is active."),
+      { code: "FCA_CHECKPOINT_ACTIVE" }
+    );
+    throw error;
+  }
   if (!Number.isSafeInteger(requestId) || requestId < 0) {
     throw new Error("A valid MQTT request ID is required");
   }

@@ -76,6 +76,18 @@ export interface AccountInactiveEvent extends EventBase {
   error: string;
 }
 
+export interface CheckpointEvent extends EventBase {
+  type: "checkpoint";
+  reason: string;
+  url: string;
+  outgoingPaused: true;
+}
+
+export interface SafetyResumedEvent extends EventBase {
+  type: "safety_resumed";
+  outgoingResumed: true;
+}
+
 export interface StopListenEvent extends EventBase {
   type: "stop_listen";
   error: string;
@@ -93,6 +105,8 @@ export type MqttEvent =
   | ReadyEvent
   | ThreadEvent
   | AccountInactiveEvent
+  | CheckpointEvent
+  | SafetyResumedEvent
   | StopListenEvent;
 
 export type ListenMqttError = Error | AccountInactiveEvent | StopListenEvent;
