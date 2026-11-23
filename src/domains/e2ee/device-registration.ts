@@ -158,9 +158,9 @@ export async function registerFacebookE2EEDevice(
   const timestamp = Math.floor((options.now ? options.now() : Date.now()) / 1000);
   const details = encodeIdentityList(sequence, timestamp, identities, signingIndex);
   const privateKey = options.signal.PrivateKey.deserialize(Buffer.from(identity.privateKey, "base64"));
-  const signingBytes = new Uint8Array(new ArrayBuffer(details.length));
-  signingBytes.set(details);
-  const signature = Buffer.from(privateKey.sign(Buffer.from(signingBytes.buffer)));
+  const signingInput = Buffer.alloc(details.length);
+  details.copy(signingInput);
+  const signature = Buffer.from(privateKey.sign(signingInput));
   const signedList = encodeSignedIdentityList(details, signature);
   const identityHash = createHash("sha256")
     .update(Buffer.concat([...identities].sort(Buffer.compare)))
