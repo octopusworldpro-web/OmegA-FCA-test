@@ -39,6 +39,7 @@ export { createAccountDomain } from "./domains/account";
 export { createHttpDomain } from "./domains/http";
 export { createSchedulerDomain } from "./domains/scheduler";
 export { createRealtimeListener } from "./domains/realtime/listener";
+export { createHumanizerController, type HumanizerController, type HumanizerOptions } from "./domains/realtime/humanizer";
 
 export * from "./types";
 export { getMqttReconnectDelay, parseMqttJsonPayload, type MqttReconnectDelayOptions } from "./domains/realtime/reconnect-policy";
