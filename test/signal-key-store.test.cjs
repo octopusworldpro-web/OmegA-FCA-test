@@ -17,13 +17,25 @@ const fca = require("../dist/index.js");
     await store.setDeviceRecord({ deviceId: "device-uuid-1", waDeviceId: 42, registeredAt: 1700000000, icdcSequence: 8 });
     await store.storeSignedPreKey({ keyId: 1, publicKey: "cHVi", privateKey: "cHJp", signature: "c2ln", createdAt: 1700000000 });
     await store.storePreKey(2, { publicKey: "cHViMg==", privateKey: "cHJpMg==" });
+    await store.storeKyberPreKey(3, Buffer.from("kyber-record").toString("base64"));
     const address = { name: "remote-user", deviceId: 1 };
     await store.storeSession(address, Buffer.from("serialized-session").toString("base64"));
     await store.storeSenderKey(address, "group-abc", Buffer.from("serialized-sender-key").toString("base64"));
     assert.equal(store.getRegistrationId(), 4567);
     assert.deepEqual(store.listSignedPreKeyIds(), [1]);
     assert.deepEqual(store.listPreKeyIds(), [2]);
-    assert.deepEqual(store.listKyberPreKeyIds(), []);
+    assert.deepEqual(store.listKyberPreKeyIds(), [3]);
+    assert.equal(store.hasKyberPreKeyBeenUsed(3), false);
+    await store.markKyberPreKeyUsed(3, 1, Buffer.from("base-key").toString("base64"));
+    assert.equal(store.hasKyberPreKeyBeenUsed(3), true);
+    await assert.rejects(
+      store.markKyberPreKeyUsed(3, 2, Buffer.from("different-base-key").toString("base64")),
+      /already been consumed/
+    );
+    await assert.rejects(
+      store.markKyberPreKeyUsed(99, 2, Buffer.from("base-key").toString("base64")),
+      /not found/
+    );
     assert.deepEqual(store.getDeviceRecord(), { deviceId: "device-uuid-1", waDeviceId: 42, registeredAt: 1700000000, icdcSequence: 8 });
     assert.equal(store.loadPreKey(2).publicKey, "cHViMg==");
     assert.equal(store.isTrustedIdentity(address, "aWRlbnRpdHk="), true);
