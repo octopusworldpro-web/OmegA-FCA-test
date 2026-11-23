@@ -131,3 +131,5 @@ export { createMediaShortcuts, type MediaShortcutDeps } from "./domains/messages
 export { registerFacebookE2EEDevice, type FacebookE2EERegistrationOptions, type FacebookE2EERegistrationResult } from "./domains/e2ee/device-registration";
 
 export { dispatchAutomaticReceipts, type AutomaticReceiptMessage, type AutomaticReceiptOptions } from "./domains/realtime/auto-receipts";
+
+export { createSignalE2EERuntime, type SignalRuntimeOptions, type SignalE2EERuntime } from "./domains/e2ee/runtime";
