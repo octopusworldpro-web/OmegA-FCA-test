@@ -380,3 +380,16 @@ Validation boundary: an injected-module lifecycle test is included. Local npm bu
 - Session preparation is serialized per peer/device inside the manager, preventing concurrent sends from racing to establish the same missing session.
 - After session establishment, the manager verifies that the session store now contains the device session before allowing message encryption.
 - Tests now cover native-bundle parsing handoff and concurrent preparation deduplication in addition to multi-device routing and duplicate-device rejection.
+
+
+## Step 5 — Group Sender Keys and SKDM lifecycle
+
+- Added a group-key manager around the existing libsignal Sender Keys primitives and encrypted SenderKeyStore persistence.
+- Local Sender Key Distribution Messages (SKDMs) are sent privately to every active remote group-member device through an injected authenticated direct-message transport. The manager excludes the local device and rejects malformed/duplicate device directories.
+- Incoming SKDMs are passed to libsignal's distribution processor before group decrypt operations.
+- Distribution payloads are cached across partial transport failures; successful recipient deliveries are remembered so retries continue without resending to already-confirmed devices.
+- Group membership synchronization rotates the local Sender Key, clears old delivery state and distributes the new key to the current member-device set. Explicit rotation is also available.
+- Added tests for SKDM fanout, partial-send retry, distribution reuse, incoming distribution processing, group encrypt/decrypt delegation, membership-triggered rotation and duplicate-device rejection.
+- SenderKeyRecord persistence remains in the encrypted account-bound Signal store and is covered by the key-store persistence test.
+
+**Validation boundary:** this is the Signal Sender Keys/SKDM lifecycle plus injected transport orchestration. Messenger-specific private group membership/device discovery, authenticated SKDM envelope transport, multi-device group fanout acceptance and live Facebook group E2EE remain unverified. No local npm build/test/typecheck or GitHub Actions run has been executed.
