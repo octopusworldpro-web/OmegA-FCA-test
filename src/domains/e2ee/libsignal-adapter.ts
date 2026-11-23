@@ -149,6 +149,8 @@ export async function createSignalSignedPreKey(
   keyId: number,
   timestamp = Date.now()
 ): Promise<{ keyId: number; publicKey: string; signature: string }> {
+  if (!Number.isSafeInteger(keyId) || keyId < 0) throw new TypeError("keyId must be a non-negative safe integer");
+  if (store.loadSignedPreKey(keyId)) throw new Error(`Signed prekey ${keyId} already exists`);
   const identity = required(store.getIdentityKeyPair(), "identity key pair");
   const identityPrivateKey = signal.PrivateKey.deserialize(fromBase64(identity.privateKey));
   const keyPair = signal.PrivateKey.generate();
@@ -171,6 +173,8 @@ export async function createSignalPreKey(
   store: SignalKeyStore,
   keyId: number
 ): Promise<{ keyId: number; publicKey: string }> {
+  if (!Number.isSafeInteger(keyId) || keyId < 0) throw new TypeError("keyId must be a non-negative safe integer");
+  if (store.loadPreKey(keyId)) throw new Error(`One-time prekey ${keyId} already exists`);
   const keyPair = signal.PrivateKey.generate();
   const publicKey = keyPair.getPublicKey();
   await store.storePreKey(keyId, {
@@ -187,6 +191,8 @@ export async function createSignalKyberPreKey(
   keyId: number,
   timestamp = Date.now()
 ): Promise<{ keyId: number; publicKey: string; signature: string }> {
+  if (!Number.isSafeInteger(keyId) || keyId < 0) throw new TypeError("keyId must be a non-negative safe integer");
+  if (store.loadKyberPreKey(keyId)) throw new Error(`Kyber prekey ${keyId} already exists`);
   const identity = required(store.getIdentityKeyPair(), "identity key pair");
   const identityPrivateKey = signal.PrivateKey.deserialize(fromBase64(identity.privateKey));
   const keyPair = signal.KEMKeyPair.generate();
@@ -197,6 +203,45 @@ export async function createSignalKyberPreKey(
   return { keyId, publicKey: bytesToBase64(publicKey.serialize()), signature: bytesToBase64(signature) };
 }
 
+
+
+
+/** Creates a collision-safe batch of one-time EC prekeys for later publication. */
+export async function createSignalPreKeyBatch(
+  signal: Dynamic,
+  store: SignalKeyStore,
+  startId: number,
+  count: number
+): Promise<Array<{ keyId: number; publicKey: string }>> {
+  if (!Number.isSafeInteger(startId) || startId < 0) throw new TypeError("startId must be a non-negative safe integer");
+  if (!Number.isSafeInteger(count) || count < 1 || count > 1000) throw new RangeError("count must be between 1 and 1000");
+  const ids = Array.from({ length: count }, (_, index) => startId + index);
+  if (ids.some((id) => !Number.isSafeInteger(id) || store.loadPreKey(id))) {
+    throw new Error("One-time prekey batch overlaps an existing or invalid key ID");
+  }
+  const generated = [];
+  for (const id of ids) generated.push(await createSignalPreKey(signal, store, id));
+  return generated;
+}
+
+/** Creates a batch of signed post-quantum Kyber prekeys for later publication. */
+export async function createSignalKyberPreKeyBatch(
+  signal: Dynamic,
+  store: SignalKeyStore,
+  startId: number,
+  count: number,
+  timestamp = Date.now()
+): Promise<Array<{ keyId: number; publicKey: string; signature: string }>> {
+  if (!Number.isSafeInteger(startId) || startId < 0) throw new TypeError("startId must be a non-negative safe integer");
+  if (!Number.isSafeInteger(count) || count < 1 || count > 1000) throw new RangeError("count must be between 1 and 1000");
+  const ids = Array.from({ length: count }, (_, index) => startId + index);
+  if (ids.some((id) => !Number.isSafeInteger(id) || store.loadKyberPreKey(id))) {
+    throw new Error("Kyber prekey batch overlaps an existing or invalid key ID");
+  }
+  const generated = [];
+  for (const id of ids) generated.push(await createSignalKyberPreKey(signal, store, id, timestamp));
+  return generated;
+}
 
 /** Creates the optional libsignal SenderKeyStore adapter used by group sessions. */
 export function createLibsignalSenderKeyStore(signal: Dynamic, store: SignalKeyStore) {
