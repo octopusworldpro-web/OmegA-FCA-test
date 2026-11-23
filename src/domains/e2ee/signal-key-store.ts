@@ -13,6 +13,13 @@ export interface SignalSignedPreKeyRecord extends SignalKeyPairRecord {
   createdAt: number;
 }
 
+export interface SignalDeviceRecord {
+  deviceId: string;
+  waDeviceId: number;
+  registeredAt: number;
+  icdcSequence: number;
+}
+
 export interface SignalSessionAddress {
   name: string;
   deviceId: number;
@@ -37,6 +44,7 @@ interface SignalStoreState {
   sessions: Record<string, string>;
   trustedIdentities: Record<string, string>;
   senderKeys?: Record<string, string>;
+  device?: SignalDeviceRecord;
 }
 
 interface EncryptedEnvelope {
@@ -137,6 +145,8 @@ function decryptState(envelope: EncryptedEnvelope, secret: string | Buffer): Sig
 
 export interface SignalKeyStore {
   readonly accountId: string;
+  setDeviceRecord(record: SignalDeviceRecord): Promise<void>;
+  getDeviceRecord(): SignalDeviceRecord | undefined;
   setIdentityKeyPair(record: SignalKeyPairRecord): Promise<void>;
   getIdentityKeyPair(): SignalKeyPairRecord | undefined;
   setRegistrationId(id: number): Promise<void>;
@@ -226,6 +236,15 @@ export async function createSignalKeyStore(options: SignalStoreOptions): Promise
   const snapshot = () => structuredClone(state);
   const store: SignalKeyStore = {
     accountId,
+    setDeviceRecord: (record) => mutate((draft) => {
+      const deviceId = requireText(record?.deviceId, "device.deviceId");
+      const waDeviceId = requireId(record?.waDeviceId, "device.waDeviceId");
+      const registeredAt = requireId(record?.registeredAt, "device.registeredAt");
+      const icdcSequence = requireId(record?.icdcSequence, "device.icdcSequence");
+      if (waDeviceId < 1) throw new TypeError("device.waDeviceId must be positive");
+      draft.device = { deviceId, waDeviceId, registeredAt, icdcSequence };
+    }),
+    getDeviceRecord: () => snapshot().device,
     setIdentityKeyPair: (record) => mutate((draft) => {
       draft.identityKeyPair = {
         publicKey: requireBytes(record?.publicKey, "identity.publicKey"),
