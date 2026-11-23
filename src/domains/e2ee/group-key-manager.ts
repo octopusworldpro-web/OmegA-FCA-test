@@ -93,7 +93,8 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
   }
 
   async function syncMembership(groupIdInput: string, senderInput: SignalPeerAddress) {
-    return distribute(validGroupId(groupIdInput), validAddress(senderInput, "local sender"));
+    // Membership changes must rotate the sender key so removed members cannot decrypt future messages.
+    return rotate(validGroupId(groupIdInput), validAddress(senderInput, "local sender"));
   }
 
   return {
