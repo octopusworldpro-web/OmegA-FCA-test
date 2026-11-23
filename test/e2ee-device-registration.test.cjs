@@ -17,7 +17,7 @@ const fca = require("../dist/index.js");
     signedPreKeyId: 1,
     signal: { PrivateKey: { deserialize: () => privateKey } },
     store: {
-      getRegistrationId: () => 4567,
+      getRegistrationId: () => 4567,\n      setDeviceRecord: async (record) => { calls.push({ persisted: record }); },
       getIdentityKeyPair: () => ({
         publicKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 1)]).toString("base64"),
         privateKey: Buffer.alloc(32, 2).toString("base64")
@@ -43,7 +43,7 @@ const fca = require("../dist/index.js");
   assert.equal(result.waDeviceId, 42);
   assert.equal(result.icdcSequence, 8);
   assert.equal(result.deviceId, options.deviceId);
-  assert.equal(calls.length, 2);
+  assert.equal(calls.filter((call) => call.url).length, 2);\n  assert.equal(calls.find((call) => call.persisted)?.persisted.waDeviceId, 42);
   assert.match(calls[0].url, /fb_icdc_fetch$/);
   assert.match(calls[1].url, /fb_register_v2$/);
   assert.match(calls[1].body, /e_ident=/);
