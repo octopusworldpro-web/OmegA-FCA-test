@@ -10,6 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [0.2.1-beta.2] - 2026-11-23
+
+### Release notes
+
+- Second beta candidate for OmegA-FCA.
+- Includes the current main-branch implementation and protocol security audit documentation.
+- Native Facebook Messenger E2EE interoperability and authorized live-account validation remain outside automated-test evidence.
+
+---
+
 ## [4.0.2] - 2026-04-11
 
 ### Changed
