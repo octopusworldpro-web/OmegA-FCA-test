@@ -3,6 +3,7 @@
  * Handles retries and auto re-login via fca-config.json when session expires.
  */
 import { tokensViaAPI, normalizeCookieHeaderString } from "../../core/auth";
+import { normalizeMqttSequenceId } from "./sync-protocol";
 import { loadConfig } from "../../core/config";
 import { parseAndCheckLogin, saveCookies } from "../../utils/client";
 import formatMod from "../../utils/format";
@@ -220,12 +221,17 @@ function createGetSeqID(deps: GetSeqDeps) {
 
           throw { error: "Not logged in", originalResponse: resData };
         }
-        if (!Array.isArray(resData) || !resData.length) return;
+        if (!Array.isArray(resData) || resData.length === 0) {
+          throw new Error("getSeqID: GraphQL returned an empty batch response");
+        }
         const lastRes = resData[resData.length - 1];
-        if (lastRes && lastRes.successful_results === 0) return;
+        if (lastRes && (Number(lastRes.successful_results) === 0 || Number(lastRes.error_results) > 0)) {
+          throw new Error("getSeqID: GraphQL batch reported no successful result");
+        }
 
-        const syncSeqId = resData[0]?.o0?.data?.viewer?.message_threads?.sync_sequence_id;
-        if (syncSeqId) {
+        const rawSyncSeqId = resData[0]?.o0?.data?.viewer?.message_threads?.sync_sequence_id;
+        const syncSeqId = normalizeMqttSequenceId(rawSyncSeqId);
+        if (syncSeqId !== null) {
           ctx.lastSeqId = syncSeqId;
           if (ctx._stopRequested || ctx._ending) return;
           logger("mqtt getSeqID ok -> listenMqtt()", "info");
