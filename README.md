@@ -1,28 +1,54 @@
 <div align="center">
 
-<img src="https://readme-typing-svg.herokuapp.com?font=JetBrains+Mono&weight=800&size=28&duration=2800&pause=900&color=00E5FF&center=true&vCenter=true&width=760&lines=OmegA-FCA;A+Messenger+FCA+Compatibility+Layer;Built+for+the+OmegA+Bot+Ecosystem" alt="OmegA-FCA animated title" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:071A2C,35:075985,70:6D28D9,100:DB2777&height=230&section=header&text=OmegA-FCA&fontSize=68&fontColor=FFFFFF&fontAlignY=38&desc=Messenger%20FCA%20Compatibility%20Layer&descAlignY=60&descSize=19&animation=fadeIn" width="100%" alt="OmegA-FCA — Messenger FCA Compatibility Layer" />
+
+<p>
+  <img src="https://readme-typing-svg.herokuapp.com?font=JetBrains+Mono&weight=700&size=19&duration=2600&pause=900&color=00D9FF&center=true&vCenter=true&width=760&lines=Built+for+the+OmegA+Bot+Ecosystem;Classic+FCA+API+%7C+Modern+Node.js;Adaptive+Safety+%7C+Backward+Compatibility" alt="Project tagline" />
+</p>
+
+<p>
+  <img src="https://img.shields.io/badge/VERSION-0.2.1-7C3AED?style=for-the-badge&logo=semver&logoColor=white" alt="Version 0.2.1" />
+  <img src="https://img.shields.io/badge/NODE.JS-20%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js 20+" />
+  <img src="https://img.shields.io/badge/LICENSE-Apache--2.0-EA580C?style=for-the-badge" alt="Apache 2.0" />
+  <img src="https://img.shields.io/badge/STATUS-Stable-16A34A?style=for-the-badge&logo=githubactions&logoColor=white" alt="Stable release" />
+</p>
+
+<p>
+  <b>An unofficial Facebook Messenger client with an FCA-style API.</b><br/>
+  Designed to keep existing bot integrations familiar while adding safer session and outgoing-action handling.
+</p>
+
+<p>
+  <a href="#-installation"><img src="https://img.shields.io/badge/INSTALL-0891B2?style=for-the-badge" alt="Installation" /></a>
+  <a href="#-quick-start"><img src="https://img.shields.io/badge/QUICK_START-6D28D9?style=for-the-badge" alt="Quick start" /></a>
+  <a href="#-included-api-areas"><img src="https://img.shields.io/badge/API_FEATURES-BE185D?style=for-the-badge" alt="API features" /></a>
+  <a href="#-project-status"><img src="https://img.shields.io/badge/PROJECT_STATUS-166534?style=for-the-badge" alt="Project status" /></a>
+</p>
 
 <br/>
 
-<p>
-  <img src="https://img.shields.io/badge/OmegA-FCA-00B8D9?style=for-the-badge&logo=github&logoColor=white" alt="OmegA-FCA" />
-  <img src="https://img.shields.io/badge/Version-0.2.1--beta.1-7C4DFF?style=for-the-badge" alt="Version 0.2.1" />
-  <img src="https://img.shields.io/badge/Node.js-20%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js 20+" />
-  <img src="https://img.shields.io/badge/License-Apache--2.0-FF8A65?style=for-the-badge" alt="Apache 2.0" />
-</p>
+<table>
+<tr>
+<td align="center" width="33%">
+  <h3>⚡ FCA-style API</h3>
+  Familiar callback and Promise workflows
+</td>
+<td align="center" width="33%">
+  <h3>🛡️ Adaptive Safety</h3>
+  Retry-aware handling and checkpoint protection
+</td>
+<td align="center" width="33%">
+  <h3>🔌 Bot Ready</h3>
+  Built for the OmegA Bot ecosystem
+</td>
+</tr>
+</table>
 
-<p><b>Unofficial Facebook Messenger client · FCA-style API · OmegA Bot ecosystem</b></p>
-
-<a href="#-installation">INSTALL</a> •
-<a href="#-quick-start">QUICK START</a> •
-<a href="#-goatbot-compatibility">GOATBOT</a> •
-<a href="#-project-status">STATUS</a>
-
-<br/><br/>
-
-<img src="https://capsule-render.vercel.app/api?type=rect&color=0:00C6FF,50:7B2FF7,100:F857A6&height=3&section=header" width="92%" alt="" />
+<sub>Maintained by <b>NirZon</b> · <a href="https://github.com/octopusworldpro-web/OmegA-FCA-test">GitHub Repository</a> · <a href="https://www.npmjs.com/package/@nirzon-islam/omega-fca">npm Package</a></sub>
 
 </div>
+
+---
 
 ## <img src="https://img.shields.io/badge/01-ABOUT-00B8D9?style=flat-square" /> About OmegA-FCA
 
