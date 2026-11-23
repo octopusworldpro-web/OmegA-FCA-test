@@ -1,6 +1,6 @@
 {
   "name": "@nirzon-islam/omega-fca",
-  "version": "0.2.1-beta.2",
+  "version": "0.2.1",
   "description": "OmegA-FCA — unofficial Facebook Messenger client and FCA compatibility layer",
   "main": "dist/cjs.cjs",
   "types": "dist/index.d.ts",
