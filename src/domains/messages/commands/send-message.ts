@@ -17,6 +17,7 @@ export interface SendMessageContext {
   wsReqNumber?: number;
   wsTaskNumber?: number;
   userID?: string;
+  _checkpointActive?: boolean;
 }
 
 export interface SendMessageCommandDeps {
@@ -175,6 +176,15 @@ export function createSendMessageCommand(deps: SendMessageCommandDeps) {
     if (typeof callback === "string" && !explicitReplyTo) {
       explicitReplyTo = callback;
       cb = ensureNodeCallback<SendMessageResult>();
+    }
+
+    if (ctx._checkpointActive) {
+      const error = Object.assign(
+        new Error("Outgoing message paused: Facebook checkpoint/challenge is active."),
+        { code: "FCA_CHECKPOINT_ACTIVE" }
+      );
+      cb(error);
+      throw error;
     }
 
     if (!threadID) {
