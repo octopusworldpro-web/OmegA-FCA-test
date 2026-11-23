@@ -129,3 +129,5 @@ export { createSignalEncryptedGroupMedia, type EncryptedGroupMediaDescriptor } f
 export { createMediaShortcuts, type MediaShortcutDeps } from "./domains/messages/media-shortcuts";
 
 export { registerFacebookE2EEDevice, type FacebookE2EERegistrationOptions, type FacebookE2EERegistrationResult } from "./domains/e2ee/device-registration";
+
+export { dispatchAutomaticReceipts, type AutomaticReceiptMessage, type AutomaticReceiptOptions } from "./domains/realtime/auto-receipts";
