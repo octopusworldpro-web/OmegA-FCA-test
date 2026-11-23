@@ -10,4 +10,4 @@ Before calling it:
 
 The operation performs `fb_icdc_fetch`, signs the updated ICDC identity list with the local libsignal identity key, then submits `fb_register_v2`. It returns the assigned Messenger device ID and ICDC sequence.
 
-The device UUID must be persisted by the caller and reused. Do not call registration on every process start. Facebook may change this private protocol without notice; a successful HTTP response is not proof that MQTT/Noise transport or encrypted message delivery is active. Those are verified in later checklist steps.
+On successful registration, OmegA-FCA now persists the device UUID, assigned Messenger device ID, registration timestamp, and ICDC sequence inside the account-bound encrypted SignalKeyStore. Reuse this stored device record and do not call registration on every process start. Facebook may change this private protocol without notice; a successful HTTP response is not proof that MQTT/Noise transport or encrypted message delivery is active. Those are verified in later checklist steps.
