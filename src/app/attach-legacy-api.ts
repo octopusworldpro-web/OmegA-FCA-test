@@ -460,6 +460,7 @@ export function attachLegacyApiSurface(
     changeBio: account.changeBio,
     enableAutoSaveAppState: account.enableAutoSaveAppState,
     getCurrentUserID: account.getCurrentUserID,
+    getHumanizer,
     handleFriendRequest: account.handleFriendRequest,
     logout: account.logout,
     refreshFb_dtsg: account.refreshFb_dtsg,
