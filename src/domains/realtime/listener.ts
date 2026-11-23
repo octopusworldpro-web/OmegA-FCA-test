@@ -87,6 +87,9 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
           const checkpoint = detectFacebookCheckpoint(response);
           if (checkpoint.detected && !ctx._checkpointActive) {
             ctx._checkpointActive = true;
+            if (ctx.mqttClient && typeof ctx.mqttClient === "object") {
+              ctx.mqttClient._checkpointActive = true;
+            }
             ctx._checkpointDetectedAt = Date.now();
             const event = {
               type: "checkpoint",
