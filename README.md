@@ -6,7 +6,7 @@
 
 <p>
   <img src="https://img.shields.io/badge/OmegA-FCA-00B8D9?style=for-the-badge&logo=github&logoColor=white" alt="OmegA-FCA" />
-  <img src="https://img.shields.io/badge/Version-0.2.0-7C4DFF?style=for-the-badge" alt="Version 0.2.0" />
+  <img src="https://img.shields.io/badge/Version-0.2.1--beta.1-7C4DFF?style=for-the-badge" alt="Version 0.2.1-beta.1" />
   <img src="https://img.shields.io/badge/Node.js-20%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js 20+" />
   <img src="https://img.shields.io/badge/License-Apache--2.0-FF8A65?style=for-the-badge" alt="Apache 2.0" />
 </p>
@@ -31,7 +31,7 @@
 | | Details |
 |:--|:--|
 | **Package** | `@nirzon-islam/omega-fca` |
-| **Current version** | `0.2.0` |
+| **Current version** | `0.2.1-beta.1` |
 | **Runtime** | Node.js 20+ |
 | **License** | Apache-2.0 |
 | **Target bot** | [OmegA-Goatbot](https://github.com/nirzon-islam/OmegA-Goatbot) |
@@ -219,7 +219,7 @@ The test suite contains synthetic checks and an optional live-login test that is
 
 </div>
 
-**OmegA-FCA 0.2.0 is an integration and validation release**, not a claim of complete production parity with every FCA fork. The current GitHub Actions run has passed dependency audit, build/tests, typecheck, lint, and package dry-run on Node.js 20. Release readiness still requires reproducible lockfile-based installation, GoatBot regression checks, and owner-authorized Facebook live testing.
+**OmegA-FCA 0.2.1-beta.1 is an integration and validation release**, not a claim of complete production parity with every FCA fork. The current GitHub Actions run has passed dependency audit, build/tests, typecheck, lint, and package dry-run on Node.js 20. Release readiness still requires reproducible lockfile-based installation, GoatBot regression checks, and owner-authorized Facebook live testing.
 
 ## <img src="https://img.shields.io/badge/10-SOURCE%20%26%20CREDITS-7B2FF7?style=flat-square" /> Source & attribution
 
