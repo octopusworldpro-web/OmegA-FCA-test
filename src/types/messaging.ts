@@ -148,6 +148,7 @@ export type SendMessageContentPayload =
 
 export type SendMessageObjectPayload =
   SendMessageContentPayload &
+  { idempotencyKey?: string } &
   MentionPayload &
   UrlPayload &
   Partial<ReplyPayload> &
