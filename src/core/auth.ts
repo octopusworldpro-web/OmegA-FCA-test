@@ -163,6 +163,7 @@ const DEFAULT_LOGIN_OPTIONS: Required<Pick<
   | "updatePresence"
   | "forceLogin"
   | "autoMarkRead"
+  | "autoMarkDelivery"
   | "autoReconnect"
   | "online"
   | "emitReady"
@@ -175,6 +176,7 @@ const DEFAULT_LOGIN_OPTIONS: Required<Pick<
   updatePresence: false,
   forceLogin: false,
   autoMarkRead: false,
+  autoMarkDelivery: false,
   autoReconnect: true,
   online: true,
   emitReady: false,
