@@ -126,7 +126,7 @@ export function createSignalEncryptedGroupMedia(groups: GroupCipherPort) {
         !Number.isSafeInteger(descriptor.plaintextSize) || descriptor.plaintextSize < 0 ||
         typeof descriptor.digest !== "string" || !/^[a-f0-9]{64}$/i.test(descriptor.digest) ||
         createHash("sha256").update(ciphertext).digest("hex") !== descriptor.digest) {
-      throw new Error("Encrypted group media digest or size mismatch");
+      throw new Error("Encrypted group media digest mismatch or size mismatch");
     }
     const wrapped = descriptor.encryptedKey;
     if (!wrapped || typeof wrapped !== "object" || wrapped.groupId !== groupId ||
