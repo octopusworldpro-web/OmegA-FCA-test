@@ -19,6 +19,7 @@ import { attachThreadUpdater, createApiFacade, createFcaState } from "./state";
 import { DataTypes } from "sequelize";
 import { decryptSessionBackup, encryptSessionBackup } from "../session/backup-crypto";
 import { createSessionGuard } from "./session-guard";
+import { extractExpectedSessionUserId, assertSessionIdentity } from "./session-validation";
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -550,26 +551,7 @@ function loginHelper(
     const domain = ".facebook.com";
     const ui = logger as Loose;
     const loginFlow = { spinner: null as Loose };
-    // Helper to extract userID from appState input
-    const extractUIDFromAppState = (appStateInput: Loose) => {
-      if (!appStateInput) return null;
-      let parsed = appStateInput;
-      if (typeof appStateInput === "string") {
-        try {
-          parsed = JSON.parse(appStateInput);
-        } catch {
-          return null;
-        }
-      }
-      if (Array.isArray(parsed)) {
-        const cUser = parsed.find(c => (c.key === "c_user" || c.name === "c_user"));
-        if (cUser) return cUser.value;
-        const iUser = parsed.find(c => (c.key === "i_user" || c.name === "i_user"));
-        if (iUser) return iUser.value;
-      }
-      return null;
-    };
-    let userIDFromAppState = extractUIDFromAppState(appState);
+    const expectedSessionUserID = extractExpectedSessionUserId(appState, Cookie);
     (async () => {
       if (typeof ui.showBanner === "function") {
         await ui.showBanner();
@@ -785,10 +767,6 @@ function loginHelper(
         if (!isValidUID(userID)) {
           userID = getUIDFromHTML(html);
         }
-        // If still not found and appState was provided, use userID from appState input as fallback
-        if (!isValidUID(userID) && userIDFromAppState && isValidUID(userIDFromAppState)) {
-          userID = userIDFromAppState;
-        }
         // Trigger auto-login if userID is invalid (missing or "0")
         if (!isValidUID(userID)) {
           logger("Invalid userID detected (missing or 0), attempting auto-login...", "warn");
@@ -931,6 +909,8 @@ function loginHelper(
           }
           // Otherwise ignore parsing errors
         }
+        // Do not initialize the API/MQTT session or persist backups for another account.
+        assertSessionIdentity(expectedSessionUserID, userID);
         const tokenMatch = html.match(/DTSGInitialData.*?token":"(.*?)"/);
         if (tokenMatch) fb_dtsg = tokenMatch[1];
         try {
