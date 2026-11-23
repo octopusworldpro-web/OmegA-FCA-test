@@ -38,6 +38,7 @@ async function main() {
   const id = scheduler.scheduleMessage("hello", "thread-1", farFuture);
   assert.equal(timeouts[0].delay, 2_147_483_647, "long delays must be safely chunked");
   assert.equal(scheduler.getScheduledCount(), 1);
+  assert.equal(scheduler.getScheduledMessage(id)?.message, "hello");
 
   scheduler.cleanup();
   assert.equal(scheduler.getScheduledCount(), 1, "cleanup must not discard a pending message");
