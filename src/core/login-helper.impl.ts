@@ -329,10 +329,10 @@ async function tryAutoLoginIfNeeded(
     Boolean(uid && uid !== "0" && /^\d+$/.test(String(uid)) && parseInt(String(uid), 10) > 0);
 
   const getUID = (cs: Loose[]) =>
-    cs.find((c: Loose) => c.key === "i_user")?.value ||
     cs.find((c: Loose) => c.key === "c_user")?.value ||
-    cs.find((c: Loose) => c.name === "i_user")?.value ||
-    cs.find((c: Loose) => c.name === "c_user")?.value;
+    cs.find((c: Loose) => c.name === "c_user")?.value ||
+    cs.find((c: Loose) => c.key === "i_user")?.value ||
+    cs.find((c: Loose) => c.name === "i_user")?.value;
   const htmlUID = (body: Loose) => {
     const s = typeof body === "string" ? body : String(body ?? "");
     return s.match(/"USER_ID"\s*:\s*"(\d+)"/)?.[1] || s.match(/\["CurrentUserInitialData",\[\],\{.*?"USER_ID":"(\d+)".*?\},\d+\]/)?.[1];
@@ -704,7 +704,7 @@ function loginHelper(
           const cookieUID = async () => {
             try {
               const cookies = typeof j?.getCookies === "function" ? await j.getCookies("https://www.facebook.com") : [];
-              return cookies.find((c: Loose) => c.key === "i_user")?.value || cookies.find((c: Loose) => c.key === "c_user")?.value;
+              return cookies.find((c: Loose) => c.key === "c_user")?.value || cookies.find((c: Loose) => c.key === "i_user")?.value;
             } catch { return undefined; }
           };
           const htmlUID = (body: Loose) => s(body).match(/"USER_ID"\s*:\s*"(\d+)"/)?.[1] || s(body).match(/\["CurrentUserInitialData",\[\],\{.*?"USER_ID":"(\d+)".*?\},\d+\]/)?.[1];
@@ -750,10 +750,10 @@ function loginHelper(
         let html = processed && processed.data ? processed.data : "";
         let cookies = await Promise.resolve(jar.getCookies("https://www.facebook.com"));
         const getUIDFromCookies = (cs: Loose[]) =>
-          cs.find((c: Loose) => c.key === "i_user")?.value ||
           cs.find((c: Loose) => c.key === "c_user")?.value ||
-          cs.find((c: Loose) => c.name === "i_user")?.value ||
-          cs.find((c: Loose) => c.name === "c_user")?.value;
+          cs.find((c: Loose) => c.name === "c_user")?.value ||
+          cs.find((c: Loose) => c.key === "i_user")?.value ||
+          cs.find((c: Loose) => c.name === "i_user")?.value;
         const getUIDFromHTML = (body: Loose) => {
           const s = typeof body === "string" ? body : String(body ?? "");
           return s.match(/"USER_ID"\s*:\s*"(\d+)"/)?.[1] || s.match(/\["CurrentUserInitialData",\[\],\{.*?"USER_ID":"(\d+)".*?\},\d+\]/)?.[1];
