@@ -50,8 +50,8 @@ const fca = require("../dist/index.js");
   assert.equal(Buffer.from(encrypted.body, "base64").toString(), "group hello");
   const decrypted = await manager.decrypt(encrypted, { groupId: "group-1", sender });
   assert.equal(decrypted.toString(), "group hello");
-  await assert.rejects(manager.decrypt(encrypted, { groupId: "another-group" }), /groupId does not match/);
-  await assert.rejects(manager.decrypt(encrypted, { sender: { name: "mallory", deviceId: 1 } }), /sender does not match/);
+  assert.throws(() => manager.decrypt(encrypted, { groupId: "another-group" }), /groupId does not match/);
+  assert.throws(() => manager.decrypt(encrypted, { sender: { name: "mallory", deviceId: 1 } }), /sender does not match/);
 
   const incoming = { groupId: "group-1", sender: { name: "alice", deviceId: 1 }, body: Buffer.from("incoming").toString("base64") };
   await manager.processIncomingDistribution(incoming);
