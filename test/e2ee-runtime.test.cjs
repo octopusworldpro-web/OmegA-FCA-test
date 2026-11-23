@@ -53,7 +53,7 @@ function fakeSignal() {
     assert.equal(runtime.store.getRegistrationId() > 0, true);
     assert.deepEqual(runtime.store.listSignedPreKeyIds(), [1]);
     await runtime.close();
-    await assert.rejects(runtime.store.flush(), /closed/);
+    await assert.rejects(runtime.store.setRegistrationId(99), /closed/);
     console.log("Signal E2EE runtime lifecycle tests passed");
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
