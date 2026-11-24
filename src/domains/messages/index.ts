@@ -96,6 +96,9 @@ function compactNamespace(namespace: Record<string, Loose>) {
 }
 
 export function createMessagesDomain(deps: MessagesDomainDeps) {
+  const limiter = createOutgoingActionLimiter();
+  const reaction = createSetMessageReactionCommand(deps.reaction);
+
   return compactNamespace({
     send: createSendMessageCommand(deps.send),
     markRead: createMarkReadCommand(deps.markRead),
@@ -103,7 +106,9 @@ export function createMessagesDomain(deps: MessagesDomainDeps) {
     markSeen: deps.markSeen ? createMarkSeenCommand(deps.markSeen) : undefined,
     markDelivered: deps.markDelivered ? createMarkDeliveredCommand(deps.markDelivered) : undefined,
     markReadAll: deps.markReadAll ? createMarkReadAllCommand(deps.markReadAll) : undefined,
-    react: limiter.wrap(reaction, (args) => args[2]),
+    react: limiter.wrap(reaction, (...args) =>
+      typeof args[2] === "string" ? args[2] : undefined
+    ),
     uploadAttachment: deps.uploadAttachment
       ? createUploadAttachmentCommand(deps.uploadAttachment)
       : undefined,
