@@ -103,7 +103,7 @@ export function createMessagesDomain(deps: MessagesDomainDeps) {
     markSeen: deps.markSeen ? createMarkSeenCommand(deps.markSeen) : undefined,
     markDelivered: deps.markDelivered ? createMarkDeliveredCommand(deps.markDelivered) : undefined,
     markReadAll: deps.markReadAll ? createMarkReadAllCommand(deps.markReadAll) : undefined,
-    react: createSetMessageReactionCommand(deps.reaction),
+    react: limiter.wrap(reaction, (args) => args[2]),
     uploadAttachment: deps.uploadAttachment
       ? createUploadAttachmentCommand(deps.uploadAttachment)
       : undefined,
