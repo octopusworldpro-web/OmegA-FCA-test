@@ -57,10 +57,10 @@ Do not publish or enable automatic installation based only on this audit. Before
 Automatic update/install remains disabled by default until the updater is constrained to this package and its official npm registry, version parsing is validated, install failure handling is tested, and restart/rollback behavior is defined.
 
 
-## Task 1 — OmegA-FCA / GoatBot compatibility audit
+## Task 1 — OmegA-FCA / integrating bot compatibility audit
 
 **Audit date:** 2026-11-22  
-**GoatBot integration:** the inspected `OmegA-Goatbot` main-branch manifest currently declares an external FCA dependency.
+**integrating bot integration:** the inspected `OmegA-Goatbot` main-branch manifest currently declares an external FCA dependency.
 
 ### Confirmed from source
 
@@ -94,7 +94,7 @@ The OmegA-FCA source has a separately exposed `loginViaAPI` helper. Its implemen
 
 ### External package source limitation
 
-The compatibility review is limited to OmegA-FCA and GoatBot source manifests; no external source-level method parity claim is made.
+The compatibility review is limited to OmegA-FCA and integrating bot source manifests; no external source-level method parity claim is made.
 
 ### Task 1 conclusion
 

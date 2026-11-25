@@ -10,6 +10,7 @@ export const Boolean_Option = [
   "updatePresence",
   "forceLogin",
   "autoMarkRead",
+  "autoMarkDelivery",
   "listenTyping",
   "autoReconnect",
   "emitReady",

@@ -15,7 +15,7 @@ export { createDefaultContext, createFcaState, createApiFacade } from "./core/st
 export { createRequestHelper } from "./core/request";
 export { listenMqtt } from "./core/mqtt";
 export { createSessionGuard } from "./core/session-guard";
-export { extractExpectedSessionUserId, assertSessionIdentity } from "./core/session-validation";
+export { extractExpectedSessionUserId, assertSessionIdentity, validateSessionCookieInput } from "./core/session-validation";
 export { createAuthCore } from "./core/auth-helpers";
 export { defaultConfig, loadConfig, resolveConfig, writeConfigTemplate } from "./core/config";
 export { attachThreadInfoRealtimeSync } from "./core/thread-info-realtime-sync";
@@ -39,6 +39,7 @@ export { createAccountDomain } from "./domains/account";
 export { createHttpDomain } from "./domains/http";
 export { createSchedulerDomain } from "./domains/scheduler";
 export { createRealtimeListener } from "./domains/realtime/listener";
+export { createSendTypingIndicatorCommand, type SendTypingIndicatorCommandDeps } from "./domains/messages/commands/send-typing-indicator";
 export { createRealtimeMiddlewareSystem, type RealtimeMiddlewareSystem } from "./domains/realtime/middleware";
 export { createHumanizerController, type HumanizerController, type HumanizerOptions } from "./domains/realtime/humanizer";
 
@@ -138,3 +139,5 @@ export { createSignalE2EERuntime, type SignalRuntimeOptions, type SignalE2EERunt
 export { createSignalPeerManager, type SignalPeerManagerDeps, type SignalRemoteDevice } from "./domains/e2ee/peer-manager";
 
 export { createSignalGroupKeyManager, type SignalGroupKeyManagerDeps, type SignalGroupDevice } from "./domains/e2ee/group-key-manager";
+
+export { createOutgoingActionLimiter, type OutgoingActionLimiterOptions } from "./domains/realtime/outgoing-action-limiter";

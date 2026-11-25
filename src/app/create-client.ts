@@ -54,6 +54,7 @@ function createFallbackNamespaces(api: LegacyApiLike): FcaClientNamespaces {
       markDelivered: bindOptionalMethod(api, "markAsDelivered"),
       typing: bindOptionalMethod(api, "sendTypingIndicator"),
       react: bindOptionalMethod(api, "setMessageReaction"),
+      setReaction: bindOptionalMethod(api, "setMessageReaction"),
       shareContact: bindOptionalMethod(api, "shareContact"),
       shareLink: bindOptionalMethod(api, "shareLink"),
       getEmojiUrl: bindOptionalMethod(api, "getEmojiUrl"),

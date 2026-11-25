@@ -1,6 +1,7 @@
 import type { ListenMqttError, MqttEvent } from "../../types/events";
 import { getMqttReconnectDelay } from "./reconnect-policy";
 import { detectFacebookCheckpoint } from "../../utils/request/checkpoint";
+import { dispatchAutomaticReceipts } from "./auto-receipts";
 
 const CYCLE_MS_DEFAULT = 60 * 60 * 1000;
 const RECONNECT_DELAY_MS_DEFAULT = 2000;
@@ -243,6 +244,12 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
           ctx._getSeqRetryTimer = null;
         }
         ctx._getSeqRetryAttempts = 0;
+        if (ctx._typingStopTimers instanceof Map) {
+          for (const timer of ctx._typingStopTimers.values()) {
+            try { clearTimeout(timer); } catch { }
+          }
+          ctx._typingStopTimers.clear();
+        }
         if (ctx._rTimeout) {
           clearTimeout(ctx._rTimeout);
           ctx._rTimeout = null;
@@ -319,6 +326,7 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
         ctx._reconnectTimer = null;
         if (!ctx._stopRequested && !ctx._ending) void getSeqIDWrapper();
       }, delay);
+      if (typeof ctx._reconnectTimer.unref === "function") ctx._reconnectTimer.unref();
     }
 
     function forceCycle() {
@@ -398,7 +406,7 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
       }
 
       const msgEmitter = new MessageEmitter();
-      const originalCallback: ListenerCallback =
+      const eventCallback: ListenerCallback =
         callback ||
         function (error, message) {
           if (error) {
@@ -409,7 +417,27 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
           msgEmitter.emit("message", message);
         };
 
-      globalCallback = middleware.count > 0 ? middleware.wrapCallback(originalCallback) : originalCallback;
+      // Automatic receipts are dispatched only for actual incoming message
+      // events. They are best-effort and never delay the user's callback.
+      const originalCallback: ListenerCallback = function (error, message) {
+        if (!error && message && (message.type === "message" || message.type === "message_reply")) {
+          dispatchAutomaticReceipts(
+            api,
+            {
+              autoMarkRead: !!ctx.globalOptions?.autoMarkRead,
+              autoMarkDelivery: !!ctx.globalOptions?.autoMarkDelivery
+            },
+            message,
+            logger
+          );
+        }
+        eventCallback(error, message);
+      };
+
+      // Keep a live middleware wrapper even when the stack starts empty. The Humanizer
+      // is configured after listenMqtt() returns and installs middleware directly;
+      // without this wrapper, those later middleware additions never see MQTT events.
+      globalCallback = middleware.wrapCallback(originalCallback);
 
       conf = mqttConf(ctx, conf);
       installPostGuard();

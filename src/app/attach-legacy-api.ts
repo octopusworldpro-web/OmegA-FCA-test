@@ -584,6 +584,7 @@ export function attachLegacyApiSurface(
       markDelivered: messages.markDelivered,
       typing: messages.typing,
       react: messages.react,
+      setReaction: messages.react,
       shareContact: messages.shareContact,
       shareLink: social.shareLink,
       getEmojiUrl: messages.getEmojiUrl,

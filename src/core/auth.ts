@@ -7,6 +7,7 @@ import { loadConfig } from "./config";
 import { runConfiguredUpdateCheck } from "./update-check";
 import loginHelper from "./login-helper";
 import { createSignalE2EERuntime } from "../domains/e2ee/runtime";
+import { validateSessionCookieInput } from "./session-validation";
 
 const { getType } = format;
 
@@ -202,6 +203,9 @@ export async function loginAsync(
   ctx.options = { ...ctx.options, ...globalOptions };
   ctx.globalOptions = globalOptions;
   const normalizedCredentials = normalizeLoginCredentials(credentials);
+  if (normalizedCredentials.appState || normalizedCredentials.Cookie) {
+    validateSessionCookieInput([...(normalizedCredentials.appState || []), ...(normalizedCredentials.Cookie ? [normalizedCredentials.Cookie] : [])]);
+  }
   ctx.cookieString = dedupeCookiePairs([
     ...cookiePairsFromInput(normalizedCredentials.appState),
     ...cookiePairsFromInput(normalizedCredentials.Cookie)

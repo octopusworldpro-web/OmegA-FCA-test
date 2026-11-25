@@ -44,7 +44,7 @@
 </tr>
 </table>
 
-<sub>Maintained by <b>NirZon</b> · <a href="https://github.com/octopusworldpro-web/OmegA-FCA-test">GitHub Repository</a> · <a href="https://www.npmjs.com/package/@nirzon-islam/omega-fca">npm Package</a></sub>
+<sub><a href="https://github.com/octopusworldpro-web/OmegA-FCA-test">GitHub Repository</a> · <a href="https://www.npmjs.com/package/@nirzon-islam/omega-fca">npm Package</a></sub>
 
 </div>
 
@@ -52,7 +52,7 @@
 
 ## <img src="https://img.shields.io/badge/01-ABOUT-00B8D9?style=flat-square" /> About OmegA-FCA
 
-**OmegA-FCA** is an unofficial Node.js Facebook Messenger client and FCA-style compatibility layer maintained by **NirZon** for the OmegA Bot ecosystem.
+**OmegA-FCA** is an unofficial Node.js Facebook Messenger client and FCA-style compatibility layer for the OmegA Bot ecosystem.
 
 | | Details |
 |:--|:--|
@@ -60,7 +60,7 @@
 | **Current version** | `0.2.2` |
 | **Runtime** | Node.js 20+ |
 | **License** | Apache-2.0 |
-| **Target bot** | [OmegA-Goatbot](https://github.com/nirzon-islam/OmegA-Goatbot) |
+| **Target bot** | the integrating bot |
 
 <div align="center">
 
@@ -221,15 +221,15 @@ The verifier must return `true`; a failed/throwing check leaves outgoing actions
 
 </details>
 
-## <img src="https://img.shields.io/badge/06-OMEGA%20GOATBOT-7B2FF7?style=flat-square" /> GoatBot compatibility
+## <img src="https://img.shields.io/badge/06-OMEGA%20GOATBOT-7B2FF7?style=flat-square" /> integrating bot compatibility
 
-The intended integration target is **[OmegA-Goatbot](https://github.com/nirzon-islam/OmegA-Goatbot)**.
+The intended integration target is **the integrating bot**.
 
 The goal is a drop-in FCA experience: preserve the bot's existing login pattern, callback/event lifecycle and expected `api` methods, so the bot can use the npm package without an extra bridge or a separate login system.
 
-The compatibility audit is still in progress. GoatBot's `sessionGuard()` / `stopSessionGuard()` API is implemented with account-bound atomic AppState snapshots; its live session-refresh behavior still needs runtime validation. The `e2ee` API remains unimplemented. Do not replace the bot's current FCA dependency until the compatibility matrix and bot-side regression tests confirm the required methods and lifecycle behavior.
+The compatibility audit is still in progress. integrating bot's `sessionGuard()` / `stopSessionGuard()` API is implemented with account-bound atomic AppState snapshots; its live session-refresh behavior still needs runtime validation. The `e2ee` API remains unimplemented. Do not replace the bot's current FCA dependency until the compatibility matrix and bot-side regression tests confirm the required methods and lifecycle behavior.
 
-- [GoatBot Compatibility Notes](docs/GOATBOT-COMPATIBILITY.md)
+- [integrating bot Compatibility Notes](docs/GOATBOT-COMPATIBILITY.md)
 
 ## <img src="https://img.shields.io/badge/07-E2EE%20STATUS-607D8B?style=flat-square" /> End-to-end encryption status
 
@@ -257,17 +257,17 @@ The test suite contains synthetic checks and an optional live-login test that is
 | Source integration | In progress |
 | Build & automated validation | CI passed (Node 20) |
 | FCA API compatibility | In progress |
-| OmegA-GoatBot integration | Pending acceptance tests |
+| OmegA-integrating bot integration | Pending acceptance tests |
 | Authorized Facebook live login | Not yet verified |
 | Native E2EE | Not implemented |
 
 </div>
 
-**OmegA-FCA 0.2.2 is a stable package release**, while compatibility with every FCA fork is not guaranteed. Automated CI validates dependency audit, build/tests, typecheck, lint, and package dry-run on Node.js 20. Authorized live Facebook login and full GoatBot acceptance testing remain separate validation items; native Messenger E2EE is not implemented.
+**OmegA-FCA 0.2.2 is a stable package release**, while compatibility with every FCA fork is not guaranteed. Automated CI validates dependency audit, build/tests, typecheck, lint, and package dry-run on Node.js 20. Authorized live Facebook login and full integrating bot acceptance testing remain separate validation items; native Messenger E2EE is not implemented.
 
 ## <img src="https://img.shields.io/badge/10-SOURCE%20%26%20CREDITS-7B2FF7?style=flat-square" /> Source & attribution
 
-The initial implementation is based on the uploaded `@dongdev/fca-unofficial` v4.0.2 source archive. The original Apache-2.0 license and upstream copyright notices are retained. OmegA-FCA package metadata, configuration, documentation, security defaults, compatibility work, and future changes are maintained separately by NirZon.
+The initial implementation is based on the uploaded `@dongdev/fca-unofficial` v4.0.2 source archive. The original Apache-2.0 license and upstream copyright notices are retained. OmegA-FCA package metadata, configuration, documentation, security defaults, compatibility work, and future changes are maintained separately by OmegA-FCA maintainers.
 
 See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 

@@ -68,6 +68,7 @@ import {
   createGetMessageQuery,
   type GetMessageQueryDeps
 } from "./queries/get-message";
+import { createOutgoingActionLimiter } from "../realtime/outgoing-action-limiter";
 
 export interface MessagesDomainDeps {
   send: SendMessageCommandDeps;
@@ -96,26 +97,46 @@ function compactNamespace(namespace: Record<string, Loose>) {
 }
 
 export function createMessagesDomain(deps: MessagesDomainDeps) {
+  const limiter = createOutgoingActionLimiter();
+  const send = createSendMessageCommand(deps.send);
+  const markRead = createMarkReadCommand(deps.markRead);
+  const typing = createSendTypingIndicatorCommand(deps.typing);
+  const markSeen = deps.markSeen ? createMarkSeenCommand(deps.markSeen) : undefined;
+  const markDelivered = deps.markDelivered ? createMarkDeliveredCommand(deps.markDelivered) : undefined;
+  const markReadAll = deps.markReadAll ? createMarkReadAllCommand(deps.markReadAll) : undefined;
+  const reaction = createSetMessageReactionCommand(deps.reaction);
+  const edit = deps.edit ? createEditMessageCommand(deps.edit) : undefined;
+  const deleteMessage = deps.delete ? createDeleteMessageCommand(deps.delete) : undefined;
+  const unsend = deps.unsend ? createUnsendMessageCommand(deps.unsend) : undefined;
+  const forwardAttachment = deps.forwardAttachment
+    ? createForwardAttachmentCommand(deps.forwardAttachment)
+    : undefined;
+  const shareContact = deps.shareContact ? createShareContactCommand(deps.shareContact) : undefined;
+  const setThreadColor = createChangeThreadColorCommand(deps.threadColor);
+  const setThreadEmoji = createChangeThreadEmojiCommand(deps.threadEmoji);
+
   return compactNamespace({
-    send: createSendMessageCommand(deps.send),
-    markRead: createMarkReadCommand(deps.markRead),
-    typing: createSendTypingIndicatorCommand(deps.typing),
-    markSeen: deps.markSeen ? createMarkSeenCommand(deps.markSeen) : undefined,
-    markDelivered: deps.markDelivered ? createMarkDeliveredCommand(deps.markDelivered) : undefined,
-    markReadAll: deps.markReadAll ? createMarkReadAllCommand(deps.markReadAll) : undefined,
-    react: createSetMessageReactionCommand(deps.reaction),
+    send: limiter.wrap(send, (_message, threadID) => threadID),
+    markRead: limiter.wrap(markRead, (threadID) => threadID),
+    typing: limiter.wrap(typing, (threadID) => threadID),
+    markSeen: markSeen ? limiter.wrap(markSeen, () => "__seen__") : undefined,
+    markDelivered: markDelivered ? limiter.wrap(markDelivered, (threadID) => threadID) : undefined,
+    markReadAll: markReadAll ? limiter.wrap(markReadAll, () => "__read_all__") : undefined,
+    react: limiter.wrap(reaction, (_reaction, _messageID, threadID) => threadID),
     uploadAttachment: deps.uploadAttachment
       ? createUploadAttachmentCommand(deps.uploadAttachment)
       : undefined,
-    edit: deps.edit ? createEditMessageCommand(deps.edit) : undefined,
-    delete: deps.delete ? createDeleteMessageCommand(deps.delete) : undefined,
-    unsend: deps.unsend ? createUnsendMessageCommand(deps.unsend) : undefined,
-    forwardAttachment: deps.forwardAttachment
-      ? createForwardAttachmentCommand(deps.forwardAttachment)
+    edit: edit ? limiter.wrap(edit, (_text, messageID) => messageID) : undefined,
+    delete: deleteMessage
+      ? limiter.wrap(deleteMessage, (messageIDs) => Array.isArray(messageIDs) ? messageIDs.join(",") : messageIDs)
       : undefined,
-    shareContact: deps.shareContact ? createShareContactCommand(deps.shareContact) : undefined,
-    setThreadColor: createChangeThreadColorCommand(deps.threadColor),
-    setThreadEmoji: createChangeThreadEmojiCommand(deps.threadEmoji),
+    unsend: unsend ? limiter.wrap(unsend, (_messageID, threadID) => threadID) : undefined,
+    forwardAttachment: forwardAttachment
+      ? limiter.wrap(forwardAttachment, (threadID) => threadID)
+      : undefined,
+    shareContact: shareContact ? limiter.wrap(shareContact, (_text, _senderID, threadID) => threadID) : undefined,
+    setThreadColor: limiter.wrap(setThreadColor, (_color, threadID) => threadID),
+    setThreadEmoji: limiter.wrap(setThreadEmoji, (_emoji, threadID) => threadID),
     get: deps.get ? createGetMessageQuery(deps.get) : undefined,
     getEmojiUrl: createGetEmojiUrlQuery(),
     getThreadColors: createGetThreadColorsQuery(),

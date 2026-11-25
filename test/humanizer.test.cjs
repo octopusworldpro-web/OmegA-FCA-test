@@ -44,6 +44,32 @@ async function run() {
   humanizer.setOptions({ enabled: true, reactDelayMs: [0, 0], cooldownMs: 0 });
   assert.deepStrictEqual(humanizer.getOptions().reactDelayMs, [0, 0]);
   humanizer.reset();
+
+  // Same-thread events are serialized instead of sharing overlapping delays.
+  humanizer.setOptions({ enabled: true, reactDelayMs: 25, cooldownMs: 25, maxPerMinute: 10 });
+  const order = [];
+  const started = Date.now();
+  handler({ type: "message", threadID: "queue-thread" }, () => order.push("first"));
+  handler({ type: "message", threadID: "queue-thread" }, () => order.push("second"));
+  await new Promise((resolve) => setTimeout(resolve, 65));
+  assert.deepStrictEqual(order, ["first", "second"], "same-thread messages should continue in FIFO order");
+  assert(Date.now() - started >= 40, "same-thread cooldown should space queued messages");
+
+  // Reset must release pending middleware callbacks rather than leaving the
+  // realtime middleware pipeline waiting for an obsolete timer.
+  let releasedByReset = false;
+  handler({ type: "message", threadID: "reset-thread" }, () => { releasedByReset = true; });
+  assert.strictEqual(releasedByReset, false);
+  humanizer.reset();
+  assert.strictEqual(releasedByReset, true, "reset should release pending middleware callbacks");
+
+  // A zero per-minute cap means unlimited, not disabled.
+  humanizer.setOptions({ enabled: true, reactDelayMs: 0, cooldownMs: 0, maxPerMinute: 0 });
+  let unlimitedCount = 0;
+  for (let i = 0; i < 25; i++) handler({ type: "message", threadID: "unlimited" }, () => { unlimitedCount++; });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.strictEqual(unlimitedCount, 25, "maxPerMinute=0 should disable the cap");
+  humanizer.reset();
   console.log("Humanizer tests passed");
 }
 

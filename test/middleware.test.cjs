@@ -32,6 +32,15 @@ async function main() {
   assert.deepEqual(asyncPassed.result, { type: "message" });
   assert.equal(asyncCount, 2);
 
+  // A callback wrapped before middleware is installed must still observe
+  // middleware added later (the Humanizer is enabled after listenMqtt starts).
+  system.clear();
+  let lateEvent;
+  const liveCallback = system.wrapCallback((_error, event) => { lateEvent = event; });
+  system.use("late-humanizer", (event, next) => { event.lateFlag = true; next(); });
+  liveCallback(null, { type: "message" });
+  assert.equal(lateEvent?.lateFlag, true, "late-installed middleware must run through an existing callback wrapper");
+
   system.clear();
   system.use("drop", () => false);
   const dropped = await runProcess(system, { type: "message" });

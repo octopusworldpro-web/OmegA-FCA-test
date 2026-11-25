@@ -18,4 +18,4 @@ Please report security issues privately to the repository maintainer rather than
 
 ## Upstream attribution
 
-OmegA-FCA 0.2.0 includes source derived from `@dongdev/fca-unofficial` v4.0.2. The original Apache-2.0 license and copyright notices are retained; see [NOTICE](NOTICE).
+OmegA-FCA 0.2.0 includes source derived from `Dongdev source` v4.0.2. The original Apache-2.0 license and copyright notices are retained; see [NOTICE](NOTICE).

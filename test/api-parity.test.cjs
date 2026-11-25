@@ -56,7 +56,7 @@ async function main() {
     "getCurrentUserID", "getAppState", "getCookies", "setOptions",
     "sendMessage", "sendImage", "sendVideo", "sendAudio", "sendFile",
     "sendLocation", "sendTypingIndicator", "setMessageReaction",
-    "shareContact", "shareLink", "uploadAttachment", "forwardAttachment",
+    "shareContact", "shareLink", "uploadAttachment", "forwardAttachment", "setReaction",
     "getThreadList", "getThreadInfo", "getThreadHistory", "getThreadPictures",
     "createNewGroup", "addUserToGroup", "removeUserFromGroup",
     "changeAdminStatus", "changeGroupImage", "changeThreadColor",
@@ -81,7 +81,7 @@ async function main() {
     messages: [
       "send", "sendImage", "sendVideo", "sendAudio", "sendFile",
       "sendLocation", "edit", "delete", "unsend", "markRead",
-      "markReadAll", "markSeen", "markDelivered", "typing", "react",
+      "markReadAll", "markSeen", "markDelivered", "typing", "react", "setReaction",
       "shareContact", "shareLink", "uploadAttachment", "forwardAttachment"
     ],
     threads: [
@@ -111,6 +111,8 @@ async function main() {
   assert.equal(client.raw, legacy);
   assert.equal(client.account.getCurrentUserID(), "getCurrentUserID");
   assert.equal(client.messages.send(), "sendMessage");
+  assert.equal(client.messages.setReaction(), "setMessageReaction");
+  assert.equal(client.messages.react(), "setMessageReaction");
   assert.equal(client.threads.getList(), "getThreadList");
   assert.equal(client.users.getInfo(), "getUserInfo");
   assert.equal(client.http.get(), "httpGet");
