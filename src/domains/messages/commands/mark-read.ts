@@ -63,6 +63,7 @@ export function createMarkReadCommand(deps: MarkReadCommandDeps) {
       cb();
       return null;
     } catch (error) {
+      logError?.("markAsRead", error);
       cb(error);
       return error;
     }
