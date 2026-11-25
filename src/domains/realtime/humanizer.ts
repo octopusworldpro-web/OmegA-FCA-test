@@ -47,6 +47,7 @@ export function createHumanizerController(
   const queues = new Map<string, Promise<void>>();
   const pending = new Map<ReturnType<typeof setTimeout>, () => void>();
   let middlewareInstalled = false;
+  let generation = 0;
 
   function getKey(event: Loose) {
     const thread = event && (event.threadID ?? event.threadId);
@@ -84,9 +85,10 @@ export function createHumanizerController(
       const delay = Array.isArray(delayRange)
         ? Math.round(delayRange[0] + Math.random() * (delayRange[1] - delayRange[0]))
         : delayRange;
+      const scheduledGeneration = generation;
       const previous = queues.get(key) || Promise.resolve();
       const operation = previous.catch(() => undefined).then(async () => {
-        if (!options.enabled) {
+        if (scheduledGeneration !== generation || !options.enabled) {
           next();
           return;
         }
@@ -146,6 +148,7 @@ export function createHumanizerController(
     },
     getOptions() { return { ...options }; },
     reset() {
+      generation++;
       lastRun.clear();
       minuteBuckets.clear();
       releasePending();
