@@ -1,7 +1,8 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const { dispatchAutomaticReceipts } = require("../dist/index.js");
+const { dispatchAutomaticReceipts, createRealtimeListener } = require("../dist/index.js");
+const { EventEmitter } = require("node:events");
 
 async function flush() {
   await new Promise((resolve) => setImmediate(resolve));
@@ -58,6 +59,48 @@ async function main() {
   await flush();
   assert.equal(warnings.length, 2);
   assert.ok(warnings.every((entry) => entry.level === "warn"));
+
+  // Verify receipts are wired into the actual MQTT incoming-message callback.
+  const listenerCalls = [];
+  let mqttCallback;
+  const listenerApi = {
+    markAsDelivered: (...args) => { listenerCalls.push(["delivery", ...args]); },
+    markAsRead: (...args) => { listenerCalls.push(["read", ...args]); }
+  };
+  const ctx = {
+    globalOptions: { autoMarkDelivery: true, autoMarkRead: true },
+    firstListen: true,
+    lastSeqId: "1",
+    mqttClient: null
+  };
+  const attachListener = createRealtimeListener({
+    EventEmitter,
+    logger: () => undefined,
+    emitAuth: () => undefined,
+    createMiddlewareSystem: () => ({
+      use: () => undefined, remove: () => false, clear: () => undefined,
+      list: () => [], setEnabled: () => false, wrapCallback: (fn) => fn, count: 0
+    }),
+    topics: [],
+    listenMqttCore: (_funcs, _api, _ctx, callback) => { mqttCallback = callback; },
+    getSeqIDFactory: async () => undefined
+  });
+  const listen = attachListener({}, listenerApi, ctx);
+  listen();
+  assert.equal(typeof mqttCallback, "function");
+  mqttCallback(null, {
+    type: "message", threadID: "thread-live", messageID: "message-live"
+  });
+  await flush();
+  assert.deepEqual(listenerCalls, [
+    ["delivery", "thread-live", "message-live"],
+    ["read", "thread-live", true]
+  ]);
+
+  listenerCalls.length = 0;
+  mqttCallback(null, { type: "message_reaction", threadID: "thread-live", messageID: "reaction-1" });
+  await flush();
+  assert.deepEqual(listenerCalls, []);
 
   console.log("Automatic Messenger receipt tests passed.");
 }
