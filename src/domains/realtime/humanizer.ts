@@ -6,6 +6,8 @@ export interface HumanizerOptions {
   cooldownMs?: number;
   maxPerMinute?: number;
   perThread?: boolean;
+  /** Prefixes that identify commands, e.g. ["!", "/"]. Empty means metadata-only detection. */
+  commandPrefixes?: string[];
 }
 
 export interface HumanizerController {
@@ -20,7 +22,8 @@ const DEFAULTS: Required<HumanizerOptions> = {
   reactDelayMs: 3000,
   cooldownMs: 5500,
   maxPerMinute: 20,
-  perThread: true
+  perThread: true,
+  commandPrefixes: []
 };
 
 function clamp(value: unknown, fallback: number, max: number) {
@@ -35,6 +38,22 @@ function normalizeDelay(value: HumanizerOptions["reactDelayMs"]): number | [numb
     return [Math.min(first, second), Math.max(first, second)];
   }
   return clamp(value, 3000, 60000);
+}
+
+function normalizeCommandPrefixes(value: HumanizerOptions["commandPrefixes"]): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .filter((prefix): prefix is string => typeof prefix === "string")
+    .map((prefix) => prefix.trim())
+    .filter(Boolean))];
+}
+
+/** Only explicit command metadata or a configured leading prefix qualifies. */
+function isCommandEvent(event: Loose, prefixes: string[]): boolean {
+  if (event.isCommand === true || event.command === true || event.commandName != null) return true;
+  const body = typeof event.body === "string" ? event.body.trimStart() : "";
+  if (!body) return false;
+  return prefixes.some((prefix) => body.startsWith(prefix) && body.slice(prefix.length).trim().length > 0);
 }
 
 export function createHumanizerController(
@@ -71,7 +90,12 @@ export function createHumanizerController(
         activeCallbacks.delete(resume);
         next();
       };
-      if (!options.enabled || !event || !["message", "message_reply"].includes(String(event.type))) {
+      if (
+        !options.enabled ||
+        !event ||
+        !["message", "message_reply"].includes(String(event.type)) ||
+        !isCommandEvent(event, options.commandPrefixes)
+      ) {
         resume();
         return;
       }
@@ -119,7 +143,7 @@ export function createHumanizerController(
             completed = true;
             pending.delete(timer);
             lastRun.set(key, Date.now());
-            next();
+            resume();
             resolve();
           };
           const timer = setTimeout(finish, wait);
@@ -147,13 +171,14 @@ export function createHumanizerController(
         reactDelayMs: normalizeDelay(merged.reactDelayMs),
         cooldownMs: clamp(merged.cooldownMs, DEFAULTS.cooldownMs, 600000),
         maxPerMinute: clamp(merged.maxPerMinute, DEFAULTS.maxPerMinute, 1000),
-        perThread: merged.perThread !== false
+        perThread: merged.perThread !== false,
+        commandPrefixes: normalizeCommandPrefixes(merged.commandPrefixes)
       };
       if (options.enabled) install();
       else releasePending();
-      return { ...options };
+      return { ...options, commandPrefixes: [...options.commandPrefixes] };
     },
-    getOptions() { return { ...options }; },
+    getOptions() { return { ...options, commandPrefixes: [...options.commandPrefixes] }; },
     reset() {
       generation++;
       lastRun.clear();
