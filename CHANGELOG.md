@@ -10,6 +10,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [0.2.3-beta.1] - 2026-11-25
+
+### Added / Changed
+
+- Add smart per-thread outgoing action cooldown and FIFO scheduling.
+- Improve humanizer scheduling and typing-indicator cleanup.
+- Strengthen session-cookie input validation and login error handling.
+- Improve automatic delivery/read receipt compatibility.
+- Stabilize MQTT reconnect and typing-indicator lifecycle handling.
+- Restore reaction alias parity across flat and namespaced client APIs.
+
+### Validation notes
+
+- CI build, tests, TypeScript, lint, security/dependency audit, and package dry-run passed on the release candidate commit.
+- This is a beta candidate for user testing; authorized live Facebook/Messenger interoperability has not yet been verified.
+- Native Messenger E2EE capabilities remain outside this beta's verified scope.
+
+---
+
 ## [0.2.2] - 2026-11-23
 
 ### Changed
