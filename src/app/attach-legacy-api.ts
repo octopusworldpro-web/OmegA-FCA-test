@@ -441,7 +441,11 @@ export function attachLegacyApiSurface(
   const listenMqtt = (callback?: Loose, options?: Loose) => {
     const emitter = rawListenMqtt(callback, options);
     if (!humanizer && ctx._middleware) {
-      humanizer = createHumanizerController(ctx._middleware, (...args: Loose[]) => api.sendTypingIndicator?.(...args));
+      humanizer = createHumanizerController(
+        ctx._middleware,
+        (...args: Loose[]) => api.sendTypingIndicator?.(...args),
+        (error: Loose) => logger(`Humanizer typing indicator failed: ${error?.message || error}`, "warn")
+      );
       humanizer.setOptions(pendingHumanizerOptions);
     }
     return emitter;
