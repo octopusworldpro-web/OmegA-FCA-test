@@ -10,6 +10,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [0.2.3-beta.2] - 2026-11-25
+
+### Fixed
+
+- Keep the realtime middleware callback live when Humanizer middleware is installed after `listenMqtt()` starts.
+- Add regression coverage proving late-installed middleware processes incoming MQTT events.
+
+### Validation notes
+
+- Build, full test suite, TypeScript check, lint, security/dependency audit, and package dry-run passed in GitHub Actions.
+- Authorized live Facebook/Messenger interoperability still requires runtime testing with a real session.
+
+---
+
 ## [0.2.3-beta.1] - 2026-11-25
 
 ### Added / Changed
