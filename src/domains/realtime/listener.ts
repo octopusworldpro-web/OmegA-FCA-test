@@ -1,6 +1,7 @@
 import type { ListenMqttError, MqttEvent } from "../../types/events";
 import { getMqttReconnectDelay } from "./reconnect-policy";
 import { detectFacebookCheckpoint } from "../../utils/request/checkpoint";
+import { dispatchAutomaticReceipts } from "./auto-receipts";
 
 const CYCLE_MS_DEFAULT = 60 * 60 * 1000;
 const RECONNECT_DELAY_MS_DEFAULT = 2000;
@@ -398,7 +399,7 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
       }
 
       const msgEmitter = new MessageEmitter();
-      const originalCallback: ListenerCallback =
+      const eventCallback: ListenerCallback =
         callback ||
         function (error, message) {
           if (error) {
@@ -408,6 +409,23 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
           }
           msgEmitter.emit("message", message);
         };
+
+      // Automatic receipts are dispatched only for actual incoming message
+      // events. They are best-effort and never delay the user's callback.
+      const originalCallback: ListenerCallback = function (error, message) {
+        if (!error && message && (message.type === "message" || message.type === "message_reply")) {
+          dispatchAutomaticReceipts(
+            api,
+            {
+              autoMarkRead: !!ctx.globalOptions?.autoMarkRead,
+              autoMarkDelivery: !!ctx.globalOptions?.autoMarkDelivery
+            },
+            message,
+            logger
+          );
+        }
+        eventCallback(error, message);
+      };
 
       globalCallback = middleware.count > 0 ? middleware.wrapCallback(originalCallback) : originalCallback;
 
