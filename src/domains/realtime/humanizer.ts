@@ -39,7 +39,8 @@ function normalizeDelay(value: HumanizerOptions["reactDelayMs"]): number | [numb
 
 export function createHumanizerController(
   middleware: RealtimeMiddlewareSystem,
-  sendTypingIndicator?: (threadID: string, isTyping: boolean, options?: Loose) => Loose
+  sendTypingIndicator?: (threadID: string, isTyping: boolean, options?: Loose) => Loose,
+  onTypingError?: (error: Loose) => void
 ): HumanizerController {
   let options: Required<HumanizerOptions> = { ...DEFAULTS };
   const lastRun = new Map<string, number>();
@@ -104,8 +105,12 @@ export function createHumanizerController(
         const threadID = event.threadID ?? event.threadId;
         if (wait > 0 && threadID != null && typeof sendTypingIndicator === "function") {
           try {
-            void Promise.resolve(sendTypingIndicator(String(threadID), true, { duration: wait, autoStop: true })).catch(() => {});
-          } catch { /* Typing is optional; never block message delivery on it. */ }
+            void Promise.resolve(sendTypingIndicator(String(threadID), true, { duration: wait, autoStop: true })).catch((error: Loose) => {
+              onTypingError?.(error);
+            });
+          } catch (error) {
+            onTypingError?.(error);
+          }
         }
         if (wait <= 0) {
           lastRun.set(key, Date.now());
