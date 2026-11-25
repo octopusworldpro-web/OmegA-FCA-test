@@ -326,6 +326,7 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
         ctx._reconnectTimer = null;
         if (!ctx._stopRequested && !ctx._ending) void getSeqIDWrapper();
       }, delay);
+      if (typeof ctx._reconnectTimer.unref === "function") ctx._reconnectTimer.unref();
     }
 
     function forceCycle() {
