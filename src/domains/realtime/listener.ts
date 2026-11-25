@@ -434,7 +434,10 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
         eventCallback(error, message);
       };
 
-      globalCallback = middleware.count > 0 ? middleware.wrapCallback(originalCallback) : originalCallback;
+      // Keep a live middleware wrapper even when the stack starts empty. The Humanizer
+      // is configured after listenMqtt() returns and installs middleware directly;
+      // without this wrapper, those later middleware additions never see MQTT events.
+      globalCallback = middleware.wrapCallback(originalCallback);
 
       conf = mqttConf(ctx, conf);
       installPostGuard();
