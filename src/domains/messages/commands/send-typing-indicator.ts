@@ -62,8 +62,9 @@ export function createSendTypingIndicatorCommand(deps: SendTypingIndicatorComman
         ctx.wsReqNumber = 0;
       }
 
-      const duration = Number.isFinite(effectiveOptions.duration) && effectiveOptions.duration > 0
-        ? Math.min(Number(effectiveOptions.duration), 60000)
+      const requestedDuration = Number(effectiveOptions.duration);
+      const duration = Number.isFinite(requestedDuration) && requestedDuration > 0
+        ? Math.min(requestedDuration, 60000)
         : 10000;
       const autoStop = effectiveOptions.autoStop !== false;
       const attribution = effectiveOptions.type || 0;
