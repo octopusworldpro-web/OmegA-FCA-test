@@ -109,7 +109,7 @@ async function run() {
   humanizer.reset();
 
   // Same-thread command events are serialized in FIFO order.
-  humanizer.setOptions({ enabled: true, reactDelayMs: 25, cooldownMs: 25, maxPerMinute: 10, commandPrefixes: ["!"] });
+  humanizer.setOptions({ enabled: true, reactDelayMs: 25, cooldownMs: 25, maxPerMinute: 10, commandPrefixes: ["!"], commandNames: [], noPrefixEnabled: false, noPrefixAdminIds: [] });
   const order = [];
   const started = Date.now();
   handler({ type: "message", body: "!one", threadID: "queue-thread" }, () => order.push("first"));
@@ -127,7 +127,7 @@ async function run() {
   assert.strictEqual(releasedByReset, true, "reset should release pending middleware callbacks");
 
   // A zero per-minute cap means unlimited, not disabled.
-  humanizer.setOptions({ enabled: true, reactDelayMs: 0, cooldownMs: 0, maxPerMinute: 0, commandPrefixes: ["!"] });
+  humanizer.setOptions({ enabled: true, reactDelayMs: 0, cooldownMs: 0, maxPerMinute: 0, commandPrefixes: ["!"], commandNames: [], noPrefixEnabled: false, noPrefixAdminIds: [] });
   let unlimitedCount = 0;
   for (let i = 0; i < 25; i++) handler({ type: "message", body: "!run", threadID: "unlimited" }, () => { unlimitedCount++; });
   await new Promise((resolve) => setTimeout(resolve, 0));
