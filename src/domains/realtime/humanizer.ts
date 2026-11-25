@@ -95,7 +95,7 @@ export function createHumanizerController(
         const threadID = event.threadID ?? event.threadId;
         if (wait > 0 && threadID != null && typeof sendTypingIndicator === "function") {
           try {
-            await Promise.resolve(sendTypingIndicator(String(threadID), true, { duration: wait, autoStop: true }));
+            void Promise.resolve(sendTypingIndicator(String(threadID), true, { duration: wait, autoStop: true })).catch(() => {});
           } catch { /* Typing is optional; never block message delivery on it. */ }
         }
         if (wait <= 0) {
