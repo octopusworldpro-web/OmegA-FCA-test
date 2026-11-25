@@ -1,7 +1,7 @@
-OmegA-FCA 0.2.0 contains source derived from @dongdev/fca-unofficial v4.0.2.
+OmegA-FCA includes source derived from the Dongdev FCA project, version 4.0.2.
 
-Upstream copyright notices and the Apache-2.0 license are retained in the source files and LICENSE. The upstream project is credited to Pham Minh Dong (DongDev/Donix).
+The original Apache-2.0 license and applicable upstream copyright notices are retained. The upstream source attribution is Dongdev.
 
-OmegA-FCA package branding, configuration, documentation, integration work, and subsequent modifications are maintained by NirZon for the OmegA Bot ecosystem.
+OmegA-FCA-specific package configuration, documentation, integration work, and subsequent modifications are maintained independently.
 
 This notice does not replace or modify the Apache-2.0 license. See LICENSE for the complete license terms.
