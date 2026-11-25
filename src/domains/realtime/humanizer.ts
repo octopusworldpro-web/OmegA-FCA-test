@@ -8,6 +8,11 @@ export interface HumanizerOptions {
   perThread?: boolean;
   /** Prefixes that identify commands, e.g. ["!", "/"]. Empty means metadata-only detection. */
   commandPrefixes?: string[];
+  /** Registered command names and aliases, compared case-insensitively. */
+  commandNames?: string[];
+  /** Permit bare commands only for configured admin sender IDs. */
+  noPrefixEnabled?: boolean;
+  noPrefixAdminIds?: string[];
 }
 
 export interface HumanizerController {
@@ -23,7 +28,10 @@ const DEFAULTS: Required<HumanizerOptions> = {
   cooldownMs: 5500,
   maxPerMinute: 20,
   perThread: true,
-  commandPrefixes: []
+  commandPrefixes: [],
+  commandNames: [],
+  noPrefixEnabled: false,
+  noPrefixAdminIds: []
 };
 
 function clamp(value: unknown, fallback: number, max: number) {
@@ -94,7 +102,7 @@ export function createHumanizerController(
         !options.enabled ||
         !event ||
         !["message", "message_reply"].includes(String(event.type)) ||
-        !isCommandEvent(event, options.commandPrefixes)
+        !isCommandEvent(event, options)
       ) {
         resume();
         return;
@@ -176,9 +184,9 @@ export function createHumanizerController(
       };
       if (options.enabled) install();
       else releasePending();
-      return { ...options, commandPrefixes: [...options.commandPrefixes] };
+      return { ...options, commandPrefixes: [...options.commandPrefixes], commandNames: [...options.commandNames], noPrefixAdminIds: [...options.noPrefixAdminIds] };
     },
-    getOptions() { return { ...options, commandPrefixes: [...options.commandPrefixes] }; },
+    getOptions() { return { ...options, commandPrefixes: [...options.commandPrefixes], commandNames: [...options.commandNames], noPrefixAdminIds: [...options.noPrefixAdminIds] }; },
     reset() {
       generation++;
       lastRun.clear();
