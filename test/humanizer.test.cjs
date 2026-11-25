@@ -67,6 +67,7 @@ async function run() {
   humanizer.setOptions({ enabled: true, reactDelayMs: 0, cooldownMs: 0, maxPerMinute: 0 });
   let unlimitedCount = 0;
   for (let i = 0; i < 25; i++) handler({ type: "message", threadID: "unlimited" }, () => { unlimitedCount++; });
+  await new Promise((resolve) => setTimeout(resolve, 0));
   assert.strictEqual(unlimitedCount, 25, "maxPerMinute=0 should disable the cap");
   humanizer.reset();
   console.log("Humanizer tests passed");
