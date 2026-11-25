@@ -59,6 +59,42 @@ async function run() {
   handler({ type: "message", body: "!", threadID: "123" }, () => { called = true; });
   assert.strictEqual(called, true, "bare prefix should bypass humanizer");
 
+  // When a command registry is supplied, only registered names/aliases are delayed.
+  humanizer.setOptions({
+    enabled: true,
+    reactDelayMs: 5,
+    cooldownMs: 0,
+    commandPrefixes: ["!"],
+    commandNames: ["help", "menu", "h"]
+  });
+  called = false;
+  handler({ type: "message", body: "!unknown", threadID: "123" }, () => { called = true; });
+  assert.strictEqual(called, true, "unknown prefixed text should bypass when registry matching is enabled");
+  called = false;
+  handler({ type: "message", body: "!h arg", threadID: "123" }, () => { called = true; });
+  assert.strictEqual(called, false, "registered aliases should be recognized");
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  assert.strictEqual(called, true);
+
+  // Bare commands are delayed only when no-prefix is enabled and sender is a configured admin.
+  humanizer.setOptions({
+    enabled: true,
+    reactDelayMs: 5,
+    cooldownMs: 0,
+    commandPrefixes: ["!"],
+    commandNames: ["help", "menu", "h"],
+    noPrefixEnabled: true,
+    noPrefixAdminIds: ["admin-1"]
+  });
+  called = false;
+  handler({ type: "message", body: "help", senderID: "ordinary-user", threadID: "123" }, () => { called = true; });
+  assert.strictEqual(called, true, "non-admin bare text must bypass humanizer");
+  called = false;
+  handler({ type: "message", body: "help", senderID: "admin-1", threadID: "123" }, () => { called = true; });
+  assert.strictEqual(called, false, "registered no-prefix admin command should be delayed");
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  assert.strictEqual(called, true);
+
   humanizer.setOptions({ enabled: false });
   called = false;
   handler({ type: "message", body: "!help", threadID: "123" }, () => { called = true; });
