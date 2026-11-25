@@ -86,7 +86,7 @@ async function main() {
     getSeqIDFactory: async () => undefined
   });
   const listen = attachListener({}, listenerApi, ctx);
-  listen();
+  listen(undefined, { cycleMs: 0 });
   assert.equal(typeof mqttCallback, "function");
   mqttCallback(null, {
     type: "message", threadID: "thread-live", messageID: "message-live"
@@ -101,6 +101,7 @@ async function main() {
   mqttCallback(null, { type: "message_reaction", threadID: "thread-live", messageID: "reaction-1" });
   await flush();
   assert.deepEqual(listenerCalls, []);
+  await listenerApi.stopListeningAsync();
 
   console.log("Automatic Messenger receipt tests passed.");
 }
