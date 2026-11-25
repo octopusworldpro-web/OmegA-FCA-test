@@ -7,10 +7,10 @@
 </p>
 
 <p>
-  <img src="https://img.shields.io/badge/VERSION-0.2.2-7C3AED?style=for-the-badge&logo=semver&logoColor=white" alt="Version 0.2.2" />
+  <img src="https://img.shields.io/badge/VERSION-0.2.3-beta.3-7C3AED?style=for-the-badge&logo=semver&logoColor=white" alt="Version 0.2.3-beta.3" />
   <img src="https://img.shields.io/badge/NODE.JS-20%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js 20+" />
   <img src="https://img.shields.io/badge/LICENSE-Apache--2.0-EA580C?style=for-the-badge" alt="Apache 2.0" />
-  <img src="https://img.shields.io/badge/STATUS-Stable-16A34A?style=for-the-badge&logo=githubactions&logoColor=white" alt="Stable release" />
+  <img src="https://img.shields.io/badge/STATUS-Beta-16A34A?style=for-the-badge&logo=githubactions&logoColor=white" alt="Beta release" />
 </p>
 
 <p>
@@ -57,7 +57,7 @@
 | | Details |
 |:--|:--|
 | **Package** | `@nirzon-islam/omega-fca` |
-| **Current version** | `0.2.2` |
+| **Current version** | `0.2.3-beta.3` |
 | **Runtime** | Node.js 20+ |
 | **License** | Apache-2.0 |
 | **Target bot** | the integrating bot |
@@ -263,7 +263,7 @@ The test suite contains synthetic checks and an optional live-login test that is
 
 </div>
 
-**OmegA-FCA 0.2.2 is a stable package release**, while compatibility with every FCA fork is not guaranteed. Automated CI validates dependency audit, build/tests, typecheck, lint, and package dry-run on Node.js 20. Authorized live Facebook login and full integrating bot acceptance testing remain separate validation items; native Messenger E2EE is not implemented.
+**OmegA-FCA 0.2.3-beta.3 is a stable package release**, while compatibility with every FCA fork is not guaranteed. Automated CI validates dependency audit, build/tests, typecheck, lint, and package dry-run on Node.js 20. Authorized live Facebook login and full integrating bot acceptance testing remain separate validation items; native Messenger E2EE is not implemented.
 
 ## <img src="https://img.shields.io/badge/10-SOURCE%20%26%20CREDITS-7B2FF7?style=flat-square" /> Source & attribution
 
