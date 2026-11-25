@@ -244,6 +244,12 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
           ctx._getSeqRetryTimer = null;
         }
         ctx._getSeqRetryAttempts = 0;
+        if (ctx._typingStopTimers instanceof Map) {
+          for (const timer of ctx._typingStopTimers.values()) {
+            try { clearTimeout(timer); } catch { }
+          }
+          ctx._typingStopTimers.clear();
+        }
         if (ctx._rTimeout) {
           clearTimeout(ctx._rTimeout);
           ctx._rTimeout = null;
