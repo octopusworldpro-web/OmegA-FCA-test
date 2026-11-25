@@ -68,6 +68,7 @@ import {
   createGetMessageQuery,
   type GetMessageQueryDeps
 } from "./queries/get-message";
+import { createOutgoingActionLimiter } from "../realtime/outgoing-action-limiter";
 
 export interface MessagesDomainDeps {
   send: SendMessageCommandDeps;
@@ -106,8 +107,8 @@ export function createMessagesDomain(deps: MessagesDomainDeps) {
     markSeen: deps.markSeen ? createMarkSeenCommand(deps.markSeen) : undefined,
     markDelivered: deps.markDelivered ? createMarkDeliveredCommand(deps.markDelivered) : undefined,
     markReadAll: deps.markReadAll ? createMarkReadAllCommand(deps.markReadAll) : undefined,
-    react: limiter.wrap(reaction, (...args) =>
-      typeof args[2] === "string" ? args[2] : undefined
+    react: limiter.wrap(reaction, (reactionValue, messageID, threadID) =>
+      typeof threadID === "string" ? threadID : undefined
     ),
     uploadAttachment: deps.uploadAttachment
       ? createUploadAttachmentCommand(deps.uploadAttachment)
