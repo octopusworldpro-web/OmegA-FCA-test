@@ -46,6 +46,7 @@ export function createHumanizerController(
   const minuteBuckets = new Map<string, number[]>();
   const queues = new Map<string, Promise<void>>();
   const pending = new Map<ReturnType<typeof setTimeout>, () => void>();
+  const activeCallbacks = new Set<() => void>();
   let middlewareInstalled = false;
   let generation = 0;
 
@@ -55,20 +56,26 @@ export function createHumanizerController(
   }
 
   function releasePending() {
-    for (const [timer, next] of pending) {
-      clearTimeout(timer);
-      pending.delete(timer);
-      next();
-    }
+    for (const timer of pending.keys()) clearTimeout(timer);
+    pending.clear();
+    for (const resume of [...activeCallbacks]) resume();
   }
 
   function install() {
     if (middlewareInstalled) return;
     middleware.use("omega-humanizer", (event, next) => {
-      if (!options.enabled || !event || !["message", "message_reply"].includes(String(event.type))) {
+      let continued = false;
+      const resume = () => {
+        if (continued) return;
+        continued = true;
+        activeCallbacks.delete(resume);
         next();
+      };
+      if (!options.enabled || !event || !["message", "message_reply"].includes(String(event.type))) {
+        resume();
         return;
       }
+      activeCallbacks.add(resume);
 
       const key = getKey(event);
       const now = Date.now();
