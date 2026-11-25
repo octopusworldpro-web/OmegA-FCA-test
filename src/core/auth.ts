@@ -146,7 +146,6 @@ export function normalizeLoginCredentials(credentials: LoginCredentials): LoginC
 
   const explicitCookiePairs = cookiePairsFromInput(cookieInput);
   const Cookie = dedupeCookiePairs(explicitCookiePairs).join("; ");
-  if (appState || Cookie) validateSessionCookieInput([...(appState || []), ...(Cookie ? [Cookie] : [])]);
   return { appState, Cookie: Cookie || undefined };
 }
 
@@ -204,6 +203,9 @@ export async function loginAsync(
   ctx.options = { ...ctx.options, ...globalOptions };
   ctx.globalOptions = globalOptions;
   const normalizedCredentials = normalizeLoginCredentials(credentials);
+  if (normalizedCredentials.appState || normalizedCredentials.Cookie) {
+    validateSessionCookieInput([...(normalizedCredentials.appState || []), ...(normalizedCredentials.Cookie ? [normalizedCredentials.Cookie] : [])]);
+  }
   ctx.cookieString = dedupeCookiePairs([
     ...cookiePairsFromInput(normalizedCredentials.appState),
     ...cookiePairsFromInput(normalizedCredentials.Cookie)
