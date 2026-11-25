@@ -44,11 +44,21 @@ export function createHumanizerController(
   let options: Required<HumanizerOptions> = { ...DEFAULTS };
   const lastRun = new Map<string, number>();
   const minuteBuckets = new Map<string, number[]>();
+  const queues = new Map<string, Promise<void>>();
+  const pending = new Map<ReturnType<typeof setTimeout>, () => void>();
   let middlewareInstalled = false;
 
   function getKey(event: Loose) {
     const thread = event && (event.threadID ?? event.threadId);
     return options.perThread && thread != null ? String(thread) : "__global__";
+  }
+
+  function releasePending() {
+    for (const [timer, next] of pending) {
+      clearTimeout(timer);
+      pending.delete(timer);
+      next();
+    }
   }
 
   function install() {
@@ -58,6 +68,7 @@ export function createHumanizerController(
         next();
         return;
       }
+
       const key = getKey(event);
       const now = Date.now();
       const recent = (minuteBuckets.get(key) || []).filter((stamp) => now - stamp < 60000);
@@ -69,30 +80,57 @@ export function createHumanizerController(
       recent.push(now);
       minuteBuckets.set(key, recent);
 
-      const cooldownRemaining = Math.max(0, options.cooldownMs - (now - (lastRun.get(key) || 0)));
       const delayRange = options.reactDelayMs;
       const delay = Array.isArray(delayRange)
         ? Math.round(delayRange[0] + Math.random() * (delayRange[1] - delayRange[0]))
         : delayRange;
-      const wait = Math.max(delay, cooldownRemaining);
-      lastRun.set(key, now);
-
-      const threadID = event.threadID ?? event.threadId;
-      if (wait > 0 && threadID != null && typeof sendTypingIndicator === "function") {
-        try { void Promise.resolve(sendTypingIndicator(String(threadID), true, { duration: wait, autoStop: true })).catch(() => {}); } catch {}
-      }
-      if (wait <= 0) {
-        next();
-        return;
-      }
-      setTimeout(() => next(), wait);
+      const previous = queues.get(key) || Promise.resolve();
+      const operation = previous.catch(() => undefined).then(async () => {
+        if (!options.enabled) {
+          next();
+          return;
+        }
+        const cooldownRemaining = Math.max(0, options.cooldownMs - (Date.now() - (lastRun.get(key) || 0)));
+        const wait = Math.max(delay, cooldownRemaining);
+        const threadID = event.threadID ?? event.threadId;
+        if (wait > 0 && threadID != null && typeof sendTypingIndicator === "function") {
+          try {
+            await Promise.resolve(sendTypingIndicator(String(threadID), true, { duration: wait, autoStop: true }));
+          } catch { /* Typing is optional; never block message delivery on it. */ }
+        }
+        if (wait <= 0) {
+          lastRun.set(key, Date.now());
+          next();
+          return;
+        }
+        await new Promise<void>((resolve) => {
+          let completed = false;
+          const finish = () => {
+            if (completed) return;
+            completed = true;
+            pending.delete(timer);
+            lastRun.set(key, Date.now());
+            next();
+            resolve();
+          };
+          const timer = setTimeout(finish, wait);
+          pending.set(timer, finish);
+        });
+      });
+      queues.set(key, operation);
+      void operation.finally(() => {
+        if (queues.get(key) === operation) queues.delete(key);
+      }).catch(() => undefined);
     });
     middlewareInstalled = true;
   }
 
   return {
     get enabled() { return options.enabled; },
-    set enabled(value: boolean) { options.enabled = Boolean(value); },
+    set enabled(value: boolean) {
+      options.enabled = Boolean(value);
+      if (!options.enabled) releasePending();
+    },
     setOptions(next: HumanizerOptions = {}) {
       const merged = { ...options, ...next };
       options = {
@@ -103,12 +141,15 @@ export function createHumanizerController(
         perThread: merged.perThread !== false
       };
       if (options.enabled) install();
+      else releasePending();
       return { ...options };
     },
     getOptions() { return { ...options }; },
     reset() {
       lastRun.clear();
       minuteBuckets.clear();
+      releasePending();
+      queues.clear();
     }
   };
 }
