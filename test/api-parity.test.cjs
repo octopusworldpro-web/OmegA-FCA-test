@@ -56,7 +56,7 @@ async function main() {
     "getCurrentUserID", "getAppState", "getCookies", "setOptions",
     "sendMessage", "sendImage", "sendVideo", "sendAudio", "sendFile",
     "sendLocation", "sendTypingIndicator", "setMessageReaction",
-    "shareContact", "shareLink", "uploadAttachment", "forwardAttachment", "setReaction",
+    "shareContact", "shareLink", "uploadAttachment", "forwardAttachment", "setReaction", "setReaction",
     "getThreadList", "getThreadInfo", "getThreadHistory", "getThreadPictures",
     "createNewGroup", "addUserToGroup", "removeUserFromGroup",
     "changeAdminStatus", "changeGroupImage", "changeThreadColor",
