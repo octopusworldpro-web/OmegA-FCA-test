@@ -63,7 +63,7 @@ function isCommandEvent(event: Loose, config: Required<HumanizerOptions>): boole
   if (!body) return false;
 
   const matchesName = (text: string) => {
-    const token = text.trim().split(/\\s+/, 1)[0]?.toLowerCase() || "";
+    const token = text.trim().split(/\s+/, 1)[0]?.toLowerCase() || "";
     return !!token && (config.commandNames.length === 0 || config.commandNames.includes(token));
   };
 
@@ -74,7 +74,7 @@ function isCommandEvent(event: Loose, config: Required<HumanizerOptions>): boole
   if (config.noPrefixEnabled && config.commandNames.length > 0) {
     const senderID = event.userID ?? event.senderID ?? event.author;
     if (senderID != null && config.noPrefixAdminIds.includes(String(senderID))) {
-      const token = body.split(/\\s+/, 1)[0]?.toLowerCase() || "";
+      const token = body.split(/\s+/, 1)[0]?.toLowerCase() || "";
       return config.commandNames.includes(token);
     }
   }
