@@ -51,6 +51,7 @@ function createListenMqtt(deps: Loose) {
           listenMqtt(defaultFuncs, api, ctx, globalCallback);
         }
       }, ms);
+      if (typeof ctx._reconnectTimer.unref === "function") ctx._reconnectTimer.unref();
     }
 
     function isActiveClient(client: Loose): boolean {
@@ -207,6 +208,8 @@ function createListenMqtt(deps: Loose) {
           } catch (_) { }
           if (!ctx._ending && !ctx._cycling && ctx.globalOptions.autoReconnect && isActiveClient(mqttClient)) {
             scheduleReconnect(d);
+          } else if (!ctx._ending && !ctx._cycling && !ctx._stopRequested) {
+            globalCallback({ type: "stop_listen", error: sm }, null);
           }
           return;
         }
@@ -237,8 +240,10 @@ function createListenMqtt(deps: Loose) {
               mqttClient.end(true);
             }
           } catch (_) { }
-          if (ctx.globalOptions.autoReconnect && !ctx._ending) {
+          if (ctx.globalOptions.autoReconnect && !ctx._ending && !ctx._stopRequested) {
             scheduleReconnect(d);
+          } else if (!ctx._ending && !ctx._stopRequested) {
+            globalCallback({ type: "stop_listen", error: "Timed out waiting for MQTT /t_ms sync response" }, null);
           }
         }, T_MS_WAIT_TIMEOUT_MS);
 
@@ -250,7 +255,7 @@ function createListenMqtt(deps: Loose) {
             rTimeout = null;
           }
           if (ctx._rTimeout) {
-            delete ctx._rTimeout;
+            ctx._rTimeout = null;
           }
           ctx._mqttReconnectAttempts = 0;
           if (ctx.globalOptions.emitReady) globalCallback({ type: "ready", error: null });
