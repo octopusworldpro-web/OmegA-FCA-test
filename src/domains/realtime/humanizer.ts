@@ -48,20 +48,37 @@ function normalizeDelay(value: HumanizerOptions["reactDelayMs"]): number | [numb
   return clamp(value, 3000, 60000);
 }
 
-function normalizeCommandPrefixes(value: HumanizerOptions["commandPrefixes"]): string[] {
+function normalizeStringList(value: unknown, lowercase = false): string[] {
   if (!Array.isArray(value)) return [];
   return [...new Set(value
-    .filter((prefix): prefix is string => typeof prefix === "string")
-    .map((prefix) => prefix.trim())
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => (lowercase ? item.trim().toLowerCase() : item.trim()))
     .filter(Boolean))];
 }
 
-/** Only explicit command metadata or a configured leading prefix qualifies. */
-function isCommandEvent(event: Loose, prefixes: string[]): boolean {
+/** Prefer parser metadata; otherwise match registered names and safe no-prefix rules. */
+function isCommandEvent(event: Loose, config: Required<HumanizerOptions>): boolean {
   if (event.isCommand === true || event.command === true || event.commandName != null) return true;
   const body = typeof event.body === "string" ? event.body.trimStart() : "";
   if (!body) return false;
-  return prefixes.some((prefix) => body.startsWith(prefix) && body.slice(prefix.length).trim().length > 0);
+
+  const matchesName = (text: string) => {
+    const token = text.trim().split(/\\s+/, 1)[0]?.toLowerCase() || "";
+    return !!token && (config.commandNames.length === 0 || config.commandNames.includes(token));
+  };
+
+  for (const prefix of config.commandPrefixes) {
+    if (body.startsWith(prefix) && matchesName(body.slice(prefix.length))) return true;
+  }
+
+  if (config.noPrefixEnabled && config.commandNames.length > 0) {
+    const senderID = event.userID ?? event.senderID ?? event.author;
+    if (senderID != null && config.noPrefixAdminIds.includes(String(senderID))) {
+      const token = body.split(/\\s+/, 1)[0]?.toLowerCase() || "";
+      return config.commandNames.includes(token);
+    }
+  }
+  return false;
 }
 
 export function createHumanizerController(
@@ -180,7 +197,10 @@ export function createHumanizerController(
         cooldownMs: clamp(merged.cooldownMs, DEFAULTS.cooldownMs, 600000),
         maxPerMinute: clamp(merged.maxPerMinute, DEFAULTS.maxPerMinute, 1000),
         perThread: merged.perThread !== false,
-        commandPrefixes: normalizeCommandPrefixes(merged.commandPrefixes)
+        commandPrefixes: normalizeStringList(merged.commandPrefixes),
+        commandNames: normalizeStringList(merged.commandNames, true),
+        noPrefixEnabled: merged.noPrefixEnabled === true,
+        noPrefixAdminIds: normalizeStringList(merged.noPrefixAdminIds)
       };
       if (options.enabled) install();
       else releasePending();
