@@ -49,7 +49,10 @@ export function createOutgoingActionLimiter(options: OutgoingActionLimiterOption
     return run as Promise<T>;
   }
 
-  function wrap<T extends (...args: any[]) => any>(fn: T, getThreadID: (...args: Parameters<T>) => unknown = (args) => args[1]): T {
+  function wrap<T extends (...args: any[]) => any>(
+    fn: T,
+    getThreadID: (...args: Parameters<T>) => unknown = (...args: Parameters<T>) => args[1]
+  ): T {
     return ((...args: Parameters<T>) => schedule(getThreadID(...args), () => fn(...args))) as T;
   }
 
