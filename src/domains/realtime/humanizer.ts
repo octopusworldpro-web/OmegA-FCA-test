@@ -82,7 +82,7 @@ export function createHumanizerController(
       const recent = (minuteBuckets.get(key) || []).filter((stamp) => now - stamp < 60000);
       if (options.maxPerMinute > 0 && recent.length >= options.maxPerMinute) {
         minuteBuckets.set(key, recent);
-        next();
+        resume();
         return;
       }
       recent.push(now);
@@ -96,7 +96,7 @@ export function createHumanizerController(
       const previous = queues.get(key) || Promise.resolve();
       const operation = previous.catch(() => undefined).then(async () => {
         if (scheduledGeneration !== generation || !options.enabled) {
-          next();
+          resume();
           return;
         }
         const cooldownRemaining = Math.max(0, options.cooldownMs - (Date.now() - (lastRun.get(key) || 0)));
@@ -109,7 +109,7 @@ export function createHumanizerController(
         }
         if (wait <= 0) {
           lastRun.set(key, Date.now());
-          next();
+          resume();
           return;
         }
         await new Promise<void>((resolve) => {
