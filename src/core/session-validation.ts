@@ -63,3 +63,56 @@ export function isValidSessionUserId(value: unknown): boolean {
   const userId = String(value ?? "").trim();
   return /^\d{1,30}$/.test(userId) && !/^0+$/.test(userId);
 }
+
+function cookieEntries(input: unknown): Array<{ name: string; value: string; expires?: unknown; expirationDate?: unknown }> {
+  if (!input) return [];
+  if (typeof input === "string") {
+    const raw = input.replace(/^cookie\s*:/i, "");
+    return raw.split(/[;\r\n]+/).flatMap((part) => {
+      const eq = part.indexOf("=");
+      return eq > 0 ? [{ name: part.slice(0, eq).trim(), value: part.slice(eq + 1).trim().replace(/^"(.*)"$/, "$1") }] : [];
+    });
+  }
+  if (Array.isArray(input)) return input.flatMap((entry) => {
+    if (typeof entry === "string") return cookieEntries(entry);
+    if (!entry || typeof entry !== "object") return [];
+    const item = entry as Record<string, unknown>;
+    const name = String(item.key || item.name || "");
+    if (!name || item.value == null) return [];
+    return [{ name, value: String(item.value), expires: item.expires, expirationDate: item.expirationDate }];
+  });
+  if (typeof input === "object") {
+    const item = input as Record<string, unknown>;
+    const nested = item.Cookie ?? item.cookie ?? item.cookies;
+    if (nested !== undefined) return cookieEntries(nested);
+    if (item.key || item.name) return cookieEntries([item]);
+    return Object.entries(item).map(([name, value]) => ({ name, value: String(value ?? "") }));
+  }
+  return [];
+}
+
+/** Validate the minimum identity/session cookies before attempting network login. */
+export function validateSessionCookieInput(input: unknown): void {
+  const entries = cookieEntries(input);
+  if (!entries.length) throw new Error("Invalid login input: no usable cookies were provided");
+  const byName = new Map(entries.map((entry) => [entry.name.toLowerCase(), entry]));
+  const uid = byName.get("c_user");
+  if (!uid || !/^\d{1,30}$/.test(uid.value) || /^0+$/.test(uid.value)) {
+    throw new Error("Invalid login input: missing or invalid c_user cookie");
+  }
+  const session = byName.get("xs");
+  if (!session || !session.value.trim()) {
+    throw new Error("Invalid login input: missing or empty xs session cookie");
+  }
+  for (const entry of [uid, session]) {
+    const rawExpiry = entry.expirationDate ?? entry.expires;
+    if (rawExpiry === undefined || rawExpiry === null || rawExpiry === "Infinity") continue;
+    const numeric = typeof rawExpiry === "number" ? rawExpiry : Number.NaN;
+    const expiry = Number.isFinite(numeric)
+      ? new Date(numeric < 1e12 ? numeric * 1000 : numeric)
+      : new Date(String(rawExpiry));
+    if (!Number.isNaN(expiry.getTime()) && expiry.getTime() <= Date.now()) {
+      throw new Error(`Invalid login input: ${entry.name.toLowerCase()} cookie has expired`);
+    }
+  }
+}
