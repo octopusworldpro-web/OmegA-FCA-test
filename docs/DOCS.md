@@ -34,14 +34,7 @@ OmegA-FCA 0.2.0 API reference. This TypeScript package is derived from the upstr
 npm install @nirzon-islam/omega-fca@latest
 ```
 
-To work from source:
-
-```bash
-git clone https://github.com/dongp06/fca-unofficial.git
-cd fca-unofficial
-npm install
-npm run build
-```
+To work from source, clone this repository, install dependencies, and run the build script.
 
 Build output:
 
@@ -238,7 +231,7 @@ When the connection drops, the library schedules a reconnect with debounce and j
 
 ## 5. MessengerBot — Event-Driven Interface
 
-`MessengerBot` provides a Discord.js / Telegraf-style experience with events, middleware, commands, and pattern matching.
+`MessengerBot` provides a event-driven experience with events, middleware, commands, and pattern matching.
 
 ### 5.1. Creating a bot
 
