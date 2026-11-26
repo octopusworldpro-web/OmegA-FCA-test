@@ -6,9 +6,9 @@
 
 ## Overall status
 
-**All four Steps have implementation work; none is fully complete or production-verified yet.**
+**Step 1 is verified complete at the local engine and FCA login-integration boundary. Steps 2–4 remain in progress; native Messenger interoperability is not yet production-verified.**
 
-- Step 1: In progress
+- Step 1: Verified complete
 - Step 2: In progress
 - Step 3: In progress
 - Step 4: In progress
@@ -24,16 +24,18 @@ A Step is complete only after its code, tests, required integration, and accepta
 - Fail-open behavior: E2EE initialization failure must not break ordinary FCA login, MQTT, humanizer, or regular messaging.
 - Preserve the existing FCA login API and protect credentials/key material.
 
-**Implemented in the current branch**
-- Pinned `@signalapp/libsignal-client` dependency.
-- Automatic local account identity bootstrap helper with persistent device metadata and generated local encryption material.
-- Fail-open login handling changes and bootstrap tests.
+**Implemented and verified in the current branch**
+- Pinned `@signalapp/libsignal-client` `0.70.0` loads automatically; no manual Signal module injection is needed.
+- Authenticated FCA UID is passed to the opt-in bootstrap only after existing session identity validation.
+- Local Signal runtime initializes before the existing successful login callback; initialization errors are caught and exposed as `api.e2ee.status = \"failed\"` without throwing into ordinary FCA login.
+- Identity, signed prekey, one-time EC prekeys, and Kyber prekey material are persisted in the encrypted account-scoped store and survive process restart with the real libsignal package.
+- Account storage paths and device IDs are isolated. No password, 2FA, AppState, or cookies are passed into the E2EE bootstrap.
+- Store encryption key is no longer written to `identity.json`; it must be supplied via `OMEGA_FCA_E2EE_MASTER_KEY` or `e2ee.encryptionKey`. Missing key fails E2EE open while normal FCA login remains available.
+- Legacy metadata that contains a plaintext key is rejected with a migration warning rather than silently reused.
+- Added real-library restart/account-isolation smoke test and fail-open/bootstrap tests.
 
-**Still required**
-- Verify the bootstrap is invoked in the actual authenticated login lifecycle for every supported login/session path.
-- Complete creation of the usable Signal runtime from the existing authenticated FCA session.
-- Verify normal FCA login/MQTT/humanizer behavior remains unchanged when E2EE is unavailable.
-- Verify restart, account switching, and storage recovery with the real selected libsignal engine.
+**Boundary**
+- This completes the local engine and FCA login integration in Step 1. Facebook ICDC registration and server key publication remain Step 2; Messenger MQTT encrypted wire compatibility remains Step 3. No live Facebook-account interoperability is claimed.
 
 **Acceptance**
 - Existing AppState/Cookie login works unchanged.
@@ -119,9 +121,9 @@ A Step is complete only after its code, tests, required integration, and accepta
 
 ## Verification record
 
-Latest checked branch head: `94ef32b965a4e6b2863373a55454a57a5a8d0cc4`
+Latest checked branch head: `bbbab33b11f253605a90f4e089c2a065de3048cb`
 
-Latest checked CI run: [45851159194](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45851159194) — **success** for build/tests, TypeScript, lint, security audit, and package dry run.
+Latest checked CI run: [45857562207](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45857562207) — **success** for build/tests (including real libsignal runtime persistence/restart), TypeScript, lint, security audit, and package dry run.
 
 CI success verifies the repository checks only. It does not prove native Messenger E2EE transport or real-account interoperability.
 
