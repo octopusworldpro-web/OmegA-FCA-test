@@ -1,4 +1,4 @@
-import { createHash, hkdfSync, timingSafeEqual } from "node:crypto";
+import { hkdfSync, timingSafeEqual } from "node:crypto";
 import { deriveOmegAX25519, generateOmegAX25519KeyPair, type OmegAKeyPair } from "./native-crypto";
 import { verifyOmegAXEdDSA } from "./xeddsa";
 
