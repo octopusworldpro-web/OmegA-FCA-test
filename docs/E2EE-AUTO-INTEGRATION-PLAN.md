@@ -199,3 +199,9 @@ Tasks:
 **Step 1 validation:** 11 targeted Node.js tests passed locally for identity creation/reuse, account isolation, corrupt-state handling, permissions, provider selection, zero-E2EE-environment setup, and fail-open login options. The test files are committed in OmegA-Goatbot; the full GoatBot application and real Messenger E2EE transport have not been end-to-end tested here.
 
 **Current release assessment:** Messenger E2EE is not production-integrated or verified. Step 1 provides local identity material only; Signal engine initialization, Facebook device registration, and encrypted Messenger transport remain future steps.
+
+### PQXDH hybrid orchestration progress
+
+Added OmegA-owned initiator/responder orchestration for the PQXDH revision-3 flow. It combines the X25519 DH values (including optional EC OPK) with a mandatory KEM shared secret, validates signed curve/KEM prekeys with XEdDSA, derives the 32-byte session secret using the PQXDH SHA-512 HKDF parameter string, and checks identity-bound associated data. The KEM backend is injected explicitly and missing KEM support fails closed. A synthetic KEM test validates only the local transcript composition and error paths.
+
+**Remaining before PQXDH can be called complete:** integrate a vetted, parameter-matched production KEM (Kyber/ML-KEM version must match the target protocol), add official PQXDH/KEM vectors and independent interoperability tests, and persist/manage signed KEM prekeys and one-time consumption in the real runtime. No mock KEM is treated as cryptographic proof.
