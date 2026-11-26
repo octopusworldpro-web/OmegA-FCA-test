@@ -37,3 +37,8 @@ Treat Messenger E2EE as **not production-integrated / not verified** in this rel
 5. Verify encrypted media upload/download and receipt behavior.
 6. Add authorized end-to-end tests against real test accounts, with secrets redacted.
 7. Document platform/runtime requirements and recovery behavior.
+
+
+## Receipt action support
+
+The opt-in Signal action layer supports encrypted application-level read and delivery receipts through `sendReadReceipt` / `sendDeliveryReceipt`, with matching `decryptReadReceipt` / `decryptDeliveryReceipt` validators. These are Signal-encrypted payload helpers only; they are **not** Messenger's private receipt wire format and do not replace `api.markAsRead` or `api.markAsDelivered`. Automatic Messenger receipts remain controlled by `autoMarkRead` and `autoMarkDelivery` and are dispatched best-effort for incoming message events.
