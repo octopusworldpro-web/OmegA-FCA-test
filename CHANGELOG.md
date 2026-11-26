@@ -10,6 +10,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [0.2.3-beta.4] - 2026-11-26
+
+### Changed
+
+- Prepare the `0.2.3-beta.4` npm pre-release metadata.
+- Restore the project documentation files required for the published package.
+- Update README release status and package version references.
+
+### Validation notes
+
+- CI, full tests, typecheck, lint, dependency audit, and `npm pack --dry-run` must pass on this branch before publishing.
+- Authorized live Facebook/Messenger interoperability remains a separate runtime validation.
+
+---
+
 ## [0.2.3-beta.2] - 2026-11-25
 
 ### Fixed
