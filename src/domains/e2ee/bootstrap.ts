@@ -26,7 +26,7 @@ interface IdentityMetadata {
   localDeviceId: number;
 }
 
-const require = createRequire(import.meta.url);
+const require = createRequire(path.join(process.cwd(), "package.json"));
 
 function loadSignalModule(override?: unknown): Dynamic {
   if (override) return override;
