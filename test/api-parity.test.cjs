@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const { PassThrough } = require("node:stream");
-const { createMediaShortcuts, createFcaClient } = require("../dist/index.js");
+const { createMediaShortcuts, createFcaClient, createSendBroadcast } = require("../dist/index.js");
 
 async function main() {
   const calls = [];
@@ -111,6 +111,7 @@ async function main() {
   assert.equal(client.raw, legacy);
   assert.equal(client.account.getCurrentUserID(), "getCurrentUserID");
   assert.equal(client.messages.send(), "sendMessage");
+  assert.equal(client.messages.sendBroadcast(), "sendBroadcast");
   assert.equal(typeof client.messages.sendBroadcast, "function");
   assert.equal(client.messages.setReaction(), "setMessageReaction");
   assert.equal(client.messages.react(), "setMessageReaction");
@@ -118,6 +119,26 @@ async function main() {
   assert.equal(client.users.getInfo(), "getUserInfo");
   assert.equal(client.http.get(), "httpGet");
   assert.deepEqual(client.threads.colors, []);
+
+  const broadcastCalls = [];
+  const eachCalls = [];
+  const broadcast = createSendBroadcast(async (message, threadID) => {
+    broadcastCalls.push([message, threadID]);
+    if (threadID === "bad") throw new Error("send failed");
+    return { messageID: "msg-" + threadID };
+  });
+  const result = await broadcast("hello", ["one", "bad", "two", "one"], {
+    delay: 0,
+    parallel: 2,
+    onEach: (error, info, id) => eachCalls.push({ error: error?.message || null, info, id })
+  });
+  assert.equal(result.total, 3);
+  assert.deepEqual(result.sent.map((item) => item.threadID).sort(), ["one", "two"]);
+  assert.deepEqual(result.failed.map((item) => item.threadID), ["bad"]);
+  assert.equal(broadcastCalls.length, 3);
+  assert.equal(eachCalls.length, 3);
+  await assert.rejects(broadcast("hello", [""]), /thread ID strings/);
+  await assert.rejects(broadcast("hello", ["one"], { parallel: 0 }), /parallel/);
 
   console.log("FCA media and legacy API parity tests passed.");
 }
