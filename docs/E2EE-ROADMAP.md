@@ -20,19 +20,20 @@ A Step is complete only after its code, tests, required integration, and accepta
 **Scope**
 - Automatic compatible libsignal engine setup.
 - Reuse the existing authenticated FCA AppState/session and cookies for E2EE; do not add an external credential relay.
-- Account-scoped automatic identity and key-store bootstrap.
+- Account-scoped automatic identity and key-store bootstrap, with no new environment-variable or manual key setup.
 - Fail-open behavior: E2EE initialization failure must not break ordinary FCA login, MQTT, humanizer, or regular messaging.
-- Preserve the existing FCA login API and protect credentials/key material.
+- Preserve the existing FCA login API and configuration.
 
 **Implemented and verified in the current branch**
 - Pinned `@signalapp/libsignal-client` `0.70.0` loads automatically; no manual Signal module injection is needed.
 - Authenticated FCA UID is passed to the opt-in bootstrap only after existing session identity validation.
-- Local Signal runtime initializes before the existing successful login callback; initialization errors are caught and exposed as `api.e2ee.status = \"failed\"` without throwing into ordinary FCA login.
+- Local Signal runtime initializes before the existing successful login callback; initialization errors are caught and exposed as `api.e2ee.status = "failed"` without throwing into ordinary FCA login.
 - Identity, signed prekey, one-time EC prekeys, and Kyber prekey material are persisted in the encrypted account-scoped store and survive process restart with the real libsignal package.
-- Account storage paths and device IDs are isolated. No password, 2FA, AppState, or cookies are passed into the E2EE bootstrap.
-- Store encryption key is no longer written to `identity.json`; it must be supplied via `OMEGA_FCA_E2EE_MASTER_KEY` or `e2ee.encryptionKey`. Missing key fails E2EE open while normal FCA login remains available.
-- Legacy metadata that contains a plaintext key is rejected with a migration warning rather than silently reused.
-- Added real-library restart/account-isolation smoke test and fail-open/bootstrap tests.
+- Account storage paths, generated local encryption keys, and device IDs are automatically persisted per account with restrictive local file/directory permissions. No new E2EE environment variable or separate key setup is required.
+- No password, 2FA, AppState, or cookies are passed into the E2EE bootstrap.
+
+**Local storage security note**
+- The automatically generated store key is persisted in the account's local `identity.json` file so restarts work without manual configuration. The directory/file permissions are restricted where supported, but this is not equivalent to encrypting the key at rest against someone who can read the same account's files. Do not claim otherwise.
 
 **Boundary**
 - This completes the local engine and FCA login integration in Step 1. Facebook ICDC registration and server key publication remain Step 2; Messenger MQTT encrypted wire compatibility remains Step 3. No live Facebook-account interoperability is claimed.
@@ -40,7 +41,7 @@ A Step is complete only after its code, tests, required integration, and accepta
 **Acceptance**
 - Existing AppState/Cookie login works unchanged.
 - No password, 2FA, AppState, or cookie is sent to an external E2EE credential service.
-- The selected Signal engine loads automatically and a persistent account runtime is initialized.
+- The selected Signal engine loads automatically and a persistent account runtime is initialized without extra key configuration.
 - E2EE failure is fail-open for ordinary FCA behavior.
 - Lifecycle and restart tests pass.
 
