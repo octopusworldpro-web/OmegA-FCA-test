@@ -18,12 +18,39 @@ const bob = fca.createOmegADoubleRatchet({
 });
 const aad = Buffer.from("thread:123");
 const first = alice.encrypt(Buffer.from("first"), aad);
+const tamperedFirst = structuredClone(first);
+tamperedFirst.body.tag = Buffer.from(crypto.randomBytes(16)).toString("base64");
+const bobBeforeFailedAuth = JSON.stringify(bob.exportState());
+assert.throws(() => bob.decrypt(tamperedFirst, aad));
+assert.equal(JSON.stringify(bob.exportState()), bobBeforeFailedAuth,
+  "failed authentication must not mutate ratchet state");
 assert.equal(bob.decrypt(first, aad).toString(), "first");
 const reply = bob.encrypt(Buffer.from("reply"), aad);
 assert.equal(alice.decrypt(reply, aad).toString(), "reply");
 const third = alice.encrypt(Buffer.from("third"), aad);
 assert.equal(bob.decrypt(third, aad).toString(), "third");
 assert.throws(() => bob.decrypt(third, aad), /authentication|Unsupported state|Invalid/);
+
+// Out-of-order delivery: later messages are decrypted first and earlier skipped
+// message keys remain usable exactly once.
+const outAliceDh = fca.generateOmegAX25519KeyPair();
+const outBobDh = fca.generateOmegAX25519KeyPair();
+const outRoot = crypto.randomBytes(32);
+const outA = crypto.randomBytes(32);
+const outB = crypto.randomBytes(32);
+const outAlice = fca.createOmegADoubleRatchet({
+  rootKey: outRoot, localDh: outAliceDh, remoteDh: outBobDh.publicKey,
+  sendChainKey: outA, receiveChainKey: outB
+});
+const outBob = fca.createOmegADoubleRatchet({
+  rootKey: outRoot, localDh: outBobDh, remoteDh: outAliceDh.publicKey,
+  sendChainKey: outB, receiveChainKey: outA
+});
+const ordered = [outAlice.encrypt(Buffer.from("one")), outAlice.encrypt(Buffer.from("two")), outAlice.encrypt(Buffer.from("three"))];
+assert.equal(outBob.decrypt(ordered[2]).toString(), "three");
+assert.equal(outBob.decrypt(ordered[0]).toString(), "one");
+assert.equal(outBob.decrypt(ordered[1]).toString(), "two");
+assert.throws(() => outBob.decrypt(ordered[0]), /authentication|Unsupported state|Invalid/);
 
 const snapshot = alice.exportState();
 const restored = fca.restoreOmegADoubleRatchet(snapshot);
