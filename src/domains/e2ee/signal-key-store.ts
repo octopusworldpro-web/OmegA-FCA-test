@@ -44,6 +44,7 @@ interface SignalStoreState {
   sessions: Record<string, string>;
   trustedIdentities: Record<string, string>;
   senderKeys?: Record<string, string>;
+  senderKeyDistributions?: Record<string, string[]>;
   device?: SignalDeviceRecord;
 }
 
@@ -64,7 +65,8 @@ const emptyState = (accountId: string): SignalStoreState => ({
   usedKyberPreKeys: {},
   sessions: {},
   trustedIdentities: {},
-  senderKeys: {}
+  senderKeys: {},
+  senderKeyDistributions: {}
 });
 
 function requireText(value: unknown, label: string): string {
@@ -169,6 +171,9 @@ export interface SignalKeyStore {
   storeSenderKey(address: SignalSessionAddress, groupId: string, serializedRecord: string): Promise<void>;
   loadSenderKey(address: SignalSessionAddress, groupId: string): string | undefined;
   removeSenderKey(address: SignalSessionAddress, groupId: string): Promise<void>;
+  getSenderKeyDistributionRecipients(address: SignalSessionAddress, groupId: string): string[];
+  markSenderKeyDistributionDelivered(address: SignalSessionAddress, groupId: string, recipient: SignalSessionAddress): Promise<void>;
+  clearSenderKeyDistribution(address: SignalSessionAddress, groupId: string): Promise<void>;
   storeSession(address: SignalSessionAddress, serializedRecord: string): Promise<void>;
   loadSession(address: SignalSessionAddress): string | undefined;
   removeSession(address: SignalSessionAddress): Promise<void>;
@@ -339,6 +344,19 @@ export async function createSignalKeyStore(options: SignalStoreOptions): Promise
     loadSenderKey: (address, groupId) => snapshot().senderKeys?.[`${addressKey(address)}|${requireText(groupId, "groupId")}`],
     removeSenderKey: (address, groupId) => mutate((draft) => {
       delete draft.senderKeys?.[`${addressKey(address)}|${requireText(groupId, "groupId")}`];
+    }),
+    getSenderKeyDistributionRecipients: (address, groupId) =>
+      [...(snapshot().senderKeyDistributions?.[`${addressKey(address)}|${requireText(groupId, "groupId")}`] || [])],
+    markSenderKeyDistributionDelivered: (address, groupId, recipient) => mutate((draft) => {
+      const key = `${addressKey(address)}|${requireText(groupId, "groupId")}`;
+      const recipientKey = addressKey(recipient);
+      draft.senderKeyDistributions ||= {};
+      const recipients = new Set(draft.senderKeyDistributions[key] || []);
+      recipients.add(recipientKey);
+      draft.senderKeyDistributions[key] = [...recipients].sort();
+    }),
+    clearSenderKeyDistribution: (address, groupId) => mutate((draft) => {
+      delete draft.senderKeyDistributions?.[`${addressKey(address)}|${requireText(groupId, "groupId")}`];
     }),
     storeSession: (address, serializedRecord) => mutate((draft) => {
       draft.sessions[addressKey(address)] = requireBytes(serializedRecord, "session record");
