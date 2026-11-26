@@ -1,101 +1,44 @@
-# E2EE implementation status
+# OmegA-FCA E2EE — Current Implementation Status
 
-## What exists in this branch
+**Canonical plan:** [E2EE-ROADMAP.md](E2EE-ROADMAP.md)  
+**Version:** `0.2.3-beta.3`  
+**Branch:** `feature/release-0.2.3-beta.3`
 
-The source tree contains local Signal-related components:
+This file records the current implementation evidence only. The four-step roadmap is the sole authority for scope and completion criteria.
 
-- `signal-key-store.ts`: encrypted local persistence for identity keys, registration ID, prekeys, sessions, trusted identities, sender keys, and device metadata.
-- `libsignal-adapter.ts`: adapter functions around a caller-supplied compatible Signal module.
-- `runtime.ts`: initializes local identity/signed-prekey state and exposes direct-message actions and sender-key group primitives.
-- `device-registration.ts`: separate Facebook ICDC device-registration helper.
-- Additional direct-message, action, sender-key, peer-manager, and encrypted-media modules.
+## Overall
 
-The key store uses AES-256-GCM and derives a 32-byte key with scrypt. The caller must provide an encryption secret containing at least 32 bytes. The package does not silently generate and persist that secret for the caller.
+**4/4 Steps have implementation work. 0/4 Steps are fully verified complete.**
 
-## What is not established as integrated
+| Step | Current status | Implemented evidence | Main remaining work |
+|---|---|---|---|
+| 1. E2EE Engine & Login Integration | In progress | Pinned libsignal dependency, persistent account bootstrap helper, fail-open login changes, bootstrap tests | Verify complete automatic runtime initialization from every authenticated FCA session path |
+| 2. Facebook Device Registration & Key Sync | In progress | ICDC helper, encrypted key store, device metadata, public identity bundle, prekey lifecycle groundwork | Invoke ICDC during login and verify actual Facebook registration/key publishing with real protocol formats |
+| 3. E2EE Messaging & Group System | In progress | Group Sender Keys/SKDM persistence and restart-safe retry; application-level encrypted group messaging | Native Messenger MQTT envelope integration, peer bundle exchange, direct-message and real group interoperability |
+| 4. Encrypted Media & Full Compatibility Test | In progress | Encrypted group-media pipeline and application-level transport tests | Native Facebook media transport, image/video/file interoperability, EryXen comparison, real-account tests |
 
-The runtime source explicitly states that local initialization is separate from:
+## Implemented components
 
-- Facebook device registration being invoked in the login flow
-- peer/bundle exchange
-- Messenger E2EE MQTT envelope handling
-- Messenger's encrypted-message wire compatibility
-- end-to-end encrypted group message/media delivery
+- `src/domains/e2ee/bootstrap.ts`: creates account-scoped persistent local identity metadata and loads the pinned libsignal package by default.
+- `src/domains/e2ee/signal-key-store.ts`: encrypted persistence for Signal identity/session/prekey/group state and device metadata.
+- `src/domains/e2ee/libsignal-adapter.ts`: adapter boundary for the selected libsignal implementation.
+- `src/domains/e2ee/device-registration.ts`: Facebook ICDC registration helper; helper presence alone does not prove it is called during login or accepted by Facebook.
+- `src/domains/e2ee/group-key-manager.ts` and `src/domains/e2ee/sender-keys.ts`: group Sender Key/SKDM handling and delivery state.
+- `src/domains/e2ee/group-messaging.ts`: application-level encrypted group-message envelope orchestration over an injected authenticated transport.
+- `src/domains/e2ee/group-media-messaging.ts`: application-level encrypted group-media envelope orchestration over an injected authenticated transport.
+- Local cryptographic foundations include X3DH/PQXDH orchestration, XEdDSA verification, and an experimental Double Ratchet. These are not by themselves proof of official Signal conformance or Messenger interoperability.
 
-The presence of a device-registration helper or local encryption primitive is not proof of full Messenger E2EE. The local tests use controlled/mock dependencies and do not prove real encrypted delivery.
+## Important boundaries
 
-## Operational status
+- Application-level group messaging/media adapters are not the same as native Messenger MQTT wire integration.
+- Synthetic/mock tests do not establish Facebook server acceptance or cross-device interoperability.
+- A passing CI run does not mean Messenger E2EE is active.
+- Do not report E2EE as production-ready until the four roadmap acceptance sections are satisfied.
 
-Treat Messenger E2EE as **not production-integrated / not verified** in this release. Do not enable it in a bot configuration on the assumption that the package automatically connects an E2EE transport.
+## Latest repository validation
 
-## Requirements before claiming full support
+Branch head checked: `94ef32b965a4e6b2863373a55454a57a5a8d0cc4`
 
-1. Wire device registration and persistent device identity into the actual login lifecycle.
-2. Implement and verify peer bundle/key exchange.
-3. Integrate encrypted envelopes with the real Messenger realtime transport.
-4. Verify direct-message and group-message protocol compatibility.
-5. Verify encrypted media upload/download and receipt behavior.
-6. Add authorized end-to-end tests against real test accounts, with secrets redacted.
-7. Document platform/runtime requirements and recovery behavior.
+[CI run 45851159194](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45851159194): **success** — build/tests, TypeScript, lint, security audit, and package dry run.
 
-
-## Receipt action support
-
-The opt-in Signal action layer supports encrypted application-level read and delivery receipts through `sendReadReceipt` / `sendDeliveryReceipt`, with matching `decryptReadReceipt` / `decryptDeliveryReceipt` validators. These are Signal-encrypted payload helpers only; they are **not** Messenger's private receipt wire format and do not replace `api.markAsRead` or `api.markAsDelivered`. Automatic Messenger receipts remain controlled by `autoMarkRead` and `autoMarkDelivery` and are dispatched best-effort for incoming message events.
-
-
-## OmegA-owned Double Ratchet engine (implementation in progress; conformance pending)
-
-The branch now contains an OmegA-authored classical DH Double Ratchet engine in `src/domains/e2ee/double-ratchet.ts`, built on the local X25519, HKDF-SHA256, and AES-256-GCM primitives. It includes:
-
-- Standard Alice/Bob initialization from a shared 32-byte session secret and Bob's initial ratchet key pair/public key.
-- Root-chain KDF using the `WhisperRatchet` domain label and HMAC-SHA256 chain KDF (0x01 message-key and 0x02 next-chain-key constants).
-- Sending/receiving chain advancement and two-step DH-ratchet transitions.
-- PN/N counters, bounded skipped-message keys, out-of-order delivery and replay rejection.
-- Canonical binary header authentication with length-prefixed external associated data.
-- Transactional decryption: malformed headers, wrong associated data, and authentication failures do not consume keys or mutate state.
-- State export/restore with key/counter/skipped-key validation.
-
-Tests now exercise standard Alice/Bob initialization, first message and reply, repeated ratchet exchanges, skipped messages, replay rejection, tampered headers, wrong associated data, rollback, and state restoration.
-
-**Status: engine implementation is present, but Signal conformance is not yet certified.** The local tests are synthetic and are not official Signal test vectors or independent peer interoperability tests. AES-256-GCM is used as the configured AEAD; Messenger's actual algorithm/encoding profile has not been established. Header encryption (the optional HE variant), protocol-specific wire serialization, and post-quantum SCKA/ML-KEM integration are not implemented here. Do not claim Messenger E2EE is active or production-ready based on this engine alone.
-
-## OmegA X3DH key-agreement core (in progress)
-
-The branch now exposes `initiateOmegAX3DH()` and `respondOmegAX3DH()` in `src/domains/e2ee/x3dh.ts`. The module implements the classical X25519 three/four-DH key agreement core, the X3DH 32-byte HKDF derivation with the X25519 domain-separation prefix, identity-bound associated data using the typed Curve25519 public-key encoding, and both optional-one-time-prekey and no-one-time-prekey paths. It wipes its temporary DH buffers and local copies of ephemeral/private key bytes after derivation.
-
-The initiator requires a `verifySignedPreKey` callback and aborts if it returns false. This is an explicit security boundary: **the callback must be a real XEdDSA verifier for the selected protocol**. The included tests use a synthetic verifier callback only to verify DH symmetry and failure plumbing; they do not test XEdDSA or establish Signal interoperability. The responder's caller must atomically consume/delete a one-time prekey after successful initial-message authentication.
-
-This is a classical X3DH core, **not PQXDH** and not a complete Signal session. XEdDSA implementation, PQ KEM (ML-KEM/Kyber) interoperability, protocol-specific key/signature encodings, integration with the session store and ratchet, runtime auto-factory, and official protocol test vectors remain outstanding. Do not publish or enable this as Messenger E2EE.
-
-## OmegA-owned XEdDSA verification core (in progress)
-
-The branch now contains `src/domains/e2ee/xeddsa.ts`, an OmegA-authored Curve25519 XEdDSA verifier implementing the revision-1 public-key conversion, Edwards point decoding, SHA-512 challenge calculation, scalar bit-length checks, and the specified verification equation. X3DH now uses this verifier by default when validating a signed-prekey bundle; an explicit protocol-specific verifier override remains available.
-
-The verifier handles public inputs only and is not a signing implementation. Current automated tests cover malformed lengths, invalid signatures, and rejection by the default X3DH path. These are negative tests, not official XEdDSA vectors or independent interoperability evidence. Positive official vectors and cross-implementation tests are still required before treating signed-prekey verification as production-validated.
-
-## OmegA hybrid PQXDH orchestration core (in progress; KEM backend required)
-
-Added `src/domains/e2ee/pqxdh.ts` with initiator/responder orchestration for the Signal PQXDH revision-3 hybrid construction: X25519 DH1-DH3 (optional DH4 with EC OPK), signed curve-prekey and signed KEM-prekey validation using XEdDSA, KEM encapsulation/decapsulation, the Curve25519 0xFF domain prefix, SHA-512 HKDF with the protocol/curve/hash/KEM parameter string, and identity-bound associated data. A KEM provider is mandatory and must supply the exact parameter-specific key encoding and encapsulation/decapsulation functions. The module fails closed when no provider is supplied.
-
-Automated tests use a deliberately synthetic test KEM to verify initiator/responder transcript symmetry and failure handling. **These tests do not implement or validate ML-KEM/Kyber.** No production KEM backend is currently wired. The Signal PQXDH specification requires a real post-quantum KEM; a callback interface or mock is not a substitute. Do not advertise PQXDH as operational until a vetted, parameter-matched KEM backend, official vectors, and independent interoperability tests are available.
-
-### One-time KEM prekey consumption hardening
-
-The encrypted key store now exposes `consumeKyberPreKey()`, which atomically claims a stored one-time KEM prekey, records its signed-prekey/base-key use marker, persists the claim, and returns the serialized private record only to the successful claimant. Concurrent/repeated claims are serialized through the store mutation queue and rejected; the claim survives restart. Tests cover successful claim, same-base-key replay, different-base-key reuse, and persisted consumption state.
-
-This is storage/lifecycle hardening only. The PQXDH responder still needs to be wired to a real protocol-matched KEM implementation and to consume the appropriate key records in the actual Messenger receive lifecycle. It does not establish production PQXDH.
-
-The libsignal Kyber store adapter is now wired to this atomic consume operation: `markKyberPreKeyUsed()` claims the key through the store's serialized consume path instead of performing a separate non-atomic marker write. This closes the local duplicate-consumption race at the adapter boundary. It still does not supply a production KEM implementation or Messenger protocol integration.
-
-
-## Four-step Messenger E2EE completion plan
-
-The remaining integration work is tracked in [E2EE implementation roadmap](E2EE-ROADMAP.md). The work is grouped as follows:
-
-1. **E2EE engine and existing-login integration** — automatic compatible libsignal setup, reuse of the authenticated FCA AppState/session, persistent account identity, and fail-open behavior.
-2. **Facebook device registration and key synchronization** — ICDC registration, persistent device identity, public key-bundle publishing, prekey rotation, and atomic one-time-key consumption.
-3. **E2EE direct messaging and groups** — peer/bundle exchange, Messenger MQTT encrypted envelopes, direct-message send/receive, Sender Keys/SKDM, and encrypted group messages.
-4. **Encrypted media and end-to-end compatibility verification** — media upload/download encryption, supported encrypted-thread actions, EryXen reference comparison, and authorized real-account interoperability testing.
-
-**Progress rule:** These are remaining tasks, not completed features. No step is marked complete by this documentation change. Mocked tests and local cryptographic helper tests are not evidence of Messenger interoperability.
+See [E2EE-ROADMAP.md](E2EE-ROADMAP.md) for the only approved four-Step checklist and progress rules.
