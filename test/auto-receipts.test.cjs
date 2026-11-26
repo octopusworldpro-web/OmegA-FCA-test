@@ -24,7 +24,7 @@ async function main() {
   await flush();
   assert.deepEqual(calls, [
     ["delivery", "thread-1", "message-1"],
-    ["read", "thread-1"]
+    ["read", "thread-1", true]
   ]);
 
   calls.length = 0;
@@ -33,7 +33,7 @@ async function main() {
     autoMarkRead: true
   }, { threadID: "thread-2", messageID: "message-2" }, logger);
   await flush();
-  assert.deepEqual(calls, [["read", "thread-2"]]);
+  assert.deepEqual(calls, [["read", "thread-2", true]]);
 
   calls.length = 0;
   dispatchAutomaticReceipts(api, {}, { threadID: "thread-3", messageID: "message-3" }, logger);
@@ -94,7 +94,7 @@ async function main() {
   await flush();
   assert.deepEqual(listenerCalls, [
     ["delivery", "thread-live", "message-live"],
-    ["read", "thread-live"]
+    ["read", "thread-live", true]
   ]);
 
   listenerCalls.length = 0;
