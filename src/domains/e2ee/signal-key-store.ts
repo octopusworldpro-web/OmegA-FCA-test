@@ -163,6 +163,8 @@ export interface SignalKeyStore {
   loadKyberPreKey(keyId: number): string | undefined;
   listKyberPreKeyIds(): number[];
   markKyberPreKeyUsed(keyId: number, signedPreKeyId: number, baseKey: string): Promise<void>;
+  /** Atomically claims a one-time Kyber prekey and returns its encrypted-at-rest serialized record. */
+  consumeKyberPreKey(keyId: number, signedPreKeyId: number, baseKey: string): Promise<string>;
   hasKyberPreKeyBeenUsed(keyId: number): boolean;
   storeSenderKey(address: SignalSessionAddress, groupId: string, serializedRecord: string): Promise<void>;
   loadSenderKey(address: SignalSessionAddress, groupId: string): string | undefined;
@@ -298,6 +300,36 @@ export async function createSignalKeyStore(options: SignalStoreOptions): Promise
       }
       draft.usedKyberPreKeys[id] = [`${signedId}:${normalizedBaseKey}`];
     }),
+    consumeKyberPreKey: async (keyId, signedPreKeyId, baseKey) => {
+      if (closed) throw new Error("Signal key store is closed");
+      const id = String(requireId(keyId, "kyberPreKeyId"));
+      const signedId = requireId(signedPreKeyId, "signedPreKeyId");
+      const normalizedBaseKey = requireBytes(baseKey, "baseKey");
+      let serialized: string | undefined;
+      const operation = queue.then(async () => {
+        const previous = state;
+        const draft = structuredClone(state);
+        serialized = draft.kyberPreKeys[id];
+        if (!serialized) throw new Error(`Kyber pre-key ${id} not found`);
+        const existing = draft.usedKyberPreKeys[id] || [];
+        if (existing.length) {
+          const marker = `${signedId}:${normalizedBaseKey}`;
+          if (existing.includes(marker)) throw new Error("Kyber pre-key base key reuse detected");
+          throw new Error("Kyber pre-key has already been consumed");
+        }
+        draft.usedKyberPreKeys[id] = [`${signedId}:${normalizedBaseKey}`];
+        state = draft;
+        try {
+          await persist();
+        } catch (error) {
+          state = previous;
+          throw error;
+        }
+      });
+      queue = operation.catch(() => undefined);
+      await operation;
+      return serialized!;
+    },
     hasKyberPreKeyBeenUsed: (keyId) => Boolean(snapshot().usedKyberPreKeys[String(requireId(keyId, "kyberPreKeyId"))]?.length),
     storeSenderKey: (address, groupId, serializedRecord) => mutate((draft) => {
       const group = requireText(groupId, "groupId");
