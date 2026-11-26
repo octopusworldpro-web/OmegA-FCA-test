@@ -26,12 +26,12 @@ interface IdentityMetadata {
   localDeviceId: number;
 }
 
-const require = createRequire(path.join(process.cwd(), "package.json"));
+const signalRequire = createRequire(path.join(process.cwd(), "package.json"));
 
 function loadSignalModule(override?: unknown): Dynamic {
   if (override) return override;
   try {
-    return require("@signalapp/libsignal-client");
+    return signalRequire("@signalapp/libsignal-client");
   } catch {
     throw new Error("The optional @signalapp/libsignal-client package is not installed");
   }
