@@ -8,7 +8,8 @@ const { initializeE2EEForLogin } = require("../dist/index.js");
 
   let bootstrapCalled = false;
   let runtimeOptions;
-  const runtime = { close: async () => {} };
+  let runtimeClosed = false;
+  const runtime = { store: { marker: true }, signedPreKey: { keyId: 9 }, close: async () => { runtimeClosed = true; } };
   const ready = await initializeE2EEForLogin("123456789", { enabled: true }, {
     bootstrap: async (accountId) => {
       bootstrapCalled = true;
@@ -23,6 +24,30 @@ const { initializeE2EEForLogin } = require("../dist/index.js");
   assert.equal(runtimeOptions.accountId, "123456789");
   assert.equal(runtimeOptions.signal.marker, true);
   assert.equal(runtimeOptions.localDeviceId, 123);
+
+  let registrationOptions;
+  const registered = await initializeE2EEForLogin("123456789", {
+    enabled: true,
+    facebook: { appId: "test-app", fbCat: "www" }
+  }, {
+    bootstrap: async () => ({ storagePath: "/tmp/account.signal", encryptionKey: Buffer.alloc(32, 7), localDeviceId: 123, signal: { marker: true } }),
+    runtime: async () => runtime,
+    registerDevice: async (options) => { registrationOptions = options; return { deviceId: "device-1", waDeviceId: 42, registrationId: 456, signedPreKeyId: 9, icdcSequence: 8 }; }
+  }, { cookies: "c_user=123456789; xs=session", userAgent: "test-agent" });
+  assert.equal(registered.status, "ready");
+  assert.equal(registered.deviceRegistration.waDeviceId, 42);
+  assert.equal(registrationOptions.fbid, "123456789");
+  assert.equal(registrationOptions.cookies, "c_user=123456789; xs=session");
+  assert.equal(registrationOptions.userAgent, "test-agent");
+  assert.equal(registrationOptions.signedPreKeyId, 9);
+  assert.equal(registrationOptions.store.marker, true);
+
+  const missingSession = await initializeE2EEForLogin("123456789", {
+    enabled: true, facebook: { appId: "test-app", fbCat: "www" }
+  }, { bootstrap: async () => ({ storagePath: "/tmp/account.signal", encryptionKey: Buffer.alloc(32, 7), localDeviceId: 123, signal: {} }), runtime: async () => runtime });
+  assert.equal(missingSession.status, "failed");
+  assert.match(missingSession.error, /authenticated cookie header/);
+  assert.equal(runtimeClosed, true);
 
   const failed = await initializeE2EEForLogin("123456789", { enabled: true }, {
     bootstrap: async () => { throw new Error("simulated E2EE failure"); }
