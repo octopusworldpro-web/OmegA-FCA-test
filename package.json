@@ -59,7 +59,7 @@
     "tsup": "^8.5.0",
     "typescript": "^5.9.3"
   },
-  "license": "Apache-2.0",
+  "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/octopusworldpro-web/OmegA-FCA-test.git"
