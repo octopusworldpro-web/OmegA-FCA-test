@@ -42,6 +42,14 @@ This is **not Step 2 complete**: the package still requires a caller-supplied co
 
 The branch now contains `src/domains/e2ee/native-crypto.ts`, an OmegA-authored low-level primitive module using Node.js crypto for X25519 key agreement, HKDF-SHA256, and AES-256-GCM. Its tests cover symmetric X25519 agreement, KDF domain separation, authenticated-encryption round trips, and tamper/AAD rejection. These primitives are foundational only: they do not implement XEdDSA, PQXDH/ML-KEM, Signal message formats, the Double Ratchet, or Messenger interoperability. They must not be used to report E2EE as active until the complete protocol layers and interoperability tests exist.
 
+### Step 2 progress update — OmegA ratchet foundation
+
+The branch now includes an OmegA-authored experimental Double Ratchet state engine in `src/domains/e2ee/double-ratchet.ts`, built on the native crypto primitives. It has send/receive chain advancement, DH-ratchet transition logic, skipped-message-key handling, state export/restore, and authenticated headers. Recent hardening makes decryption transactional so invalid authentication does not consume keys or advance counters; restoration validates skipped-key identifiers, key lengths, and storage bounds.
+
+Synthetic tests now cover tampered-message rollback, out-of-order messages, replay rejection, persistence restore, and malformed saved state. These tests validate the local implementation's current behavior only.
+
+**Step 2 remains in progress.** This ratchet has not passed Signal specification test vectors or independent peer interoperability. Signal-compatible KDF/encoding/AEAD details, XEdDSA and X3DH/PQXDH session establishment, runtime auto-factory integration, and real key lifecycle integration remain open. No external Signal dependency was added. Do not claim Messenger E2EE is active.
+
 ## Five implementation steps
 
 ### Step 1 — Automatic local encryption setup
