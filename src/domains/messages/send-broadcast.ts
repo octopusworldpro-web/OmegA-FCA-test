@@ -32,15 +32,27 @@ export function createSendBroadcast(sendMessage: (...args: Loose[]) => Promise<L
 
     const result: BroadcastResult = { sent: [], failed: [], total: ids.length };
     let next = 0;
+    let schedule = Promise.resolve();
     let lastStarted = 0;
+    const reserveStart = async () => {
+      let release!: () => void;
+      const previous = schedule;
+      schedule = new Promise<void>((resolve) => { release = resolve; });
+      await previous;
+      try {
+        const wait = Math.max(0, delay - (Date.now() - lastStarted));
+        if (lastStarted && wait) await new Promise((resolve) => setTimeout(resolve, wait));
+        lastStarted = Date.now();
+      } finally {
+        release();
+      }
+    };
     const worker = async () => {
       while (true) {
         const index = next++;
         if (index >= ids.length) return;
         const threadID = ids[index];
-        const wait = Math.max(0, delay - (Date.now() - lastStarted));
-        if (lastStarted && wait) await new Promise((resolve) => setTimeout(resolve, wait));
-        lastStarted = Date.now();
+        await reserveStart();
         try {
           const info = await sendMessage(message, threadID);
           result.sent.push({ threadID, info });
