@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac } from "node:crypto";
 import {
   deriveOmegAX25519,
   deriveOmegAHKDF,
@@ -172,7 +172,7 @@ export function createOmegADoubleRatchet(options: OmegADoubleRatchetOptions) {
 /** Restore only a state previously exported by this implementation; validate all key fields. */
 export function restoreOmegADoubleRatchet(state: OmegADoubleRatchetState) {
   if (!state || !state.localDh || !state.skippedMessageKeys ||
-      typeof state.skippedMessageKeys !== "object") {
+      typeof state.skippedMessageKeys !== "object" || Array.isArray(state.skippedMessageKeys)) {
     throw new TypeError("Invalid Double Ratchet state");
   }
   for (const [label, value] of [
@@ -180,6 +180,24 @@ export function restoreOmegADoubleRatchet(state: OmegADoubleRatchetState) {
     ["receiveCount", state.receiveCount],
     ["previousSendCount", state.previousSendCount]
   ] as const) validateCount(value, label);
+
+  const skippedEntries = Object.entries(state.skippedMessageKeys);
+  if (skippedEntries.length > MAX_SKIP) throw new TypeError("Too many persisted skipped message keys");
+  for (const [id, encodedKey] of skippedEntries) {
+    const separator = id.lastIndexOf(":");
+    if (separator <= 0) throw new TypeError("Invalid skipped message key identifier");
+    const dh = id.slice(0, separator);
+    const messageNumber = Number(id.slice(separator + 1));
+    key32(dh, "skipped key DH");
+    validateCount(messageNumber, "skipped message number");
+    key32(encodedKey, "skipped message key");
+  }
+  if (state.receiveCount > 0 && !state.receiveChainKey) {
+    throw new TypeError("Persisted receive counter has no receive chain key");
+  }
+  if (state.sendCount > 0 && !state.sendChainKey) {
+    throw new TypeError("Persisted send counter has no send chain key");
+  }
 
   const restored = createOmegADoubleRatchet({
     rootKey: key32(state.rootKey, "rootKey"),
