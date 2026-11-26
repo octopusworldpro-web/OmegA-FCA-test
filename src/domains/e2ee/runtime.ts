@@ -29,6 +29,8 @@ export interface SignalE2EERuntime {
   directMessages: ReturnType<typeof createSignalDirectMessages>;
   actions: ReturnType<typeof createSignalE2EEActions>;
   groups: ReturnType<typeof createSignalSenderKeyGroups>;
+  /** Public signed-prekey bundle; private key material remains inside the encrypted store. */
+  signedPreKey: { keyId: number; publicKey: string; signature: string };
   /** Public portions only; private key material remains inside the encrypted store. */
   preKeys: Array<{ keyId: number; publicKey: string }>;
   kyberPreKeys: Array<{ keyId: number; publicKey: string; signature: string }>;
@@ -81,6 +83,13 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
     if (!store.loadSignedPreKey(signedPreKeyId)) {
       await createSignalSignedPreKey(options.signal, store, signedPreKeyId);
     }
+    const persistedSignedPreKey = store.loadSignedPreKey(signedPreKeyId);
+    if (!persistedSignedPreKey) throw new Error("Persisted signed prekey disappeared after initialization");
+    const signedPreKey = {
+      keyId: signedPreKeyId,
+      publicKey: persistedSignedPreKey.publicKey,
+      signature: persistedSignedPreKey.signature
+    };
 
     const existingPreKeyIds = store.listPreKeyIds();
     const nextPreKeyId = existingPreKeyIds.length ? Math.max(...existingPreKeyIds) + 1 : 1;
@@ -121,6 +130,7 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
       directMessages,
       actions,
       groups,
+      signedPreKey,
       preKeys,
       kyberPreKeys,
       close: () => store.close()
