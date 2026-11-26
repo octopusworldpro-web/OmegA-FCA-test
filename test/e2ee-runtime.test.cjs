@@ -69,6 +69,11 @@ function fakeSignal() {
     assert.equal(typeof runtime.actions.sendReadReceipt, "function");
     assert.equal(typeof runtime.groups.createDistribution, "function");
     assert.equal(runtime.store.getRegistrationId() > 0, true);
+    assert.equal(runtime.registrationId, runtime.store.getRegistrationId());
+    assert.equal(runtime.identityKey, runtime.store.getIdentityKeyPair().publicKey);
+    assert.equal(typeof runtime.identityKey, "string");
+    assert.equal(Object.hasOwn(runtime, "privateKey"), false);
+    assert.equal(Object.hasOwn(runtime, "identityPrivateKey"), false);
     assert.deepEqual(runtime.store.listSignedPreKeyIds(), [1]);
     assert.deepEqual(runtime.signedPreKey, {
       keyId: 1,
@@ -89,6 +94,8 @@ function fakeSignal() {
     });
     assert.equal(restored.store.listPreKeyIds().length, 25);
     assert.deepEqual(restored.signedPreKey, runtime.signedPreKey);
+    assert.equal(restored.registrationId, runtime.registrationId);
+    assert.equal(restored.identityKey, runtime.identityKey);
     assert.equal(restored.preKeys.length, 25);
     assert.deepEqual(restored.preKeys, runtimePreKeys);
     assert.deepEqual(restored.kyberPreKeys, runtimeKyberPreKeys);
