@@ -86,4 +86,13 @@ assert.throws(() => fca.initiateOmegAX3DH({
   identityKeyPair: aliceIdentity, bundle: { ...bundle, info: "" },
   verifySignedPreKey: () => true
 }), /info is required/);
-console.log("OmegA X3DH tests passed (synthetic verifier seam; no XEdDSA interoperability claim)");
+
+assert.equal(fca.verifyOmegAXEdDSA(Buffer.alloc(32), Buffer.from("message"), Buffer.alloc(64)), false);
+assert.equal(fca.verifyOmegAXEdDSA(Buffer.alloc(31), Buffer.from("message"), Buffer.alloc(64)), false);
+assert.equal(fca.verifyOmegAXEdDSA(Buffer.alloc(32), Buffer.from("message"), Buffer.alloc(63)), false);
+assert.throws(() => fca.initiateOmegAX3DH({
+  identityKeyPair: aliceIdentity,
+  bundle: { ...bundle, signedPreKeySignature: crypto.randomBytes(64) }
+}), /XEdDSA verification failed/);
+
+console.log("OmegA X3DH tests passed (synthetic key-agreement seam plus native XEdDSA rejection tests)");
