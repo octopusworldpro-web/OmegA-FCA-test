@@ -154,3 +154,5 @@ export { initializeOmegADoubleRatchetAlice, initializeOmegADoubleRatchetBob } fr
 export { verifyOmegAXEdDSA } from "./domains/e2ee/xeddsa";
 
 export { initiateOmegAPQXDH, respondOmegAPQXDH, type OmegAPQKEM, type OmegAPQXDHBundle, type OmegAPQXDHInitialMessage, type OmegAPQXDHInitiatorOptions, type OmegAPQXDHResponderOptions, type OmegAPQXDHResult } from "./domains/e2ee/pqxdh";
+
+export { createE2EEBootstrap, type E2EEBootstrapOptions, type E2EEBootstrap } from "./domains/e2ee/bootstrap";
