@@ -21,9 +21,9 @@ The humanizer source default is **disabled** (`enabled: false`). A bot integrati
 
 ## E2EE boundary
 
-The current E2EE source is a collection of opt-in components. `src/domains/e2ee/runtime.ts` initializes local Signal keys and local direct-message/group primitives using a caller-supplied Signal module. Its own source comment explicitly separates this from Facebook device registration, bundle exchange, MQTT envelopes, and Messenger wire compatibility.
+The current E2EE source is an opt-in set of components. The FCA login path can initialize the pinned libsignal runtime and account-scoped local key store after authenticated UID validation; initialization is fail-open for ordinary FCA login. Local direct-message primitives and peer/bundle interfaces exist, but they are not yet connected to Facebook peer discovery or Messenger MQTT encrypted envelopes.
 
-`device-registration.ts` separately implements an ICDC registration helper. Its existence does not mean the login path automatically invokes it or that encrypted Messenger traffic is end-to-end integrated.
+`device-registration.ts` implements an ICDC registration helper, but the current login lifecycle does not yet invoke it. The four-step status and acceptance criteria are maintained only in [E2EE-ROADMAP.md](E2EE-ROADMAP.md) and [E2EE-STATUS.md](E2EE-STATUS.md).
 
 ## Tests
 
