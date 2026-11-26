@@ -30,6 +30,10 @@ export interface SignalE2EERuntime {
   directMessages: ReturnType<typeof createSignalDirectMessages>;
   actions: ReturnType<typeof createSignalE2EEActions>;
   groups: ReturnType<typeof createSignalSenderKeyGroups>;
+  /** Stable Signal registration ID persisted for this account. */
+  registrationId: number;
+  /** Public identity key only; private identity material never leaves the encrypted store. */
+  identityKey: string;
   /** Public signed-prekey bundle; private key material remains inside the encrypted store. */
   signedPreKey: { keyId: number; publicKey: string; signature: string };
   /** Public portions only; private key material remains inside the encrypted store. */
@@ -75,6 +79,13 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
 
   try {
     await ensureSignalIdentity(options.signal, store);
+    const persistedIdentity = store.getIdentityKeyPair();
+    const registrationId = store.getRegistrationId();
+    if (!persistedIdentity || registrationId === undefined) {
+      throw new Error("Signal identity initialization did not persist identity and registration ID");
+    }
+    const identityKey = persistedIdentity.publicKey;
+
     const existingSignedPreKeyIds = store.listSignedPreKeyIds();
     // Reuse the current persisted signed prekey by default. Creating a fresh
     // signed prekey on every process restart would churn device bundles and
@@ -136,6 +147,8 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
       directMessages,
       actions,
       groups,
+      registrationId,
+      identityKey,
       signedPreKey,
       preKeys,
       kyberPreKeys,
