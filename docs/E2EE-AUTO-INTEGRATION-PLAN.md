@@ -205,3 +205,7 @@ Tasks:
 Added OmegA-owned initiator/responder orchestration for the PQXDH revision-3 flow. It combines the X25519 DH values (including optional EC OPK) with a mandatory KEM shared secret, validates signed curve/KEM prekeys with XEdDSA, derives the 32-byte session secret using the PQXDH SHA-512 HKDF parameter string, and checks identity-bound associated data. The KEM backend is injected explicitly and missing KEM support fails closed. A synthetic KEM test validates only the local transcript composition and error paths.
 
 **Remaining before PQXDH can be called complete:** integrate a vetted, parameter-matched production KEM (Kyber/ML-KEM version must match the target protocol), add official PQXDH/KEM vectors and independent interoperability tests, and persist/manage signed KEM prekeys and one-time consumption in the real runtime. No mock KEM is treated as cryptographic proof.
+
+### One-time KEM prekey storage lifecycle
+
+Added an atomic `consumeKyberPreKey()` store operation. It claims a KEM prekey once, records the associated signed-prekey/base-key marker in the encrypted store, returns the serialized record to the winning operation, and rejects replay or competing reuse. Restart tests confirm the consumed marker persists. This API is groundwork only; the production PQXDH receive path must call it with protocol-authenticated identifiers once a real compatible KEM backend and Messenger envelope integration exist.
