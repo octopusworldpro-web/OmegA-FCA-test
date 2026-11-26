@@ -49,6 +49,12 @@ function key32(value: Uint8Array, label: string): Buffer {
   if (result.length !== 32) throw new TypeError(label + " must be exactly 32 bytes");
   return result;
 }
+function decodeBase64(value: string, label: string): Buffer {
+  if (typeof value !== "string") throw new TypeError(label + " must be base64 text");
+  const decoded = Buffer.from(value, "base64");
+  if (!decoded.length || decoded.toString("base64") !== value) throw new TypeError(label + " contains invalid base64");
+  return decoded;
+}
 function validId(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value < 0) throw new TypeError(label + " must be a non-negative safe integer");
 }
@@ -125,7 +131,7 @@ export function respondOmegAX3DH(options: OmegAX3DHResponderOptions): Buffer {
   const aliceIdentity = key32(Buffer.from(message.identityKey, "base64"), "initialMessage.identityKey");
   const aliceEphemeral = key32(Buffer.from(message.ephemeralKey, "base64"), "initialMessage.ephemeralKey");
   const expectedAd = associatedData(aliceIdentity, bobIdentityPublic);
-  const suppliedAd = Buffer.from(message.associatedData, "base64");
+  const suppliedAd = decodeBase64(message.associatedData, "initialMessage.associatedData");
   if (suppliedAd.length !== expectedAd.length) {
     throw new Error("X3DH associated data is invalid");
   }
