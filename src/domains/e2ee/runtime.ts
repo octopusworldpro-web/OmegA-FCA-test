@@ -55,7 +55,7 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
     throw new TypeError("E2EE localDeviceId must be a positive safe integer");
   }
   if (!options.signal || typeof options.signal.PrivateKey?.generate !== "function") {
-    throw new TypeError("A compatible Signal implementation must be supplied as signalModule");
+    throw new TypeError("A compatible libsignal module (Signal implementation) must be supplied as signalModule");
   }
 
   const preKeyCount = options.preKeyCount ?? 25;
