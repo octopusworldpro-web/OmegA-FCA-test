@@ -263,10 +263,10 @@ export async function loginAsync(
       });
       (ctx as Loose).e2ee = runtime;
       (api as Loose).e2ee = runtime;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger(`E2EE initialization failed: ${message}`, "error");
-      throw new Error(`E2EE initialization failed: ${message}`);
+    } catch {
+      // E2EE is an optional capability: never let its startup failure break FCA login.
+      // Keep diagnostics generic so session material or key-store details cannot leak.
+      logger("E2EE initialization failed; continuing with standard FCA login.", "warn");
     }
   }
 
