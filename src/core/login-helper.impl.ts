@@ -20,6 +20,7 @@ import { DataTypes } from "sequelize";
 import { decryptSessionBackup, encryptSessionBackup } from "../session/backup-crypto";
 import { createSessionGuard } from "./session-guard";
 import { extractExpectedSessionUserId, assertSessionIdentity, isValidSessionUserId } from "./session-validation";
+import { initializeE2EEForLogin } from "../domains/e2ee/login-integration";
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -1015,6 +1016,23 @@ function loginHelper(
           logger,
           refreshIntervalMs: 86400000
         });
+        // Explicit opt-in; initialize after authenticated UID validation.
+        // E2EE failures are fail-open and never fail the ordinary FCA login.
+        const e2eeResult = await initializeE2EEForLogin(String(userID), globalOptions.e2ee);
+        api.e2ee = {
+          status: e2eeResult.status,
+          runtime: e2eeResult.runtime,
+          error: e2eeResult.status === "failed" ? e2eeResult.error : undefined,
+          close: async () => {
+            if (e2eeResult.runtime) await e2eeResult.runtime.close();
+            api.e2ee = { status: "disabled", runtime: null };
+          }
+        };
+        if (e2eeResult.status === "ready") {
+          logger("E2EE: local Signal runtime initialized for authenticated account", "success");
+        } else if (e2eeResult.status === "failed") {
+          logger(`E2EE initialization skipped; normal FCA remains available: ${e2eeResult.error}`, "warn");
+        }
         if (typeof ui.persistLoginSuccess === "function") {
           ui.persistLoginSuccess(loginFlow.spinner);
         } else if (loginFlow.spinner && typeof loginFlow.spinner.succeed === "function") {
