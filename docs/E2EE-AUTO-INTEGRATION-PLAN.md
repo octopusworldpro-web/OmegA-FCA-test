@@ -30,6 +30,12 @@ The following was checked against the branch when this document was prepared:
 
 Re-check these files before implementation because the branch may change after this document is committed.
 
+## Step 2 implementation note
+
+The runtime now provisions a configurable persistent one-time EC prekey batch (default 25) and, when the supplied Signal implementation exposes the required KEM API, an optional post-quantum prekey batch (default 1). Existing prekeys are reused across runtime restarts; only missing capacity is generated. Public prekey material is returned separately while private material remains in the encrypted key store. Identity repair also no longer replaces an existing identity merely because registration metadata is missing.
+
+This is **not Step 2 complete**: the package still requires a caller-supplied compatible Signal implementation. No self-owned, Messenger-compatible Signal engine has been completed or verified yet, and the current mock tests do not establish protocol interoperability. Do not mark E2EE active on this basis.
+
 ## Five implementation steps
 
 ### Step 1 — Automatic local encryption setup
@@ -157,7 +163,7 @@ Tasks:
 | Step | Scope | Status |
 |---|---|---|
 | 1 | Automatic local encryption setup | Done — 11 targeted Node.js tests passed locally; GoatBot branch `agent-fca-compat-fix` |
-| 2 | Signal engine and prekey initialization | Not started |
+| 2 | Signal engine and prekey initialization | In progress — persistent EC prekey batch initialization added; automatic engine loading and real-engine verification remain |
 | 3 | Automatic Facebook E2EE device registration | Not started |
 | 4 | Messenger realtime transport and encrypted message flow | Not started |
 | 5 | End-to-end integration, resilience, tests, and documentation | Not started |
