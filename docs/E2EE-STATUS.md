@@ -87,3 +87,15 @@ The encrypted key store now exposes `consumeKyberPreKey()`, which atomically cla
 This is storage/lifecycle hardening only. The PQXDH responder still needs to be wired to a real protocol-matched KEM implementation and to consume the appropriate key records in the actual Messenger receive lifecycle. It does not establish production PQXDH.
 
 The libsignal Kyber store adapter is now wired to this atomic consume operation: `markKyberPreKeyUsed()` claims the key through the store's serialized consume path instead of performing a separate non-atomic marker write. This closes the local duplicate-consumption race at the adapter boundary. It still does not supply a production KEM implementation or Messenger protocol integration.
+
+
+## Four-step Messenger E2EE completion plan
+
+The remaining integration work is tracked in [E2EE implementation roadmap](E2EE-ROADMAP.md). The work is grouped as follows:
+
+1. **E2EE engine and existing-login integration** — automatic compatible libsignal setup, reuse of the authenticated FCA AppState/session, persistent account identity, and fail-open behavior.
+2. **Facebook device registration and key synchronization** — ICDC registration, persistent device identity, public key-bundle publishing, prekey rotation, and atomic one-time-key consumption.
+3. **E2EE direct messaging and groups** — peer/bundle exchange, Messenger MQTT encrypted envelopes, direct-message send/receive, Sender Keys/SKDM, and encrypted group messages.
+4. **Encrypted media and end-to-end compatibility verification** — media upload/download encryption, supported encrypted-thread actions, EryXen reference comparison, and authorized real-account interoperability testing.
+
+**Progress rule:** These are remaining tasks, not completed features. No step is marked complete by this documentation change. Mocked tests and local cryptographic helper tests are not evidence of Messenger interoperability.
