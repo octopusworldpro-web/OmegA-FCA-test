@@ -68,4 +68,41 @@ assert.throws(() => fca.restoreOmegADoubleRatchet({
     Array.from({ length: 2001 }, (_, i) => [aliceDh.publicKey.toString("base64") + ":" + i, crypto.randomBytes(32).toString("base64")])
   )
 }), /Too many/);
+
+
+// Standard Alice/Bob initialization from one shared secret and Bob's initial DH key.
+const sessionSecret = crypto.randomBytes(32);
+const bobInitialDh = fca.generateOmegAX25519KeyPair();
+const sessionAlice = fca.initializeOmegADoubleRatchetAlice(sessionSecret, bobInitialDh.publicKey);
+const sessionBob = fca.initializeOmegADoubleRatchetBob(sessionSecret, bobInitialDh);
+const sessionAad = Buffer.from("session:standard-init");
+const a0 = sessionAlice.encrypt(Buffer.from("alice-0"), sessionAad);
+assert.equal(sessionBob.decrypt(a0, sessionAad).toString(), "alice-0");
+const b0 = sessionBob.encrypt(Buffer.from("bob-0"), sessionAad);
+assert.equal(sessionAlice.decrypt(b0, sessionAad).toString(), "bob-0");
+const a1 = sessionAlice.encrypt(Buffer.from("alice-1"), sessionAad);
+assert.equal(sessionBob.decrypt(a1, sessionAad).toString(), "alice-1");
+const b1 = sessionBob.encrypt(Buffer.from("bob-1"), sessionAad);
+assert.equal(sessionAlice.decrypt(b1, sessionAad).toString(), "bob-1");
+
+// Several consecutive DH turns, with delayed delivery across a ratchet boundary.
+const delayed0 = sessionAlice.encrypt(Buffer.from("delayed-before-turn"), sessionAad);
+const delayed1 = sessionAlice.encrypt(Buffer.from("newer-before-turn"), sessionAad);
+const responseTurn = sessionBob.encrypt(Buffer.from("bob-turn"), sessionAad);
+assert.equal(sessionAlice.decrypt(responseTurn, sessionAad).toString(), "bob-turn");
+const afterTurn = sessionAlice.encrypt(Buffer.from("alice-after-turn"), sessionAad);
+assert.equal(sessionBob.decrypt(afterTurn, sessionAad).toString(), "alice-after-turn");
+assert.equal(sessionBob.decrypt(delayed1, sessionAad).toString(), "newer-before-turn");
+assert.equal(sessionBob.decrypt(delayed0, sessionAad).toString(), "delayed-before-turn");
+
+// Header tampering and AAD substitution must fail without consuming ratchet state.
+const protectedMessage = sessionAlice.encrypt(Buffer.from("protected"), sessionAad);
+const beforeHeaderFailure = JSON.stringify(sessionBob.exportState());
+assert.throws(() => sessionBob.decrypt({
+  ...protectedMessage,
+  header: { ...protectedMessage.header, n: protectedMessage.header.n + 1 }
+}, sessionAad));
+assert.equal(JSON.stringify(sessionBob.exportState()), beforeHeaderFailure);
+assert.throws(() => sessionBob.decrypt(protectedMessage, Buffer.from("wrong-session")));
+
 console.log("OmegA Double Ratchet tests passed");
