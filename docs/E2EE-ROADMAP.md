@@ -124,7 +124,7 @@ A Step is complete only after its code, tests, required integration, and accepta
 
 ## Verification record
 
-Latest checked branch head: `55d02c7044938e68db9de87aee319831f68c8950`
+Code baseline covered by the recorded CI run: `55d02c7044938e68db9de87aee319831f68c8950`
 
 Latest checked CI run: [45860381188](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45860381188) — **success**.
 
