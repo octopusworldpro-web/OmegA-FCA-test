@@ -1018,10 +1018,16 @@ function loginHelper(
         });
         // Explicit opt-in; initialize after authenticated UID validation.
         // E2EE failures are fail-open and never fail the ordinary FCA login.
-        const e2eeResult = await initializeE2EEForLogin(String(userID), globalOptions.e2ee);
+        const e2eeResult = await initializeE2EEForLogin(
+          String(userID),
+          globalOptions.e2ee,
+          {},
+          { cookies: cookieHeaderFromJar(jar), userAgent: globalOptions.userAgent }
+        );
         api.e2ee = {
           status: e2eeResult.status,
           runtime: e2eeResult.runtime,
+          deviceRegistration: e2eeResult.status === "ready" ? e2eeResult.deviceRegistration : undefined,
           error: e2eeResult.status === "failed" ? e2eeResult.error : undefined,
           close: async () => {
             if (e2eeResult.runtime) await e2eeResult.runtime.close();
