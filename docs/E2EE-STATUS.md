@@ -43,7 +43,7 @@ The generated store key is persisted in the account's local `identity.json` so i
 
 ## Latest repository validation
 
-Branch head checked: `55d02c7044938e68db9de87aee319831f68c8950`
+Code baseline covered by the recorded CI run: `55d02c7044938e68db9de87aee319831f68c8950`
 
 [CI run 45860381188](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45860381188): **success**.
 
