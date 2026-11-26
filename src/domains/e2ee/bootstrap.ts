@@ -16,7 +16,7 @@ export interface E2EEBootstrap {
   localDeviceId: number;
   signal: Dynamic;
 }
-interface IdentityMetadata { version: 2; accountIdHash: string; localDeviceId: number; }
+interface IdentityMetadata { version: number; accountIdHash: string; localDeviceId: number; }
 const signalRequire = createRequire(path.join(process.cwd(), "package.json"));
 
 function loadSignalModule(override?: unknown): Dynamic {
