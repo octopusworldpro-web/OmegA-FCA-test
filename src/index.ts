@@ -149,3 +149,5 @@ export { generateOmegAX25519KeyPair, deriveOmegAX25519, deriveOmegAHKDF, encrypt
 export { createOmegADoubleRatchet, restoreOmegADoubleRatchet, type OmegADoubleRatchetState, type OmegADoubleRatchetHeader, type OmegADoubleRatchetMessage } from "./domains/e2ee/double-ratchet";
 
 export { initiateOmegAX3DH, respondOmegAX3DH, type OmegAX3DHPreKeyBundle, type OmegAX3DHInitialMessage, type OmegAX3DHInitiatorOptions, type OmegAX3DHInitiatorResult, type OmegAX3DHResponderOptions } from "./domains/e2ee/x3dh";
+
+export { initializeOmegADoubleRatchetAlice, initializeOmegADoubleRatchetBob } from "./domains/e2ee/double-ratchet";
