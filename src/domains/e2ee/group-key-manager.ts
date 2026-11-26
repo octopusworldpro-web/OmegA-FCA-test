@@ -4,7 +4,7 @@ import type { SenderKeyDistribution, SenderKeyCiphertext } from "./sender-keys";
 
 export interface SignalGroupDevice extends SignalPeerAddress {}
 export interface SignalGroupKeyManagerDeps {
-  store: Pick<SignalKeyStore, "removeSenderKey">;
+  store: Pick<SignalKeyStore, "removeSenderKey" | "getSenderKeyDistributionRecipients" | "markSenderKeyDistributionDelivered" | "clearSenderKeyDistribution">;
   groups: {
     createDistribution(groupId: string, localSender: SignalPeerAddress): Promise<SenderKeyDistribution>;
     processDistribution(distribution: SenderKeyDistribution): Promise<void>;
@@ -44,6 +44,9 @@ function normalizeMembers(devices: SignalGroupDevice[], local: SignalPeerAddress
 /** Coordinates Sender Key distribution over an authenticated direct-message transport. */
 export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
   if (!deps?.store || typeof deps.store.removeSenderKey !== "function" ||
+      typeof deps.store.getSenderKeyDistributionRecipients !== "function" ||
+      typeof deps.store.markSenderKeyDistributionDelivered !== "function" ||
+      typeof deps.store.clearSenderKeyDistribution !== "function" ||
       !deps.groups || typeof deps.groups.createDistribution !== "function" ||
       typeof deps.groups.processDistribution !== "function" ||
       typeof deps.groups.encrypt !== "function" || typeof deps.groups.decrypt !== "function" ||
@@ -72,12 +75,14 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
         distribution = await deps.groups.createDistribution(groupId, sender);
         distributionCache.set(distributionKey, distribution);
       }
-      const sent = distributed.get(distributionKey) ?? new Set<string>();
+      const sent = distributed.get(distributionKey) ??
+        new Set<string>(deps.store.getSenderKeyDistributionRecipients(sender, groupId));
       distributed.set(distributionKey, sent);
       const newlySent: SignalGroupDevice[] = [];
       for (const recipient of recipients) {
         if (sent.has(deviceId(recipient))) continue;
         await deps.sendDistribution(recipient, distribution);
+        await deps.store.markSenderKeyDistributionDelivered(sender, groupId, recipient);
         sent.add(deviceId(recipient));
         newlySent.push(recipient);
       }
@@ -105,7 +110,10 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
   async function rotate(groupIdInput: string, senderInput: SignalPeerAddress) {
     const groupId = validGroupId(groupIdInput);
     const sender = validAddress(senderInput, "local sender");
+    const pending = inFlight.get(keyId(groupId, sender));
+    if (pending) await pending.catch(() => undefined);
     await deps.store.removeSenderKey(sender, groupId);
+    await deps.store.clearSenderKeyDistribution(sender, groupId);
     const distributionKey = keyId(groupId, sender);
     distributed.delete(distributionKey);
     distributionCache.delete(distributionKey);
