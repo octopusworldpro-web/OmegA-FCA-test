@@ -7,6 +7,7 @@ import { loadConfig } from "./config";
 import { runConfiguredUpdateCheck } from "./update-check";
 import loginHelper from "./login-helper";
 import { createSignalE2EERuntime } from "../domains/e2ee/runtime";
+import { createE2EEBootstrap } from "../domains/e2ee/bootstrap";
 import { validateSessionCookieInput } from "./session-validation";
 import { createSendBroadcast } from "../domains/messages/send-broadcast";
 
@@ -253,13 +254,14 @@ export async function loginAsync(
     try {
       const accountId = String(ctx.userID || ctx.fbid || "");
       if (!accountId) throw new Error("A verified Facebook account UID is required for E2EE");
+      const bootstrap = await createE2EEBootstrap(accountId, customOptions.e2ee);
       const runtime = await createSignalE2EERuntime({
         accountId,
-        storagePath: customOptions.e2ee.storagePath,
-        encryptionKey: customOptions.e2ee.encryptionKey,
-        localDeviceId: customOptions.e2ee.localDeviceId,
+        storagePath: bootstrap.storagePath,
+        encryptionKey: bootstrap.encryptionKey,
+        localDeviceId: bootstrap.localDeviceId,
         signedPreKeyId: customOptions.e2ee.signedPreKeyId,
-        signal: customOptions.e2ee.signalModule
+        signal: bootstrap.signal
       });
       (ctx as Loose).e2ee = runtime;
       (api as Loose).e2ee = runtime;
