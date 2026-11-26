@@ -9,7 +9,7 @@
 <p>
   <img src="https://img.shields.io/badge/VERSION-0.2.2-7C3AED?style=for-the-badge&logo=semver&logoColor=white" alt="Version 0.2.2" />
   <img src="https://img.shields.io/badge/NODE.JS-20%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js 20+" />
-  <img src="https://img.shields.io/badge/LICENSE-Apache--2.0-EA580C?style=for-the-badge" alt="Apache 2.0" />
+  <img src="https://img.shields.io/badge/LICENSE-AGPL--3.0--or--later-EA580C?style=for-the-badge" alt="AGPL-3.0-or-later" />
   <img src="https://img.shields.io/badge/STATUS-Stable-16A34A?style=for-the-badge&logo=githubactions&logoColor=white" alt="Stable release" />
 </p>
 
