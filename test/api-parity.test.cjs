@@ -54,7 +54,7 @@ async function main() {
     "getHumanizer", "markAsDelivered", "markAsRead", "markAsReadAll",
     "markAsSeen", "unsendMessage", "deleteMessage", "editMessage",
     "getCurrentUserID", "getAppState", "getCookies", "setOptions",
-    "sendMessage", "sendImage", "sendVideo", "sendAudio", "sendFile",
+    "sendMessage", "sendBroadcast", "sendImage", "sendVideo", "sendAudio", "sendFile",
     "sendLocation", "sendTypingIndicator", "setMessageReaction",
     "shareContact", "shareLink", "uploadAttachment", "forwardAttachment", "setReaction",
     "getThreadList", "getThreadInfo", "getThreadHistory", "getThreadPictures",
@@ -79,7 +79,7 @@ async function main() {
   const namespaceMethods = {
     realtime: ["listen", "stop", "stopAsync"],
     messages: [
-      "send", "sendImage", "sendVideo", "sendAudio", "sendFile",
+      "send", "sendBroadcast", "sendImage", "sendVideo", "sendAudio", "sendFile",
       "sendLocation", "edit", "delete", "unsend", "markRead",
       "markReadAll", "markSeen", "markDelivered", "typing", "react", "setReaction",
       "shareContact", "shareLink", "uploadAttachment", "forwardAttachment"
@@ -111,6 +111,7 @@ async function main() {
   assert.equal(client.raw, legacy);
   assert.equal(client.account.getCurrentUserID(), "getCurrentUserID");
   assert.equal(client.messages.send(), "sendMessage");
+  assert.equal(typeof client.messages.sendBroadcast, "function");
   assert.equal(client.messages.setReaction(), "setMessageReaction");
   assert.equal(client.messages.react(), "setMessageReaction");
   assert.equal(client.threads.getList(), "getThreadList");
