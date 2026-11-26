@@ -26,11 +26,11 @@ export function dispatchAutomaticReceipts(
     try {
       void Promise.resolve().then(operation).catch((error: Loose) => {
         const detail = error?.message ? String(error.message) : String(error);
-        logger(`Automatic ${name} receipt failed: ${detail}`, "warn");
+        logger("Automatic " + name + " receipt failed: " + detail, "warn");
       });
     } catch (error: Loose) {
       const detail = error?.message ? String(error.message) : String(error);
-      logger(`Automatic ${name} receipt failed: ${detail}`, "warn");
+      logger("Automatic " + name + " receipt failed: " + detail, "warn");
     }
   };
 
@@ -38,7 +38,10 @@ export function dispatchAutomaticReceipts(
     dispatch("delivery", () => api.markAsDelivered(threadID, messageID));
   }
 
+  // FCA's markAsRead signature accepts only threadID (callback is optional).
+  // Passing true as a second argument is not a force flag; it can be treated
+  // as a callback and break the actual read-receipt request.
   if (options.autoMarkRead && typeof api.markAsRead === "function") {
-    dispatch("read", () => api.markAsRead(threadID, true));
+    dispatch("read", () => api.markAsRead(threadID));
   }
 }
