@@ -16,7 +16,7 @@ export interface E2EEBootstrap {
   localDeviceId: number;
   signal: Dynamic;
 }
-interface IdentityMetadata { version: number; accountIdHash: string; localDeviceId: number; }
+interface IdentityMetadata { version: 1; accountIdHash: string; encryptionKey: string; localDeviceId: number; }
 const signalRequire = createRequire(path.join(process.cwd(), "package.json"));
 
 function loadSignalModule(override?: unknown): Dynamic {
@@ -27,11 +27,9 @@ function loadSignalModule(override?: unknown): Dynamic {
 
 async function readOrCreateMetadata(filePath: string, accountIdHash: string): Promise<IdentityMetadata> {
   const readExisting = async (): Promise<IdentityMetadata> => {
-    const parsed = JSON.parse(await readFile(filePath, "utf8")) as IdentityMetadata & { encryptionKey?: string };
-    if (parsed.version === 1 && typeof parsed.encryptionKey === "string") {
-      throw new Error("Legacy E2EE metadata stores its encryption key in plaintext. Back up the old Signal store and migrate metadata before enabling E2EE.");
-    }
-    if (parsed.version !== 2 || parsed.accountIdHash !== accountIdHash ||
+    const parsed = JSON.parse(await readFile(filePath, "utf8")) as IdentityMetadata;
+    const key = Buffer.from(parsed.encryptionKey, "base64");
+    if (parsed.version !== 1 || parsed.accountIdHash !== accountIdHash || key.length !== 32 ||
         !Number.isSafeInteger(parsed.localDeviceId) || parsed.localDeviceId < 1) {
       throw new Error("Invalid E2EE identity metadata");
     }
@@ -41,8 +39,9 @@ async function readOrCreateMetadata(filePath: string, accountIdHash: string): Pr
   catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
 
   const metadata: IdentityMetadata = {
-    version: 2,
+    version: 1,
     accountIdHash,
+    encryptionKey: randomBytes(32).toString("base64"),
     localDeviceId: randomBytes(4).readUInt32BE(0) % 2147483646 + 1
   };
   const handle = await open(filePath, "wx", 0o600).catch(async (error: NodeJS.ErrnoException) => {
@@ -55,7 +54,7 @@ async function readOrCreateMetadata(filePath: string, accountIdHash: string): Pr
   return metadata;
 }
 
-/** Creates account-scoped metadata; the encryption key is externally supplied and never persisted here. */
+/** Creates a persistent, account-isolated local identity configuration. No session credentials are read or stored. */
 export async function createE2EEBootstrap(accountId: string, overrides: E2EEBootstrapOptions = {}): Promise<E2EEBootstrap> {
   if (typeof accountId !== "string" || !accountId.trim()) throw new TypeError("A verified account ID is required for E2EE bootstrap");
   const accountIdHash = createHash("sha256").update(accountId.trim()).digest("hex");
@@ -64,11 +63,11 @@ export async function createE2EEBootstrap(accountId: string, overrides: E2EEBoot
   await mkdir(accountDirectory, { recursive: true, mode: 0o700 });
   const metadata = await readOrCreateMetadata(path.join(accountDirectory, "identity.json"), accountIdHash);
   const storagePath = overrides.storagePath || path.join(accountDirectory, "signal.store");
-  const encryptionKey = overrides.encryptionKey || process.env.OMEGA_FCA_E2EE_MASTER_KEY;
-  if (!encryptionKey || (Buffer.isBuffer(encryptionKey) ? encryptionKey.length : Buffer.byteLength(encryptionKey)) < 32) {
-    throw new TypeError("Set OMEGA_FCA_E2EE_MASTER_KEY to a stable secret of at least 32 bytes, or provide e2ee.encryptionKey. The key is never saved to disk.");
-  }
+  const encryptionKey = overrides.encryptionKey || Buffer.from(metadata.encryptionKey, "base64");
   const localDeviceId = overrides.localDeviceId ?? metadata.localDeviceId;
   if (!Number.isSafeInteger(localDeviceId) || localDeviceId < 1) throw new TypeError("E2EE localDeviceId must be a positive safe integer");
+  if (Buffer.isBuffer(encryptionKey) ? encryptionKey.length < 32 : Buffer.byteLength(encryptionKey) < 32) {
+    throw new TypeError("E2EE encryptionKey must contain at least 32 bytes");
+  }
   return { storagePath, encryptionKey, localDeviceId, signal: loadSignalModule(overrides.signalModule) };
 }
