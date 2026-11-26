@@ -52,6 +52,11 @@ function fakeSignal() {
     assert.equal(typeof runtime.groups.createDistribution, "function");
     assert.equal(runtime.store.getRegistrationId() > 0, true);
     assert.deepEqual(runtime.store.listSignedPreKeyIds(), [1]);
+    assert.deepEqual(runtime.signedPreKey, {
+      keyId: 1,
+      publicKey: runtime.store.loadSignedPreKey(1).publicKey,
+      signature: runtime.store.loadSignedPreKey(1).signature
+    });
     assert.equal(runtime.store.listPreKeyIds().length, 25);
     assert.equal(runtime.preKeys.length, 25);
     const runtimePreKeys = runtime.preKeys;
@@ -64,6 +69,7 @@ function fakeSignal() {
       signal: fakeSignal()
     });
     assert.equal(restored.store.listPreKeyIds().length, 25);
+    assert.deepEqual(restored.signedPreKey, runtime.signedPreKey);
     assert.equal(restored.preKeys.length, 25);
     assert.deepEqual(restored.preKeys, runtimePreKeys);
     await restored.close();
