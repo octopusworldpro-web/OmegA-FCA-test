@@ -85,9 +85,16 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
     const existingPreKeyIds = store.listPreKeyIds();
     const nextPreKeyId = existingPreKeyIds.length ? Math.max(...existingPreKeyIds) + 1 : 1;
     const missingPreKeys = Math.max(0, preKeyCount - existingPreKeyIds.length);
-    const preKeys = missingPreKeys
-      ? await createSignalPreKeyBatch(options.signal, store, nextPreKeyId, missingPreKeys)
-      : [];
+    if (missingPreKeys) {
+      await createSignalPreKeyBatch(options.signal, store, nextPreKeyId, missingPreKeys);
+    }
+    // Always expose the complete persisted public bundle. Returning [] on a
+    // warm restart would make callers unable to republish already-stored keys.
+    const preKeys = store.listPreKeyIds().map((keyId) => {
+      const record = store.loadPreKey(keyId);
+      if (!record) throw new Error(`Persisted one-time prekey ${keyId} disappeared`);
+      return { keyId, publicKey: record.publicKey };
+    });
 
     const kyberPreKeys: Array<{ keyId: number; publicKey: string; signature: string }> = [];
     if (kyberPreKeyCount > 0 && typeof options.signal.KEMKeyPair?.generate === "function") {
