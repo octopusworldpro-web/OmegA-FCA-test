@@ -57,4 +57,15 @@ const restored = fca.restoreOmegADoubleRatchet(snapshot);
 const fourth = alice.encrypt(Buffer.from("persisted")), fourthPlain = restored.decrypt(fourth);
 assert.equal(fourthPlain.toString(), "persisted");
 assert.throws(() => fca.restoreOmegADoubleRatchet({ ...snapshot, rootKey: "bad" }), /32 bytes/);
+assert.throws(() => fca.restoreOmegADoubleRatchet({
+  ...snapshot, skippedMessageKeys: { "not-a-valid-id": crypto.randomBytes(32).toString("base64") }
+}), /identifier/);
+assert.throws(() => fca.restoreOmegADoubleRatchet({
+  ...snapshot, skippedMessageKeys: { [aliceDh.publicKey.toString("base64") + ":0"]: "bad" }
+}), /32 bytes/);
+assert.throws(() => fca.restoreOmegADoubleRatchet({
+  ...snapshot, skippedMessageKeys: Object.fromEntries(
+    Array.from({ length: 2001 }, (_, i) => [aliceDh.publicKey.toString("base64") + ":" + i, crypto.randomBytes(32).toString("base64")])
+  )
+}), /Too many/);
 console.log("OmegA Double Ratchet tests passed");
