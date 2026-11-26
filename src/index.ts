@@ -151,3 +151,4 @@ export { createOmegADoubleRatchet, restoreOmegADoubleRatchet, type OmegADoubleRa
 export { initiateOmegAX3DH, respondOmegAX3DH, type OmegAX3DHPreKeyBundle, type OmegAX3DHInitialMessage, type OmegAX3DHInitiatorOptions, type OmegAX3DHInitiatorResult, type OmegAX3DHResponderOptions } from "./domains/e2ee/x3dh";
 
 export { initializeOmegADoubleRatchetAlice, initializeOmegADoubleRatchetBob } from "./domains/e2ee/double-ratchet";
+export { verifyOmegAXEdDSA } from "./domains/e2ee/xeddsa";
