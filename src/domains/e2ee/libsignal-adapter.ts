@@ -249,6 +249,27 @@ export async function createSignalKyberPreKeyBatch(
   return generated;
 }
 
+/** Restores the public Kyber bundle from an encrypted persisted libsignal record. */
+export function loadSignalKyberPreKey(
+  signal: Dynamic,
+  store: SignalKeyStore,
+  keyId: number
+): { keyId: number; publicKey: string; signature: string } {
+  const serialized = required(store.loadKyberPreKey(keyId), `Kyber prekey ${keyId}`);
+  if (typeof signal?.KyberPreKeyRecord?.deserialize !== "function") {
+    throw new TypeError("A compatible libsignal KyberPreKeyRecord implementation is required");
+  }
+  const record = signal.KyberPreKeyRecord.deserialize(fromBase64(serialized));
+  if (typeof record.publicKey !== "function" || typeof record.signature !== "function") {
+    throw new TypeError("The Signal Kyber prekey record does not expose its public bundle");
+  }
+  return {
+    keyId,
+    publicKey: bytesToBase64(record.publicKey().serialize()),
+    signature: bytesToBase64(record.signature())
+  };
+}
+
 /** Creates the optional libsignal SenderKeyStore adapter used by group sessions. */
 export function createLibsignalSenderKeyStore(signal: Dynamic, store: SignalKeyStore) {
   if (!signal?.SenderKeyStore || !signal?.SenderKeyRecord) {
