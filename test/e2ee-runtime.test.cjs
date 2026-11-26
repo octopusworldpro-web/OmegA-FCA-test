@@ -54,6 +54,7 @@ function fakeSignal() {
     assert.deepEqual(runtime.store.listSignedPreKeyIds(), [1]);
     assert.equal(runtime.store.listPreKeyIds().length, 25);
     assert.equal(runtime.preKeys.length, 25);
+    const runtimePreKeys = runtime.preKeys;
     assert.equal(runtime.kyberPreKeys.length, 0);
     await runtime.close();
 
@@ -63,7 +64,8 @@ function fakeSignal() {
       signal: fakeSignal()
     });
     assert.equal(restored.store.listPreKeyIds().length, 25);
-    assert.equal(restored.preKeys.length, 0);
+    assert.equal(restored.preKeys.length, 25);
+    assert.deepEqual(restored.preKeys, runtimePreKeys);
     await restored.close();
     await assert.rejects(runtime.store.setRegistrationId(99), /closed/);
     console.log("Signal E2EE runtime lifecycle tests passed");
