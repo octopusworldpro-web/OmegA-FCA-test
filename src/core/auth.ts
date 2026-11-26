@@ -6,8 +6,6 @@ import { setOptions } from "./options";
 import { loadConfig } from "./config";
 import { runConfiguredUpdateCheck } from "./update-check";
 import loginHelper from "./login-helper";
-import { createSignalE2EERuntime } from "../domains/e2ee/runtime";
-import { createE2EEBootstrap } from "../domains/e2ee/bootstrap";
 import { validateSessionCookieInput } from "./session-validation";
 import { createSendBroadcast } from "../domains/messages/send-broadcast";
 
@@ -250,26 +248,14 @@ export async function loginAsync(
     }
   } catch { }
 
-  if (customOptions.e2ee?.enabled === true) {
-    try {
-      const accountId = String(ctx.userID || ctx.fbid || "");
-      if (!accountId) throw new Error("A verified Facebook account UID is required for E2EE");
-      const bootstrap = await createE2EEBootstrap(accountId, customOptions.e2ee);
-      const runtime = await createSignalE2EERuntime({
-        accountId,
-        storagePath: bootstrap.storagePath,
-        encryptionKey: bootstrap.encryptionKey,
-        localDeviceId: bootstrap.localDeviceId,
-        signedPreKeyId: customOptions.e2ee.signedPreKeyId,
-        signal: bootstrap.signal
-      });
-      (ctx as Loose).e2ee = runtime;
-      (api as Loose).e2ee = runtime;
-    } catch {
-      // E2EE is an optional capability: never let its startup failure break FCA login.
-      // Keep diagnostics generic so session material or key-store details cannot leak.
-      logger("E2EE initialization failed; continuing with standard FCA login.", "warn");
-    }
+  // login-helper owns the single E2EE initialization lifecycle. Reuse its
+  // result instead of opening a second Signal store for the same account.
+  // A failed/disabled E2EE runtime must never affect the authenticated FCA API.
+  const e2eeState = (api as Loose).e2ee;
+  if (e2eeState?.status === "ready" && e2eeState.runtime) {
+    (ctx as Loose).e2ee = e2eeState.runtime;
+  } else if (e2eeState?.status === "failed") {
+    logger("E2EE is unavailable for this session; standard FCA remains active.", "warn");
   }
 
   return ctx;
