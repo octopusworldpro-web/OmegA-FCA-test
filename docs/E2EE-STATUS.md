@@ -13,7 +13,7 @@ This file records current implementation evidence only. The four-step roadmap is
 | Step | Current status | Implemented evidence | Main remaining work |
 |---|---|---|---|
 | 1. E2EE Engine & Login Integration | Verified complete | Real libsignal 0.70 runtime; authenticated UID validation; encrypted account-scoped store; automatic account-local key/device bootstrap; restart/account-isolation tests; fail-open login integration | None within Step 1. Facebook ICDC/server key publication is Step 2; native Messenger MQTT wire integration is Step 3 |
-| 2. Facebook Device Registration & Key Sync | In progress | Authenticated login now passes the active cookie header and user agent into the E2EE lifecycle; when `e2ee.facebook.appId` and `e2ee.facebook.fbCat` are configured, the ICDC fetch/register helper is invoked with the persisted Signal identity and signed prekey; device metadata is persisted and registration is idempotent | Validate ICDC against an authorized live account; implement and verify Noise/WA-binary Signed PreKey and One-time PreKey upload; verify whether Messenger accepts Kyber publication and its exact stanza format |
+| 2. Facebook Device Registration & Key Sync | In progress | Authenticated login now passes the active cookie header and user agent into the E2EE lifecycle; when `e2ee.facebook.appId` and `e2ee.facebook.fbCat` are configured, the ICDC fetch/register helper is invoked with the persisted Signal identity and signed prekey; device metadata is persisted and registration is idempotent | Validate ICDC against an authorized live account; implement and verify Noise/WA-binary Signed PreKey and One-time PreKey upload; Kyber publication is not part of Meta's published Messenger device-registration format; keep it local-only unless a current server protocol proves support |
 | 3. E2EE Messaging & Group System | In progress | Signal direct-message primitives with injected peer/bundle interfaces; Group Sender Keys/SKDM persistence and restart-safe retry; application-level encrypted group messaging | Native Messenger MQTT envelope integration, Facebook peer/device discovery and bundle exchange, direct/group wire compatibility and real interoperability |
 | 4. Encrypted Media & Full Compatibility Test | In progress | Direct/group media crypto helpers, group-media application-level orchestration, local transport tests | Native Facebook media transport, image/video/file interoperability, EryXen comparison, authorized real-account tests |
 
@@ -29,6 +29,10 @@ This file records current implementation evidence only. The four-step roadmap is
 - `src/domains/e2ee/encrypted-media.ts`, `src/domains/e2ee/encrypted-group-media.ts`, and `src/domains/e2ee/group-media-messaging.ts`: local media crypto and application-level group-media orchestration.
 
 Local cryptographic foundations include X3DH/PQXDH orchestration, XEdDSA verification, and an experimental Double Ratchet. These are not by themselves proof of official Signal conformance or Messenger interoperability.
+
+## Kyber protocol boundary
+
+Meta's published Messenger E2EE overview defines device registration as a Curve25519 Identity Key, a signed Curve25519 Signed Pre Key, and a batch of Curve25519 One-Time Pre Keys. It does not define a Kyber/PQ prekey field or Kyber upload stanza. Therefore OmegA must not send its locally generated Kyber key to Facebook or mark Kyber publication complete based on a guessed payload. Keep local Kyber material isolated until a current, authoritative Messenger protocol or an authorized server response establishes the supported format. Reference: [Meta Messenger E2EE Overview — Device Registration](https://engineering.fb.com/wp-content/uploads/2023/12/MessengerEnd-to-EndEncryptionOverview_12-6-2023.pdf#page=7).
 
 ## ICDC login configuration
 
