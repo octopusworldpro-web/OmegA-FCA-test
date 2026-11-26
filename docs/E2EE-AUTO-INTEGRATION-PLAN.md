@@ -34,6 +34,8 @@ Re-check these files before implementation because the branch may change after t
 
 The runtime now provisions a configurable persistent one-time EC prekey batch (default 25) and, when the supplied Signal implementation exposes the required KEM API, an optional post-quantum prekey batch (default 1). Existing prekeys are reused across runtime restarts; only missing capacity is generated. The runtime returns the persisted public one-time prekeys and signed-prekey bundle on both first start and subsequent starts, while private material remains in the encrypted key store. Identity repair also no longer replaces an existing identity merely because registration metadata is missing.
 
+A restart audit also fixed signed-prekey selection: when no explicit key ID is requested, the runtime now reuses the highest persisted signed prekey instead of generating a new one on every process start. This preserves the published bundle until an explicit rotation policy is implemented.
+
 This is **not Step 2 complete**: the package still requires a caller-supplied compatible Signal implementation. No self-owned, Messenger-compatible Signal engine has been completed or verified yet, and the current mock tests do not establish protocol interoperability. Do not mark E2EE active on this basis.
 
 ## Five implementation steps
