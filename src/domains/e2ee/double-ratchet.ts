@@ -88,6 +88,9 @@ export function createOmegADoubleRatchet(options: OmegADoubleRatchetOptions) {
       const step = chainStep(key32(state.receiveChainKey!, "receiveChainKey"));
       state.receiveChainKey = step.next.toString("base64");
       state.skippedMessageKeys[skippedId(state.remoteDh, state.receiveCount)] = step.message.toString("base64");
+      if (Object.keys(state.skippedMessageKeys).length > MAX_SKIP) {
+        throw new Error("Skipped message key limit exceeded");
+      }
       state.receiveCount++;
     }
   }
@@ -131,26 +134,36 @@ export function createOmegADoubleRatchet(options: OmegADoubleRatchetOptions) {
       return { header, body: encryptOmegAAes256Gcm(step.message, plaintext, aad) };
     },
     decrypt(message: OmegADoubleRatchetMessage, associatedData: Uint8Array = Buffer.alloc(0)): Buffer {
-      if (!message?.header || typeof message.header.dh !== "string") throw new TypeError("Invalid Double Ratchet header");
-      validateCount(message.header.n, "header.n");
-      validateCount(message.header.pn, "header.pn");
-      const remotePublic = key32(message.header.dh, "header.dh");
-      const skipped = takeSkipped(message.header);
-      if (skipped) {
-        return decryptOmegAAes256Gcm(skipped, message.body,
-          Buffer.concat([Buffer.from(associatedData), headerBytes(message.header)]));
+      // Ratchet state is security-critical: failed authentication must not consume keys
+      // or advance counters. Apply changes transactionally and roll back on any error.
+      const before = structuredClone(state);
+      try {
+        if (!message?.header || typeof message.header.dh !== "string" ||
+            !message.body || typeof message.body.ciphertext !== "string" ||
+            typeof message.body.nonce !== "string" || typeof message.body.tag !== "string") {
+          throw new TypeError("Invalid Double Ratchet message");
+        }
+        validateCount(message.header.n, "header.n");
+        validateCount(message.header.pn, "header.pn");
+        const remotePublic = key32(message.header.dh, "header.dh");
+        const aad = Buffer.concat([Buffer.from(associatedData), headerBytes(message.header)]);
+        const skipped = takeSkipped(message.header);
+        if (skipped) return decryptOmegAAes256Gcm(skipped, message.body, aad);
+        if (message.header.dh !== state.remoteDh) {
+          skipUntil(message.header.pn);
+          dhRatchet(remotePublic);
+        }
+        skipUntil(message.header.n);
+        if (!state.receiveChainKey) throw new Error("Receive chain is not initialized");
+        const step = chainStep(key32(state.receiveChainKey, "receiveChainKey"));
+        const plaintext = decryptOmegAAes256Gcm(step.message, message.body, aad);
+        state.receiveChainKey = step.next.toString("base64");
+        state.receiveCount++;
+        return plaintext;
+      } catch (error) {
+        Object.assign(state, before);
+        throw error;
       }
-      if (message.header.dh !== state.remoteDh) {
-        skipUntil(message.header.pn);
-        dhRatchet(remotePublic);
-      }
-      skipUntil(message.header.n);
-      if (!state.receiveChainKey) throw new Error("Receive chain is not initialized");
-      const step = chainStep(key32(state.receiveChainKey, "receiveChainKey"));
-      state.receiveChainKey = step.next.toString("base64");
-      state.receiveCount++;
-      return decryptOmegAAes256Gcm(step.message, message.body,
-        Buffer.concat([Buffer.from(associatedData), headerBytes(message.header)]));
     },
     exportState(): OmegADoubleRatchetState { return structuredClone(state); }
   };
