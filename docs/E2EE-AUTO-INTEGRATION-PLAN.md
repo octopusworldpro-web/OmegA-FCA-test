@@ -50,6 +50,14 @@ Synthetic tests now cover tampered-message rollback, out-of-order messages, repl
 
 **Step 2 remains in progress.** This ratchet has not passed Signal specification test vectors or independent peer interoperability. Signal-compatible KDF/encoding/AEAD details, XEdDSA and X3DH/PQXDH session establishment, runtime auto-factory integration, and real key lifecycle integration remain open. No external Signal dependency was added. Do not claim Messenger E2EE is active.
 
+### Step 2 progress update — classical X3DH core
+
+Added `src/domains/e2ee/x3dh.ts` with OmegA-owned X25519 X3DH initiator and responder key agreement. It implements the three/four DH calculations, X25519 domain-separated HKDF-SHA256 output, identity-bound associated data, and optional one-time-prekey handling. Initiation fails closed unless the caller supplies a signed-prekey verifier callback; that callback is required to be a real XEdDSA verifier in production. Temporary DH material and local private-key copies are zeroed after derivation.
+
+Added synthetic tests for initiator/responder key agreement with and without an OPK, verifier rejection, malformed associated data, and invalid protocol info. The test verifier is deliberately synthetic and is not evidence of XEdDSA or Signal interoperability.
+
+**Step 2 is still in progress, not complete.** XEdDSA, PQXDH/ML-KEM, protocol-exact key/signature encodings and official vectors, session-store/ratchet integration, automatic runtime factory without a supplied Signal module, and complete lifecycle tests remain open. Do not use the experimental components for production Messenger E2EE.
+
 ## Five implementation steps
 
 ### Step 1 — Automatic local encryption setup
