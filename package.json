@@ -48,7 +48,8 @@
     "sequelize": "^6.37.6",
     "sqlite3": "^6.0.1",
     "totp-generator": "^1.0.0",
-    "ws": "^8.18.1"
+    "ws": "^8.18.1",
+    "@signalapp/libsignal-client": "0.70.0"
   },
   "devDependencies": {
     "@types/cli-progress": "^3.11.6",
