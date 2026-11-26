@@ -20,7 +20,7 @@ const fca = require("../dist/index.js");
         upload: result
       };
     },
-    downloadAndDecrypt: async (descriptor, download, expected) => {
+    downloadAndDecrypt: async (descriptor, download) => {
       const ciphertext = Buffer.from(await download(descriptor));
       return Buffer.from(ciphertext).map((byte) => byte ^ 0xff);
     }
