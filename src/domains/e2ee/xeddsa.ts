@@ -96,7 +96,7 @@ export function verifyOmegAXEdDSA(
     if (!rPoint) return false;
     const s = fromLE(signature.subarray(32, 64));
     // XEdDSA revision 1 rejects excess 256-bit values, but does not require s < q.
-    if (s >= (1n << 256n)) return false;
+    if (s >= (1n << 253n)) return false;
     const encodedA = encode(publicPoint);
     const hInput = Buffer.concat([encodedR, encodedA, Buffer.from(message)]);
     const h = fromLE(createHash("sha512").update(hInput).digest()) % Q;
