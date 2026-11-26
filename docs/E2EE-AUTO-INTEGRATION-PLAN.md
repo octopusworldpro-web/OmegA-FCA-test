@@ -50,6 +50,12 @@ Synthetic tests now cover tampered-message rollback, out-of-order messages, repl
 
 **Step 2 remains in progress.** This ratchet has not passed Signal specification test vectors or independent peer interoperability. Signal-compatible KDF/encoding/AEAD details, XEdDSA and X3DH/PQXDH session establishment, runtime auto-factory integration, and real key lifecycle integration remain open. No external Signal dependency was added. Do not claim Messenger E2EE is active.
 
+### Double Ratchet engine progress
+
+The classical OmegA Double Ratchet now has Alice/Bob initializers, a `WhisperRatchet` root-KDF label, HMAC-SHA256 chain steps, two-DH root updates, PN/N headers, bounded skipped-key handling, authenticated canonical headers, transactional decrypt/rollback, and validated state restoration. Synthetic tests cover the standard initialization flow, message/reply exchanges, repeated ratchets, skipped delivery, replay, tampering, and persistence.
+
+This closes the initial engine implementation task, **not Signal conformance**. Official vectors, independent implementation interoperability, Messenger wire/AEAD profile, optional header encryption, and PQ SCKA/ML-KEM remain open. Step 2 remains in progress.
+
 ### Step 2 progress update — classical X3DH core
 
 Added `src/domains/e2ee/x3dh.ts` with OmegA-owned X25519 X3DH initiator and responder key agreement. It implements the three/four DH calculations, X25519 domain-separated HKDF-SHA256 output, identity-bound associated data, and optional one-time-prekey handling. Initiation fails closed unless the caller supplies a signed-prekey verifier callback; that callback is required to be a real XEdDSA verifier in production. Temporary DH material and local private-key copies are zeroed after derivation.
