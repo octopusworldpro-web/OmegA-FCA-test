@@ -14,7 +14,7 @@ The package metadata declares:
 
 The root `index.ts` is the source entry point. The declaration file and runtime exports should be checked together when changing public APIs.
 
-## Main API areas in source
+## Broadcast API\n\n`api.sendBroadcast(message, threadIDs, options)` sends to unique thread IDs using the existing `sendMessage` method. It returns `{ sent, failed, total }`; `options.delay` defaults to 2000 ms, `options.parallel` defaults to 1 (maximum 20), and `options.onEach(error, info, threadID)` is called once per target. A failed target is recorded and does not stop the remaining sends. The namespaced equivalent is `client.messages.sendBroadcast(...)`.\n\n## Main API areas in source
 
 - Login and session validation
 - FCA-style callback compatibility and Promise helpers
