@@ -1,6 +1,6 @@
 # OmegA-FCA Messenger E2EE Auto-Integration Plan
 
-> **Status:** Planning document only. This file records the agreed implementation scope and the current verified repository gaps. It does not claim that Messenger E2EE is already connected or production-ready.
+> **Status:** Step 1 is in progress. The OmegA-Goatbot compatibility branch has started implementing automatic per-account local identity provisioning. Messenger E2EE is not yet connected or production-verified.
 
 ## Goal
 
@@ -33,6 +33,8 @@ Re-check these files before implementation because the branch may change after t
 ## Five implementation steps
 
 ### Step 1 — Automatic local encryption setup
+
+<em>In progress — implementation started on OmegA-Goatbot branch `agent-fca-compat-fix`.</em>
 
 **Purpose:** Remove the need for a user-provided Railway encryption secret and device ID.
 
@@ -154,7 +156,7 @@ Tasks:
 
 | Step | Scope | Status |
 |---|---|---|
-| 1 | Automatic local encryption setup | Not started |
+| 1 | Automatic local encryption setup | In progress — GoatBot-side per-account identity provisioning and fail-open login integration added; targeted tests committed but not yet executed in CI |
 | 2 | Signal engine and prekey initialization | Not started |
 | 3 | Automatic Facebook E2EE device registration | Not started |
 | 4 | Messenger realtime transport and encrypted message flow | Not started |
