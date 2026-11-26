@@ -38,6 +38,10 @@ A restart audit also fixed signed-prekey selection: when no explicit key ID is r
 
 This is **not Step 2 complete**: the package still requires a caller-supplied compatible Signal implementation. No self-owned, Messenger-compatible Signal engine has been completed or verified yet, and the current mock tests do not establish protocol interoperability. Do not mark E2EE active on this basis.
 
+### OmegA-owned primitive foundation (in progress)
+
+The branch now contains `src/domains/e2ee/native-crypto.ts`, an OmegA-authored low-level primitive module using Node.js crypto for X25519 key agreement, HKDF-SHA256, and AES-256-GCM. Its tests cover symmetric X25519 agreement, KDF domain separation, authenticated-encryption round trips, and tamper/AAD rejection. These primitives are foundational only: they do not implement XEdDSA, PQXDH/ML-KEM, Signal message formats, the Double Ratchet, or Messenger interoperability. They must not be used to report E2EE as active until the complete protocol layers and interoperability tests exist.
+
 ## Five implementation steps
 
 ### Step 1 — Automatic local encryption setup
