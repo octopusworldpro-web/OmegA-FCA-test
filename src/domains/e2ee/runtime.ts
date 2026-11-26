@@ -1,5 +1,10 @@
 import { createSignalKeyStore, type SignalKeyStore } from "./signal-key-store";
-import { ensureSignalIdentity, createSignalSignedPreKey } from "./libsignal-adapter";
+import {
+  ensureSignalIdentity,
+  createSignalSignedPreKey,
+  createSignalPreKeyBatch,
+  createSignalKyberPreKeyBatch
+} from "./libsignal-adapter";
 import { createSignalDirectMessages } from "./direct-messages";
 import { createSignalE2EEActions } from "./actions";
 import { createSignalSenderKeyGroups } from "./sender-keys";
@@ -12,6 +17,10 @@ export interface SignalRuntimeOptions {
   encryptionKey: string | Buffer;
   localDeviceId: number;
   signedPreKeyId?: number;
+  /** Number of local one-time EC prekeys to keep available. Defaults to 25. */
+  preKeyCount?: number;
+  /** Number of optional post-quantum prekeys to create when supported. Defaults to 1. */
+  kyberPreKeyCount?: number;
   signal: Dynamic;
 }
 
@@ -20,13 +29,17 @@ export interface SignalE2EERuntime {
   directMessages: ReturnType<typeof createSignalDirectMessages>;
   actions: ReturnType<typeof createSignalE2EEActions>;
   groups: ReturnType<typeof createSignalSenderKeyGroups>;
+  /** Public portions only; private key material remains inside the encrypted store. */
+  preKeys: Array<{ keyId: number; publicKey: string }>;
+  kyberPreKeys: Array<{ keyId: number; publicKey: string; signature: string }>;
   close(): Promise<void>;
 }
 
 /**
- * Creates the opt-in Signal runtime around an explicitly supplied libsignal module.
- * This initializes local keys only; Facebook device registration, bundle exchange,
- * MQTT envelopes and Messenger wire compatibility are intentionally separate steps.
+ * Creates the opt-in Signal runtime around a compatible Signal implementation.
+ * Initializes and persists local identity and prekeys only. Facebook device
+ * registration, bundle publication, MQTT envelopes and Messenger wire
+ * compatibility remain separate integration stages.
  */
 export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Promise<SignalE2EERuntime> {
   if (!options || typeof options.accountId !== "string" || !options.accountId.trim()) {
@@ -39,7 +52,16 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
     throw new TypeError("E2EE localDeviceId must be a positive safe integer");
   }
   if (!options.signal || typeof options.signal.PrivateKey?.generate !== "function") {
-    throw new TypeError("A compatible libsignal module must be explicitly supplied as signalModule");
+    throw new TypeError("A compatible Signal implementation must be supplied as signalModule");
+  }
+
+  const preKeyCount = options.preKeyCount ?? 25;
+  const kyberPreKeyCount = options.kyberPreKeyCount ?? 1;
+  if (!Number.isSafeInteger(preKeyCount) || preKeyCount < 0 || preKeyCount > 1000) {
+    throw new RangeError("E2EE preKeyCount must be between 0 and 1000");
+  }
+  if (!Number.isSafeInteger(kyberPreKeyCount) || kyberPreKeyCount < 0 || kyberPreKeyCount > 100) {
+    throw new RangeError("E2EE kyberPreKeyCount must be between 0 and 100");
   }
 
   const store = await createSignalKeyStore({
@@ -60,6 +82,25 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
       await createSignalSignedPreKey(options.signal, store, signedPreKeyId);
     }
 
+    const existingPreKeyIds = store.listPreKeyIds();
+    const nextPreKeyId = existingPreKeyIds.length ? Math.max(...existingPreKeyIds) + 1 : 1;
+    const missingPreKeys = Math.max(0, preKeyCount - existingPreKeyIds.length);
+    const preKeys = missingPreKeys
+      ? await createSignalPreKeyBatch(options.signal, store, nextPreKeyId, missingPreKeys)
+      : [];
+
+    const kyberPreKeys: Array<{ keyId: number; publicKey: string; signature: string }> = [];
+    if (kyberPreKeyCount > 0 && typeof options.signal.KEMKeyPair?.generate === "function") {
+      const existingKyberIds = store.listKyberPreKeyIds();
+      const nextKyberId = existingKyberIds.length ? Math.max(...existingKyberIds) + 1 : 1;
+      const missingKyberKeys = Math.max(0, kyberPreKeyCount - existingKyberIds.length);
+      if (missingKyberKeys) {
+        kyberPreKeys.push(...await createSignalKyberPreKeyBatch(
+          options.signal, store, nextKyberId, missingKyberKeys
+        ));
+      }
+    }
+
     const localAddress = { name: options.accountId.trim(), deviceId: options.localDeviceId };
     const directMessages = createSignalDirectMessages(options.signal, store, localAddress);
     const actions = createSignalE2EEActions({
@@ -73,6 +114,8 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
       directMessages,
       actions,
       groups,
+      preKeys,
+      kyberPreKeys,
       close: () => store.close()
     };
   } catch (error) {
