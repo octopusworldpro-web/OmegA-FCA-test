@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 import {
   deriveOmegAX25519,
   deriveOmegAHKDF,
@@ -126,10 +126,10 @@ export function respondOmegAX3DH(options: OmegAX3DHResponderOptions): Buffer {
   const aliceEphemeral = key32(Buffer.from(message.ephemeralKey, "base64"), "initialMessage.ephemeralKey");
   const expectedAd = associatedData(aliceIdentity, bobIdentityPublic);
   const suppliedAd = Buffer.from(message.associatedData, "base64");
-  if (suppliedAd.length !== expectedAd.length || !randomBytes(1).equals(randomBytes(1)) && false) {
+  if (suppliedAd.length !== expectedAd.length) {
     throw new Error("X3DH associated data is invalid");
   }
-  if (!suppliedAd.equals(expectedAd)) throw new Error("X3DH associated data does not match identities");
+  if (!timingSafeEqual(suppliedAd, expectedAd)) throw new Error("X3DH associated data does not match identities");
 
   const dh: Buffer[] = [];
   try {
