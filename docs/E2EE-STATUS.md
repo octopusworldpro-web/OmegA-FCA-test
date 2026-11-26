@@ -8,18 +8,18 @@ This file records the current implementation evidence only. The four-step roadma
 
 ## Overall
 
-**4/4 Steps have implementation work. 0/4 Steps are fully verified complete.**
+**Step 1 is verified complete at the local engine/login-integration boundary. Steps 2–4 remain in progress.**
 
 | Step | Current status | Implemented evidence | Main remaining work |
 |---|---|---|---|
-| 1. E2EE Engine & Login Integration | In progress | Pinned libsignal dependency, persistent account bootstrap helper, fail-open login changes, bootstrap tests | Verify complete automatic runtime initialization from every authenticated FCA session path |
+| 1. E2EE Engine & Login Integration | Verified complete | Real libsignal 0.70 runtime initializes after authenticated UID validation; encrypted account-scoped store; real-library restart and account-isolation smoke test; fail-open login integration; no plaintext store key in metadata | None within Step 1. Facebook ICDC/server key publication is Step 2; native Messenger MQTT wire integration is Step 3 |
 | 2. Facebook Device Registration & Key Sync | In progress | ICDC helper, encrypted key store, device metadata, public identity bundle, prekey lifecycle groundwork | Invoke ICDC during login and verify actual Facebook registration/key publishing with real protocol formats |
 | 3. E2EE Messaging & Group System | In progress | Group Sender Keys/SKDM persistence and restart-safe retry; application-level encrypted group messaging | Native Messenger MQTT envelope integration, peer bundle exchange, direct-message and real group interoperability |
 | 4. Encrypted Media & Full Compatibility Test | In progress | Encrypted group-media pipeline and application-level transport tests | Native Facebook media transport, image/video/file interoperability, EryXen comparison, real-account tests |
 
 ## Implemented components
 
-- `src/domains/e2ee/bootstrap.ts`: creates account-scoped persistent local identity metadata and loads the pinned libsignal package by default.
+- `src/domains/e2ee/bootstrap.ts`: creates account-scoped metadata and loads the pinned libsignal package by default; the store key comes from `OMEGA_FCA_E2EE_MASTER_KEY` or `e2ee.encryptionKey` and is never persisted in metadata.
 - `src/domains/e2ee/signal-key-store.ts`: encrypted persistence for Signal identity/session/prekey/group state and device metadata.
 - `src/domains/e2ee/libsignal-adapter.ts`: adapter boundary for the selected libsignal implementation.
 - `src/domains/e2ee/device-registration.ts`: Facebook ICDC registration helper; helper presence alone does not prove it is called during login or accepted by Facebook.
@@ -37,8 +37,8 @@ This file records the current implementation evidence only. The four-step roadma
 
 ## Latest repository validation
 
-Branch head checked: `94ef32b965a4e6b2863373a55454a57a5a8d0cc4`
+Branch head checked: `bbbab33b11f253605a90f4e089c2a065de3048cb`
 
-[CI run 45851159194](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45851159194): **success** — build/tests, TypeScript, lint, security audit, and package dry run.
+[CI run 45857562207](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45857562207): **success** — build/tests (including real libsignal persistence/restart), TypeScript, lint, security audit, and package dry run.
 
 See [E2EE-ROADMAP.md](E2EE-ROADMAP.md) for the only approved four-Step checklist and progress rules.
