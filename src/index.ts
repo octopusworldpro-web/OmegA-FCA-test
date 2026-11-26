@@ -141,3 +141,5 @@ export { createSignalPeerManager, type SignalPeerManagerDeps, type SignalRemoteD
 export { createSignalGroupKeyManager, type SignalGroupKeyManagerDeps, type SignalGroupDevice } from "./domains/e2ee/group-key-manager";
 
 export { createOutgoingActionLimiter, type OutgoingActionLimiterOptions } from "./domains/realtime/outgoing-action-limiter";
+
+export { createSendBroadcast, type BroadcastOptions, type BroadcastResult } from "./domains/messages/send-broadcast";
