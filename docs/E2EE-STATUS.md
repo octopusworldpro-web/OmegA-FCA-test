@@ -44,19 +44,21 @@ Treat Messenger E2EE as **not production-integrated / not verified** in this rel
 The opt-in Signal action layer supports encrypted application-level read and delivery receipts through `sendReadReceipt` / `sendDeliveryReceipt`, with matching `decryptReadReceipt` / `decryptDeliveryReceipt` validators. These are Signal-encrypted payload helpers only; they are **not** Messenger's private receipt wire format and do not replace `api.markAsRead` or `api.markAsDelivered`. Automatic Messenger receipts remain controlled by `autoMarkRead` and `autoMarkDelivery` and are dispatched best-effort for incoming message events.
 
 
-## OmegA-owned ratchet research implementation (in progress)
+## OmegA-owned Double Ratchet engine (implementation in progress; conformance pending)
 
-The branch now also contains `double-ratchet.ts`, an OmegA-authored experimental ratchet state engine built on the repository's native X25519, HKDF-SHA256, and AES-256-GCM primitives. It currently includes send/receive chain advancement, DH-ratchet transition logic, bounded skipped-message-key storage, state export/restore, and authenticated message headers.
+The branch now contains an OmegA-authored classical DH Double Ratchet engine in `src/domains/e2ee/double-ratchet.ts`, built on the local X25519, HKDF-SHA256, and AES-256-GCM primitives. It includes:
 
-Recent hardening:
-- Decryption applies state changes transactionally; an authentication or validation failure restores the prior ratchet state.
-- Persisted skipped-message entries are validated for identifier format, 32-byte key material, and the maximum entry count before restoration.
-- Tests cover failed-authentication rollback, out-of-order delivery, replay rejection, state restoration, and malformed persisted state.
+- Standard Alice/Bob initialization from a shared 32-byte session secret and Bob's initial ratchet key pair/public key.
+- Root-chain KDF using the `WhisperRatchet` domain label and HMAC-SHA256 chain KDF (0x01 message-key and 0x02 next-chain-key constants).
+- Sending/receiving chain advancement and two-step DH-ratchet transitions.
+- PN/N counters, bounded skipped-message keys, out-of-order delivery and replay rejection.
+- Canonical binary header authentication with length-prefixed external associated data.
+- Transactional decryption: malformed headers, wrong associated data, and authentication failures do not consume keys or mutate state.
+- State export/restore with key/counter/skipped-key validation.
 
-**This is not a verified Signal Double Ratchet implementation.** Its KDF labels, message/header encoding, AEAD choice, initialization/session-establishment rules, DH-ratchet interoperability, and test-vector conformance have not been validated against the Signal specification or Messenger. The current tests are local synthetic tests, not peer interoperability tests. Do not use this engine for production Messenger E2EE or report the E2EE state as active.
+Tests now exercise standard Alice/Bob initialization, first message and reply, repeated ratchet exchanges, skipped messages, replay rejection, tampered headers, wrong associated data, rollback, and state restoration.
 
-The remaining Step 2 work includes protocol-spec conformance and independent test vectors, an OmegA-owned session establishment/signature layer (including the required XEdDSA/PQXDH components where applicable), runtime factory integration without caller-supplied Signal modules, and persistence/lifecycle integration. Steps 3–5 remain blocked on establishing and validating Messenger's actual device-registration and encrypted transport formats.
-
+**Status: engine implementation is present, but Signal conformance is not yet certified.** The local tests are synthetic and are not official Signal test vectors or independent peer interoperability tests. AES-256-GCM is used as the configured AEAD; Messenger's actual algorithm/encoding profile has not been established. Header encryption (the optional HE variant), protocol-specific wire serialization, and post-quantum SCKA/ML-KEM integration are not implemented here. Do not claim Messenger E2EE is active or production-ready based on this engine alone.
 
 ## OmegA X3DH key-agreement core (in progress)
 
