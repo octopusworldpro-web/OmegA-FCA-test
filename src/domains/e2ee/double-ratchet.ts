@@ -10,7 +10,8 @@ import {
 } from "./native-crypto";
 
 const MAX_SKIP = 2000;
-const INFO = "DoubleRatchet";
+const INFO = "WhisperRatchet";
+const MAX_COUNTER = 0xffffffff;
 
 export interface OmegADoubleRatchetHeader {
   dh: string;
@@ -60,7 +61,22 @@ function validateCount(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value < 0) throw new TypeError(label + " must be a non-negative safe integer");
 }
 function headerBytes(header: OmegADoubleRatchetHeader): Buffer {
-  return Buffer.from(JSON.stringify(header), "utf8");
+  const dh = key32(header.dh, "header.dh");
+  validateCount(header.pn, "header.pn");
+  validateCount(header.n, "header.n");
+  if (header.pn > MAX_COUNTER || header.n > MAX_COUNTER) throw new RangeError("Ratchet header counter exceeds uint32");
+  const encoded = Buffer.alloc(40);
+  dh.copy(encoded, 0);
+  encoded.writeUInt32BE(header.pn, 32);
+  encoded.writeUInt32BE(header.n, 36);
+  return encoded;
+}
+function messageAad(ad: Uint8Array, header: OmegADoubleRatchetHeader): Buffer {
+  const external = Buffer.from(ad);
+  const encodedHeader = headerBytes(header);
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(external.length, 0);
+  return Buffer.concat([length, external, encodedHeader]);
 }
 
 export function createOmegADoubleRatchet(options: OmegADoubleRatchetOptions) {
@@ -126,11 +142,12 @@ export function createOmegADoubleRatchet(options: OmegADoubleRatchetOptions) {
     encrypt(plaintext: Uint8Array, associatedData: Uint8Array = Buffer.alloc(0)): OmegADoubleRatchetMessage {
       if (!(plaintext instanceof Uint8Array)) throw new TypeError("plaintext must be bytes");
       if (!state.sendChainKey) throw new Error("Send chain is not initialized");
+      if (state.sendCount > MAX_COUNTER || state.previousSendCount > MAX_COUNTER) throw new RangeError("Ratchet counter exceeds uint32");
       const header = { dh: state.localDh.publicKey, pn: state.previousSendCount, n: state.sendCount };
       const step = chainStep(key32(state.sendChainKey, "sendChainKey"));
       state.sendChainKey = step.next.toString("base64");
       state.sendCount++;
-      const aad = Buffer.concat([Buffer.from(associatedData), headerBytes(header)]);
+      const aad = messageAad(associatedData, header);
       return { header, body: encryptOmegAAes256Gcm(step.message, plaintext, aad) };
     },
     decrypt(message: OmegADoubleRatchetMessage, associatedData: Uint8Array = Buffer.alloc(0)): Buffer {
@@ -145,8 +162,10 @@ export function createOmegADoubleRatchet(options: OmegADoubleRatchetOptions) {
         }
         validateCount(message.header.n, "header.n");
         validateCount(message.header.pn, "header.pn");
+        if (message.header.n > MAX_COUNTER || message.header.pn > MAX_COUNTER) throw new RangeError("Ratchet header counter exceeds uint32");
+        if (Object.keys(message.header).sort().join(",") !== "dh,n,pn") throw new TypeError("Unexpected Double Ratchet header fields");
         const remotePublic = key32(message.header.dh, "header.dh");
-        const aad = Buffer.concat([Buffer.from(associatedData), headerBytes(message.header)]);
+        const aad = messageAad(associatedData, message.header);
         const skipped = takeSkipped(message.header);
         if (skipped) return decryptOmegAAes256Gcm(skipped, message.body, aad);
         if (message.header.dh !== state.remoteDh) {
@@ -167,6 +186,40 @@ export function createOmegADoubleRatchet(options: OmegADoubleRatchetOptions) {
     },
     exportState(): OmegADoubleRatchetState { return structuredClone(state); }
   };
+}
+
+
+/**
+ * Initialize the standard Double Ratchet Alice side from a 32-byte shared secret
+ * and Bob's initial ratchet public key. Alice creates a fresh ratchet key and
+ * derives the initial sending chain as specified by the classic DH-ratchet setup.
+ */
+export function initializeOmegADoubleRatchetAlice(sharedSecret: Uint8Array, bobRatchetPublicKey: Uint8Array) {
+  const shared = key32(sharedSecret, "sharedSecret");
+  const bobPublic = key32(bobRatchetPublicKey, "bobRatchetPublicKey");
+  const aliceDh = generateOmegAX25519KeyPair();
+  const initial = rootStep(shared, deriveOmegAX25519(aliceDh.privateKey, bobPublic));
+  return createOmegADoubleRatchet({
+    rootKey: initial.root,
+    localDh: aliceDh,
+    remoteDh: bobPublic,
+    sendChainKey: initial.chain
+  });
+}
+
+/**
+ * Initialize the standard Double Ratchet Bob side. The first authenticated
+ * Alice message supplies her fresh DH public key and creates Bob's receive/send chains.
+ */
+export function initializeOmegADoubleRatchetBob(sharedSecret: Uint8Array, bobRatchetKeyPair: OmegAKeyPair) {
+  const shared = key32(sharedSecret, "sharedSecret");
+  const bobPublic = key32(bobRatchetKeyPair.publicKey, "bobRatchetKeyPair.publicKey");
+  const bobPrivate = key32(bobRatchetKeyPair.privateKey, "bobRatchetKeyPair.privateKey");
+  return createOmegADoubleRatchet({
+    rootKey: shared,
+    localDh: { publicKey: bobPublic, privateKey: bobPrivate },
+    remoteDh: Buffer.alloc(32)
+  });
 }
 
 /** Restore only a state previously exported by this implementation; validate all key fields. */
@@ -192,6 +245,12 @@ export function restoreOmegADoubleRatchet(state: OmegADoubleRatchetState) {
     validateCount(messageNumber, "skipped message number");
     key32(encodedKey, "skipped message key");
   }
+  key32(state.rootKey, "rootKey");
+  key32(state.localDh.publicKey, "localDh.publicKey");
+  key32(state.localDh.privateKey, "localDh.privateKey");
+  key32(state.remoteDh, "remoteDh");
+  if (state.sendChainKey) key32(state.sendChainKey, "sendChainKey");
+  if (state.receiveChainKey) key32(state.receiveChainKey, "receiveChainKey");
   if (state.receiveCount > 0 && !state.receiveChainKey) {
     throw new TypeError("Persisted receive counter has no receive chain key");
   }
