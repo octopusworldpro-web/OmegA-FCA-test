@@ -133,14 +133,19 @@ export function createLibsignalStores(signal: Dynamic, store: SignalKeyStore) {
 
 /** Creates local identity material using libsignal's own cryptographic implementation. */
 export async function ensureSignalIdentity(signal: Dynamic, store: SignalKeyStore): Promise<void> {
-  if (store.getIdentityKeyPair() && store.getRegistrationId() !== undefined) return;
-  const privateKey = signal.PrivateKey.generate();
-  const publicKey = privateKey.getPublicKey();
-  await store.setIdentityKeyPair({
-    publicKey: bytesToBase64(publicKey.serialize()),
-    privateKey: bytesToBase64(privateKey.serialize())
-  });
-  await store.setRegistrationId(randomInt(1, 16381));
+  // Preserve an existing identity if only the registration ID is missing.
+  // Replacing a persisted identity would invalidate sessions and peer trust.
+  if (!store.getIdentityKeyPair()) {
+    const privateKey = signal.PrivateKey.generate();
+    const publicKey = privateKey.getPublicKey();
+    await store.setIdentityKeyPair({
+      publicKey: bytesToBase64(publicKey.serialize()),
+      privateKey: bytesToBase64(privateKey.serialize())
+    });
+  }
+  if (store.getRegistrationId() === undefined) {
+    await store.setRegistrationId(randomInt(1, 16381));
+  }
 }
 
 /** Generates and persists one signed prekey using the stored identity private key. */
