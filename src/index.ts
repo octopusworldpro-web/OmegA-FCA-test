@@ -143,3 +143,5 @@ export { createSignalGroupKeyManager, type SignalGroupKeyManagerDeps, type Signa
 export { createOutgoingActionLimiter, type OutgoingActionLimiterOptions } from "./domains/realtime/outgoing-action-limiter";
 
 export { createSendBroadcast, type BroadcastOptions, type BroadcastResult } from "./domains/messages/send-broadcast";
+
+export { generateOmegAX25519KeyPair, deriveOmegAX25519, deriveOmegAHKDF, encryptOmegAAes256Gcm, decryptOmegAAes256Gcm, type OmegAKeyPair, type OmegAAeadCiphertext } from "./domains/e2ee/native-crypto";
