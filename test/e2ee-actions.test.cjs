@@ -34,6 +34,7 @@ const fca = require("../dist/index.js");
   assert.equal(decoded[3].expiresAt, decoded[3].sentAt);
   assert.equal(decoded[4].state, "away");
   assert.deepEqual(await actions.decryptReadReceipt(peer, { type: 2, body: payloads[0].toString("base64") }), decoded[0]);
+  assert.deepEqual(await actions.decryptDeliveryReceipt(peer, { type: 2, body: payloads[1].toString("base64") }), decoded[1]);
 
   await assert.rejects(actions.sendDeliveryReceipt(peer, "thread-1", []), /non-empty array/);
   await assert.rejects(actions.sendTyping(peer, "", true, now), /threadID/);
@@ -43,5 +44,6 @@ const fca = require("../dist/index.js");
     version: 1, kind: "typing", threadID: "t", active: true, sentAt: 10, expiresAt: 50000
   })).toString("base64") }), /Invalid E2EE typing/);
   await assert.rejects(actions.decryptReadReceipt(peer, { type: 2, body: payloads[1].toString("base64") }), /Invalid E2EE read receipt/);
+  await assert.rejects(actions.decryptDeliveryReceipt(peer, { type: 2, body: payloads[0].toString("base64") }), /Invalid E2EE delivery receipt/);
   console.log("Signal E2EE receipts, typing and presence action tests passed");
 })().catch(error => { console.error(error); process.exitCode = 1; });
