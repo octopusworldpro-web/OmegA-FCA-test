@@ -16,6 +16,24 @@ function fakeSignal() {
     PrivateKey: { generate: () => key("private-key"), deserialize: () => key("private-key") },
     PublicKey: { deserialize: () => key("public-key") },
     SignedPreKeyRecord: { new: () => ({}) },
+    KEMKeyPair: { generate: () => key("kyber-private-key") },
+    KyberPreKeyRecord: {
+      new: (id, timestamp, pair, signature) => ({
+        serialize: () => Buffer.from(JSON.stringify({
+          publicKey: pair.getPublicKey().serialize().toString("base64"),
+          signature: Buffer.from(signature).toString("base64")
+        })),
+        publicKey: () => pair.getPublicKey(),
+        signature: () => Buffer.from(signature)
+      }),
+      deserialize: (serialized) => {
+        const record = JSON.parse(Buffer.from(serialized).toString("utf8"));
+        return {
+          publicKey: () => key(Buffer.from(record.publicKey, "base64").toString("utf8")),
+          signature: () => Buffer.from(record.signature, "base64")
+        };
+      }
+    },
     ProtocolAddress: { new: (name, deviceId) => ({ name: () => name, deviceId: () => deviceId }) },
     SessionStore: StoreBase,
     IdentityKeyStore: StoreBase,
@@ -44,7 +62,7 @@ function fakeSignal() {
     const runtime = await fca.createSignalE2EERuntime({
       accountId: "123456789", storagePath: path.join(directory, "account.signal"),
       encryptionKey: "this-is-a-test-secret-at-least-32-bytes", localDeviceId: 1,
-      signal: fakeSignal()
+      signal: fakeSignal(), kyberPreKeyCount: 1
     });
     assert.equal(typeof runtime.directMessages.encrypt, "function");
     assert.equal(typeof runtime.directMessages.establishSession, "function");
@@ -60,7 +78,8 @@ function fakeSignal() {
     assert.equal(runtime.store.listPreKeyIds().length, 25);
     assert.equal(runtime.preKeys.length, 25);
     const runtimePreKeys = runtime.preKeys;
-    assert.equal(runtime.kyberPreKeys.length, 0);
+    assert.equal(runtime.kyberPreKeys.length, 1);
+    const runtimeKyberPreKeys = runtime.kyberPreKeys;
     await runtime.close();
 
     const restored = await fca.createSignalE2EERuntime({
@@ -72,6 +91,7 @@ function fakeSignal() {
     assert.deepEqual(restored.signedPreKey, runtime.signedPreKey);
     assert.equal(restored.preKeys.length, 25);
     assert.deepEqual(restored.preKeys, runtimePreKeys);
+    assert.deepEqual(restored.kyberPreKeys, runtimeKyberPreKeys);
     await restored.close();
     await assert.rejects(runtime.store.setRegistrationId(99), /closed/);
     console.log("Signal E2EE runtime lifecycle tests passed");
