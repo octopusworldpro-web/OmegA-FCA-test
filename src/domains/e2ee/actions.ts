@@ -123,6 +123,11 @@ export function createSignalE2EEActions(deps: E2EEActionsDeps) {
       const action = await decryptAction(remote, ciphertext);
       if (action.kind !== "read_receipt") throw new TypeError("Invalid E2EE read receipt");
       return action;
+    },
+    async decryptDeliveryReceipt(remote: SignalPeerAddress, ciphertext: SignalCiphertext): Promise<E2EEDeliveryReceipt> {
+      const action = await decryptAction(remote, ciphertext);
+      if (action.kind !== "delivery_receipt") throw new TypeError("Invalid E2EE delivery receipt");
+      return action;
     }
   };
 }
