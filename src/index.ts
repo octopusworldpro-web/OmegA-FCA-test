@@ -152,3 +152,5 @@ export { initiateOmegAX3DH, respondOmegAX3DH, type OmegAX3DHPreKeyBundle, type O
 
 export { initializeOmegADoubleRatchetAlice, initializeOmegADoubleRatchetBob } from "./domains/e2ee/double-ratchet";
 export { verifyOmegAXEdDSA } from "./domains/e2ee/xeddsa";
+
+export { initiateOmegAPQXDH, respondOmegAPQXDH, type OmegAPQKEM, type OmegAPQXDHBundle, type OmegAPQXDHInitialMessage, type OmegAPQXDHInitiatorOptions, type OmegAPQXDHResponderOptions, type OmegAPQXDHResult } from "./domains/e2ee/pqxdh";
