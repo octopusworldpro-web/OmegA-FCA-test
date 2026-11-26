@@ -99,7 +99,7 @@ export function initiateOmegAPQXDH(options: OmegAPQXDHInitiatorOptions): OmegAPQ
   const bobIdentity = key32(b.identityKey, "bundle identity key");
   const bobSigned = key32(b.signedPreKey, "bundle signed prekey");
   const verify = signatureVerifier(options);
-  if (!verify(bobIdentity, bobSigned, Buffer.from(b.signedPreKeySignature))) throw new Error("PQXDH signed curve prekey signature invalid");
+  if (!verify(bobIdentity, Buffer.concat([Buffer.from([0x05]), bobSigned]), Buffer.from(b.signedPreKeySignature))) throw new Error("PQXDH signed curve prekey signature invalid");
   const encodedKem = Buffer.from(options.kem.encodePublicKey(b.kemPublicKey));
   if (!encodedKem.length || !verify(bobIdentity, encodedKem, Buffer.from(b.kemPublicKeySignature))) {
     throw new Error("PQXDH KEM prekey signature invalid");
