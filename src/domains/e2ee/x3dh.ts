@@ -92,7 +92,7 @@ export function initiateOmegAX3DH(options: OmegAX3DHInitiatorOptions): OmegAX3DH
   const bobSignedPreKey = key32(bundle.signedPreKey, "bundle.signedPreKey");
   const signature = Buffer.from(bundle.signedPreKeySignature);
   const verify = options.verifySignedPreKey || verifyOmegAXEdDSA;
-  if (!signature.length || !verify(bobIdentity, bobSignedPreKey, signature)) {
+  if (!signature.length || !verify(bobIdentity, Buffer.concat([Buffer.from([0x05]), bobSignedPreKey]), signature)) {
     throw new Error("X3DH signed-prekey XEdDSA verification failed");
   }
 
