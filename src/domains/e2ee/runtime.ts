@@ -3,7 +3,8 @@ import {
   ensureSignalIdentity,
   createSignalSignedPreKey,
   createSignalPreKeyBatch,
-  createSignalKyberPreKeyBatch
+  createSignalKyberPreKeyBatch,
+  loadSignalKyberPreKey
 } from "./libsignal-adapter";
 import { createSignalDirectMessages } from "./direct-messages";
 import { createSignalE2EEActions } from "./actions";
@@ -105,16 +106,21 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
       return { keyId, publicKey: record.publicKey };
     });
 
-    const kyberPreKeys: Array<{ keyId: number; publicKey: string; signature: string }> = [];
+    let kyberPreKeys: Array<{ keyId: number; publicKey: string; signature: string }> = [];
     if (kyberPreKeyCount > 0 && typeof options.signal.KEMKeyPair?.generate === "function") {
       const existingKyberIds = store.listKyberPreKeyIds();
       const nextKyberId = existingKyberIds.length ? Math.max(...existingKyberIds) + 1 : 1;
       const missingKyberKeys = Math.max(0, kyberPreKeyCount - existingKyberIds.length);
       if (missingKyberKeys) {
-        kyberPreKeys.push(...await createSignalKyberPreKeyBatch(
+        await createSignalKyberPreKeyBatch(
           options.signal, store, nextKyberId, missingKyberKeys
-        ));
+        );
       }
+      // Restore public key material from persisted private records on every
+      // startup so a warm restart can republish the same bundle.
+      kyberPreKeys = store.listKyberPreKeyIds().map((keyId) =>
+        loadSignalKyberPreKey(options.signal, store, keyId)
+      );
     }
 
     const localAddress = { name: options.accountId.trim(), deviceId: options.localDeviceId };
