@@ -158,10 +158,17 @@ export function createOmegADoubleRatchet(options: OmegADoubleRatchetOptions) {
 
 /** Restore only a state previously exported by this implementation; validate all key fields. */
 export function restoreOmegADoubleRatchet(state: OmegADoubleRatchetState) {
-  if (!state || !state.localDh || !state.skippedMessageKeys || typeof state.skippedMessageKeys !== "object") {
+  if (!state || !state.localDh || !state.skippedMessageKeys ||
+      typeof state.skippedMessageKeys !== "object") {
     throw new TypeError("Invalid Double Ratchet state");
   }
-  return createOmegADoubleRatchet({
+  for (const [label, value] of [
+    ["sendCount", state.sendCount],
+    ["receiveCount", state.receiveCount],
+    ["previousSendCount", state.previousSendCount]
+  ] as const) validateCount(value, label);
+
+  const restored = createOmegADoubleRatchet({
     rootKey: key32(state.rootKey, "rootKey"),
     localDh: {
       publicKey: key32(state.localDh.publicKey, "localDh.publicKey"),
@@ -170,15 +177,7 @@ export function restoreOmegADoubleRatchet(state: OmegADoubleRatchetState) {
     remoteDh: key32(state.remoteDh, "remoteDh"),
     sendChainKey: state.sendChainKey ? key32(state.sendChainKey, "sendChainKey") : undefined,
     receiveChainKey: state.receiveChainKey ? key32(state.receiveChainKey, "receiveChainKey") : undefined
-  }).state && (() => {
-    const restored = createOmegADoubleRatchet({
-      rootKey: key32(state.rootKey, "rootKey"),
-      localDh: { publicKey: key32(state.localDh.publicKey, "localDh.publicKey"), privateKey: key32(state.localDh.privateKey, "localDh.privateKey") },
-      remoteDh: key32(state.remoteDh, "remoteDh"),
-      sendChainKey: state.sendChainKey ? key32(state.sendChainKey, "sendChainKey") : undefined,
-      receiveChainKey: state.receiveChainKey ? key32(state.receiveChainKey, "receiveChainKey") : undefined
-    });
-    Object.assign(restored.state, structuredClone(state));
-    return restored;
-  })();
+  });
+  Object.assign(restored.state, structuredClone(state));
+  return restored;
 }
