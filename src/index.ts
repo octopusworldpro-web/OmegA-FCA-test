@@ -158,3 +158,5 @@ export { initiateOmegAPQXDH, respondOmegAPQXDH, type OmegAPQKEM, type OmegAPQXDH
 export { createE2EEBootstrap, type E2EEBootstrapOptions, type E2EEBootstrap } from "./domains/e2ee/bootstrap";
 
 export { createSignalEncryptedGroupMessaging, type SignalGroupMessagingDeps, type EncryptedGroupMessageEnvelope } from "./domains/e2ee/group-messaging";
+
+export { createSignalEncryptedGroupMediaMessaging, type SignalGroupMediaMessagingDeps, type EncryptedGroupMediaMessageEnvelope } from "./domains/e2ee/group-media-messaging";
