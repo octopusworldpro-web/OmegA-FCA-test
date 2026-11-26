@@ -118,7 +118,9 @@ export function createLibsignalStores(signal: Dynamic, store: SignalKeyStore) {
       return signal.KyberPreKeyRecord.deserialize(fromBase64(serialized));
     }
     async markKyberPreKeyUsed(id: number, signedPreKeyId: number, baseKey: Dynamic): Promise<void> {
-      await store.markKyberPreKeyUsed(id, signedPreKeyId, bytesToBase64(baseKey.serialize()));
+      // The store operation atomically claims the one-time KEM key and persists
+      // its use marker. Concurrent decryptions cannot both consume the same key.
+      await store.consumeKyberPreKey(id, signedPreKeyId, bytesToBase64(baseKey.serialize()));
     }
   }
 
