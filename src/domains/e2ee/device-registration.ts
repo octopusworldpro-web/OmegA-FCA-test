@@ -16,6 +16,8 @@ export interface FacebookE2EERegistrationOptions {
   signedPreKeyId: number;
   fetch?: FetchLike;
   now?: () => number;
+  /** Explicitly re-register an existing device only when recovery requires it. */
+  force?: boolean;
 }
 
 export interface FacebookE2EERegistrationResult {
@@ -113,10 +115,21 @@ export async function registerFacebookE2EEDevice(
   if (!options.signal?.PrivateKey || !options.store) throw new TypeError("libsignal and SignalKeyStore are required");
 
   const fetcher = options.fetch || fetch;
-  const deviceId = options.deviceId || randomUUID();
+  const existingDevice = options.store.getDeviceRecord();
   const registrationId = options.store.getRegistrationId();
   const identity = options.store.getIdentityKeyPair();
   if (!registrationId || !identity) throw new Error("Signal identity and registration ID must be initialized first");
+
+  if (existingDevice && !options.force && (!options.deviceId || options.deviceId === existingDevice.deviceId)) {
+    return {
+      deviceId: existingDevice.deviceId,
+      waDeviceId: existingDevice.waDeviceId,
+      registrationId,
+      signedPreKeyId: options.signedPreKeyId,
+      icdcSequence: existingDevice.icdcSequence
+    };
+  }
+  const deviceId = options.deviceId || existingDevice?.deviceId || randomUUID();
 
   if (!Number.isSafeInteger(options.signedPreKeyId) || options.signedPreKeyId < 0) {
     throw new TypeError("signedPreKeyId must be a non-negative integer");
