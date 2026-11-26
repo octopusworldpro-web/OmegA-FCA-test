@@ -4,6 +4,7 @@ const fca = require("../dist/index.js");
 
 (async () => {
   const calls = [];
+  let persistedDevice;
   const privateKey = {
     sign: (bytes) => Buffer.from("signed:").toString("utf8") && Buffer.from(bytes).subarray(0, 16)
   };
@@ -18,7 +19,8 @@ const fca = require("../dist/index.js");
     signal: { PrivateKey: { deserialize: () => privateKey } },
     store: {
       getRegistrationId: () => 4567,
-      setDeviceRecord: async (record) => { calls.push({ persisted: record }); },
+      getDeviceRecord: () => persistedDevice,
+      setDeviceRecord: async (record) => { persistedDevice = record; calls.push({ persisted: record }); },
       getIdentityKeyPair: () => ({
         publicKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 1)]).toString("base64"),
         privateKey: Buffer.alloc(32, 2).toString("base64")
@@ -49,8 +51,14 @@ const fca = require("../dist/index.js");
   assert.match(calls[0].url, /fb_icdc_fetch$/);
   assert.match(calls[1].url, /fb_register_v2$/);
   assert.match(calls[1].body, /e_ident=/);
+  const repeat = await fca.registerFacebookE2EEDevice({
+    ...options,
+    fetch: async () => { throw new Error("registered device must not register again"); }
+  });
+  assert.deepEqual(repeat, result);
+  assert.equal(calls.filter((call) => call.url).length, 2);
   await assert.rejects(
-    fca.registerFacebookE2EEDevice({ ...options, fetch: async () => ({ ok: true, json: async () => ({ status: 403 }) }) }),
+    fca.registerFacebookE2EEDevice({ ...options, force: true, fetch: async () => ({ ok: true, json: async () => ({ status: 403 }) }) }),
     /invalid ICDC device list/
   );
   console.log("Facebook E2EE device registration tests passed");
