@@ -67,3 +67,9 @@ The branch now exposes `initiateOmegAX3DH()` and `respondOmegAX3DH()` in `src/do
 The initiator requires a `verifySignedPreKey` callback and aborts if it returns false. This is an explicit security boundary: **the callback must be a real XEdDSA verifier for the selected protocol**. The included tests use a synthetic verifier callback only to verify DH symmetry and failure plumbing; they do not test XEdDSA or establish Signal interoperability. The responder's caller must atomically consume/delete a one-time prekey after successful initial-message authentication.
 
 This is a classical X3DH core, **not PQXDH** and not a complete Signal session. XEdDSA implementation, PQ KEM (ML-KEM/Kyber) interoperability, protocol-specific key/signature encodings, integration with the session store and ratchet, runtime auto-factory, and official protocol test vectors remain outstanding. Do not publish or enable this as Messenger E2EE.
+
+## OmegA-owned XEdDSA verification core (in progress)
+
+The branch now contains `src/domains/e2ee/xeddsa.ts`, an OmegA-authored Curve25519 XEdDSA verifier implementing the revision-1 public-key conversion, Edwards point decoding, SHA-512 challenge calculation, scalar bit-length checks, and the specified verification equation. X3DH now uses this verifier by default when validating a signed-prekey bundle; an explicit protocol-specific verifier override remains available.
+
+The verifier handles public inputs only and is not a signing implementation. Current automated tests cover malformed lengths, invalid signatures, and rejection by the default X3DH path. These are negative tests, not official XEdDSA vectors or independent interoperability evidence. Positive official vectors and cross-implementation tests are still required before treating signed-prekey verification as production-validated.
