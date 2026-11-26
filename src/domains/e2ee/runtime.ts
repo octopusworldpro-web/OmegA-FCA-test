@@ -74,12 +74,12 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
 
   try {
     await ensureSignalIdentity(options.signal, store);
-    let signedPreKeyId = options.signedPreKeyId;
-    if (signedPreKeyId === undefined) {
-      signedPreKeyId = store.listSignedPreKeyIds().length
-        ? Math.max(...store.listSignedPreKeyIds()) + 1
-        : 1;
-    }
+    const existingSignedPreKeyIds = store.listSignedPreKeyIds();
+    // Reuse the current persisted signed prekey by default. Creating a fresh
+    // signed prekey on every process restart would churn device bundles and
+    // make previously published bundles stale without any rotation policy.
+    const signedPreKeyId = options.signedPreKeyId ??
+      (existingSignedPreKeyIds.length ? Math.max(...existingSignedPreKeyIds) : 1);
     if (!store.loadSignedPreKey(signedPreKeyId)) {
       await createSignalSignedPreKey(options.signal, store, signedPreKeyId);
     }
