@@ -8,6 +8,7 @@ Current source baseline: **0.2.3-beta.3** (Node.js >= 20).
 - [API and compatibility](API.md) — supported entry points and FCA-style surface.
 - [Authentication and sessions](AUTHENTICATION.md) — accepted session inputs and safety behavior.
 - [E2EE status](E2EE-STATUS.md) — implemented local components versus missing Messenger integration.
+- [E2EE implementation roadmap](E2EE-ROADMAP.md) — the four-step completion plan and acceptance checks.
 - [Reference comparison](REFERENCE-COMPATIBILITY.md) — comparison against the public `@eryxenx/fca` 1.3.5 package documentation and Bot-by-Nirzon integration.
 
 ## Important
