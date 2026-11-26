@@ -8,6 +8,7 @@ import { runConfiguredUpdateCheck } from "./update-check";
 import loginHelper from "./login-helper";
 import { createSignalE2EERuntime } from "../domains/e2ee/runtime";
 import { validateSessionCookieInput } from "./session-validation";
+import { createSendBroadcast } from "../domains/messages/send-broadcast";
 
 const { getType } = format;
 
@@ -233,6 +234,9 @@ export async function loginAsync(
     await runConfiguredUpdateCheck(config, logger);
   }
   api = await runLogin();
+  if (typeof api.sendMessage === "function" && typeof api.sendBroadcast !== "function") {
+    api.sendBroadcast = createSendBroadcast(api.sendMessage.bind(api));
+  }
 
   (ctx as Loose).api = api;
   try {
