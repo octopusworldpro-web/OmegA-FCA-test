@@ -1,6 +1,6 @@
 # OmegA-FCA Messenger E2EE Auto-Integration Plan
 
-> **Status:** Step 1 is in progress. The OmegA-Goatbot compatibility branch has started implementing automatic per-account local identity provisioning. Messenger E2EE is not yet connected or production-verified.
+> **Status:** Step 1 complete in the OmegA-Goatbot compatibility branch. This covers automatic local identity provisioning only; Messenger E2EE is not yet connected or production-verified.
 
 ## Goal
 
@@ -34,27 +34,27 @@ Re-check these files before implementation because the branch may change after t
 
 ### Step 1 — Automatic local encryption setup
 
-<em>In progress — implementation started on OmegA-Goatbot branch `agent-fca-compat-fix`.</em>
+<em>Completed on OmegA-Goatbot branch `agent-fca-compat-fix`.</em>
 
 **Purpose:** Remove the need for a user-provided Railway encryption secret and device ID.
 
 Tasks:
-- Add a single internal E2EE bootstrap/configuration path invoked by the FCA session lifecycle.
-- Generate cryptographically secure random encryption material with Node.js crypto; never use timestamps, Math.random(), account passwords, or hard-coded constants.
-- Generate/select the local device identifier and Signal registration ID safely.
+- [x] Add an internal E2EE bootstrap/configuration path invoked from the GoatBot FCA login and account-recovery login option builders.
+- [x] Generate a cryptographically secure 32-byte local encryption key and device ID with Node.js crypto.
+- [x] Generate a positive local device identifier. Signal registration ID remains Step 2/3 work.
 - Decide the storage policy explicitly:
-  - Prefer a private per-account local data directory with restrictive directory/file permissions.
+  - [x] Persist per-account identity under `data/e2ee/<fbid>/identity.json` with `0700` directory and `0600` file permissions.
   - If identity continuity across process restarts is required, persist the generated wrapping secret securely alongside the account's local state (not in logs or committed files), or use an available secure host secret store.
   - If a fresh key is generated after every process restart, treat that as a **new E2EE device identity**: old sessions and keys cannot be decrypted/reused, and device registration/bundle publication must be repeated. Do not silently pretend it is the old device.
-- Keep account data isolated; prevent one account from opening another account's key store.
-- Make initialization idempotent within one active session so reconnects do not create duplicate devices or rewrite keys unnecessarily.
-- Ensure temporary files, permissions, atomic writes, and cleanup are handled safely.
+- [x] Scope each identity directory to the validated numeric Facebook account ID.
+- [x] Reuse the existing identity on subsequent login/recovery calls; atomic creation prevents concurrent first-login overwrites.
+- [x] Use exclusive temporary files, atomic hard-link creation, restrictive permissions, and temporary-file cleanup.
 
 **Acceptance checks:**
 - No E2EE-specific Railway variable is required for first-time setup.
 - Missing local state causes secure automatic initialization.
 - Existing valid state is reused when the selected persistence policy allows it.
-- Corrupt state, wrong account, or unreadable storage produces a clear E2EE-specific error without crashing normal FCA login.
+- [x] Corrupt state, wrong account, or unreadable storage produces a clear E2EE-specific warning while ordinary login continues.
 - Secrets and private keys never appear in logs.
 
 ### Step 2 — Signal engine and prekey initialization
@@ -156,10 +156,12 @@ Tasks:
 
 | Step | Scope | Status |
 |---|---|---|
-| 1 | Automatic local encryption setup | In progress — GoatBot-side per-account identity provisioning and fail-open login integration added; targeted tests committed but not yet executed in CI |
+| 1 | Automatic local encryption setup | Done — 11 targeted Node.js tests passed locally; GoatBot branch `agent-fca-compat-fix` |
 | 2 | Signal engine and prekey initialization | Not started |
 | 3 | Automatic Facebook E2EE device registration | Not started |
 | 4 | Messenger realtime transport and encrypted message flow | Not started |
 | 5 | End-to-end integration, resilience, tests, and documentation | Not started |
 
-**Current release assessment:** Messenger E2EE is not production-integrated or verified on the inspected baseline. Normal FCA functionality must remain usable while these five steps are implemented and validated.
+**Step 1 validation:** 11 targeted Node.js tests passed locally for identity creation/reuse, account isolation, corrupt-state handling, permissions, provider selection, zero-E2EE-environment setup, and fail-open login options. The test files are committed in OmegA-Goatbot; the full GoatBot application and real Messenger E2EE transport have not been end-to-end tested here.
+
+**Current release assessment:** Messenger E2EE is not production-integrated or verified. Step 1 provides local identity material only; Signal engine initialization, Facebook device registration, and encrypted Messenger transport remain future steps.
