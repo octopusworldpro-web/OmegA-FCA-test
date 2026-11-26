@@ -21,6 +21,8 @@ export interface FcaOptions {
     encryptionKey?: string | Buffer;
     localDeviceId?: number;
     signedPreKeyId?: number;
+    /** Facebook ICDC registration parameters; omitted means local-only E2EE bootstrap. */
+    facebook?: { appId: string; fbCat: string; deviceId?: string; force?: boolean };
     signalModule?: unknown;
   };
 }
