@@ -60,7 +60,7 @@ The remaining Step 2 work includes protocol-spec conformance and independent tes
 
 ## OmegA X3DH key-agreement core (in progress)
 
-The branch now exposes `initiateOmegAX3DH()` and `respondOmegAX3DH()` in `src/domains/e2ee/x3dh.ts`. The module implements the classical X25519 three/four-DH key agreement core, the X3DH 32-byte HKDF derivation with the X25519 domain-separation prefix, identity-bound associated data, and both optional-one-time-prekey and no-one-time-prekey paths. It wipes its temporary DH buffers and local copies of ephemeral/private key bytes after derivation.
+The branch now exposes `initiateOmegAX3DH()` and `respondOmegAX3DH()` in `src/domains/e2ee/x3dh.ts`. The module implements the classical X25519 three/four-DH key agreement core, the X3DH 32-byte HKDF derivation with the X25519 domain-separation prefix, identity-bound associated data using the typed Curve25519 public-key encoding, and both optional-one-time-prekey and no-one-time-prekey paths. It wipes its temporary DH buffers and local copies of ephemeral/private key bytes after derivation.
 
 The initiator requires a `verifySignedPreKey` callback and aborts if it returns false. This is an explicit security boundary: **the callback must be a real XEdDSA verifier for the selected protocol**. The included tests use a synthetic verifier callback only to verify DH symmetry and failure plumbing; they do not test XEdDSA or establish Signal interoperability. The responder's caller must atomically consume/delete a one-time prekey after successful initial-message authentication.
 
