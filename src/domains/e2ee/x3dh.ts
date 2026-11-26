@@ -5,6 +5,7 @@ import {
   generateOmegAX25519KeyPair,
   type OmegAKeyPair
 } from "./native-crypto";
+import { verifyOmegAXEdDSA } from "./xeddsa";
 
 const X25519_DOMAIN_PREFIX = Buffer.alloc(32, 0xff);
 const HASH_BYTES = 32;
@@ -23,7 +24,7 @@ export interface OmegAX3DHInitiatorOptions {
   identityKeyPair: OmegAKeyPair;
   bundle: OmegAX3DHPreKeyBundle;
   /** Must perform the protocol's real XEdDSA verification; false or throw aborts. */
-  verifySignedPreKey: (identityPublicKey: Buffer, signedPreKey: Buffer, signature: Buffer) => boolean;
+  verifySignedPreKey?: (identityPublicKey: Buffer, signedPreKey: Buffer, signature: Buffer) => boolean;
 }
 export interface OmegAX3DHInitialMessage {
   identityKey: string;
@@ -80,9 +81,7 @@ function associatedData(aliceIdentity: Buffer, bobIdentity: Buffer): Buffer {
  * not pretend Ed25519 signatures are interchangeable with XEdDSA.
  */
 export function initiateOmegAX3DH(options: OmegAX3DHInitiatorOptions): OmegAX3DHInitiatorResult {
-  if (!options || typeof options.verifySignedPreKey !== "function") {
-    throw new TypeError("A real XEdDSA signed-prekey verifier is required");
-  }
+  if (!options) throw new TypeError("X3DH options are required");
   const bundle = options.bundle;
   if (!bundle) throw new TypeError("X3DH prekey bundle is required");
   validId(bundle.signedPreKeyId, "signedPreKeyId");
@@ -92,7 +91,8 @@ export function initiateOmegAX3DH(options: OmegAX3DHInitiatorOptions): OmegAX3DH
   const bobIdentity = key32(bundle.identityKey, "bundle.identityKey");
   const bobSignedPreKey = key32(bundle.signedPreKey, "bundle.signedPreKey");
   const signature = Buffer.from(bundle.signedPreKeySignature);
-  if (!signature.length || !options.verifySignedPreKey(bobIdentity, bobSignedPreKey, signature)) {
+  const verify = options.verifySignedPreKey || verifyOmegAXEdDSA;
+  if (!signature.length || !verify(bobIdentity, bobSignedPreKey, signature)) {
     throw new Error("X3DH signed-prekey XEdDSA verification failed");
   }
 
