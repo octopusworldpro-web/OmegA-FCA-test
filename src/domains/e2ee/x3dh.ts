@@ -69,8 +69,9 @@ function deriveSecret(parts: Buffer[], info: string): Buffer {
   }
 }
 function associatedData(aliceIdentity: Buffer, bobIdentity: Buffer): Buffer {
-  // X3DH encodes both 32-byte X25519 public keys in their raw RFC 7748 form.
-  return Buffer.concat([aliceIdentity, bobIdentity]);
+  // Signal's X25519 public-key encoding uses the 0x05 curve-type byte.
+  const curve25519Type = Buffer.from([0x05]);
+  return Buffer.concat([curve25519Type, aliceIdentity, curve25519Type, bobIdentity]);
 }
 
 /**
