@@ -79,3 +79,9 @@ The verifier handles public inputs only and is not a signing implementation. Cur
 Added `src/domains/e2ee/pqxdh.ts` with initiator/responder orchestration for the Signal PQXDH revision-3 hybrid construction: X25519 DH1-DH3 (optional DH4 with EC OPK), signed curve-prekey and signed KEM-prekey validation using XEdDSA, KEM encapsulation/decapsulation, the Curve25519 0xFF domain prefix, SHA-512 HKDF with the protocol/curve/hash/KEM parameter string, and identity-bound associated data. A KEM provider is mandatory and must supply the exact parameter-specific key encoding and encapsulation/decapsulation functions. The module fails closed when no provider is supplied.
 
 Automated tests use a deliberately synthetic test KEM to verify initiator/responder transcript symmetry and failure handling. **These tests do not implement or validate ML-KEM/Kyber.** No production KEM backend is currently wired. The Signal PQXDH specification requires a real post-quantum KEM; a callback interface or mock is not a substitute. Do not advertise PQXDH as operational until a vetted, parameter-matched KEM backend, official vectors, and independent interoperability tests are available.
+
+### One-time KEM prekey consumption hardening
+
+The encrypted key store now exposes `consumeKyberPreKey()`, which atomically claims a stored one-time KEM prekey, records its signed-prekey/base-key use marker, persists the claim, and returns the serialized private record only to the successful claimant. Concurrent/repeated claims are serialized through the store mutation queue and rejected; the claim survives restart. Tests cover successful claim, same-base-key replay, different-base-key reuse, and persisted consumption state.
+
+This is storage/lifecycle hardening only. The PQXDH responder still needs to be wired to a real protocol-matched KEM implementation and to consume the appropriate key records in the actual Messenger receive lifecycle. It does not establish production PQXDH.
