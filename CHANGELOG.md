@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Documentation
+
+- Add a four-step Messenger E2EE implementation roadmap with acceptance checks, safety constraints, and explicit integration status.
+- Update E2EE status documentation and the README license badge for AGPL-3.0-or-later.
+
 ---
 
 ## [0.2.3-beta.2] - 2026-11-25
