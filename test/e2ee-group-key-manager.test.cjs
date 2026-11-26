@@ -4,6 +4,21 @@ const fca = require("../dist/index.js");
 
 (async () => {
   const sender = { name: "self", deviceId: 1 };
+  function makeStore() {
+    const delivered = new Map();
+    const key = (address, groupId) => address.name + "." + address.deviceId + "|" + groupId;
+    return {
+      removeSenderKey: async () => {},
+      getSenderKeyDistributionRecipients: (address, groupId) => [...(delivered.get(key(address, groupId)) || [])],
+      markSenderKeyDistributionDelivered: async (address, groupId, recipient) => {
+        const k = key(address, groupId);
+        const values = delivered.get(k) || new Set();
+        values.add(recipient.name + "." + recipient.deviceId);
+        delivered.set(k, values);
+      },
+      clearSenderKeyDistribution: async (address, groupId) => delivered.delete(key(address, groupId))
+    };
+  }
   let members = [
     { name: "alice", deviceId: 1 },
     { name: "bob", deviceId: 2 },
@@ -26,8 +41,9 @@ const fca = require("../dist/index.js");
     }),
     decrypt: async (ciphertext) => Buffer.from(ciphertext.body, "base64")
   };
+  const managerStore = Object.assign(makeStore(), { removeSenderKey: async (local, groupId) => activeKeys.delete(String(groupId) + "|" + local.name + "." + local.deviceId) });
   const manager = fca.createSignalGroupKeyManager({
-    store: { removeSenderKey: async (local, groupId) => activeKeys.delete(`${groupId}|${local.name}.${local.deviceId}`) },
+    store: managerStore,
     groups,
     listMemberDevices: async () => members,
     sendDistribution: async (recipient, distribution) => {
@@ -45,6 +61,9 @@ const fca = require("../dist/index.js");
   assert.deepEqual(sent.map((item) => item.recipient.name), ["alice", "bob"], "previously delivered SKDM is not sent again");
   const repeated = await manager.distribute("group-1", sender);
   assert.deepEqual(repeated.recipients, [], "already delivered SKDMs are not resent");
+  const afterRestart = fca.createSignalGroupKeyManager({ store: managerStore, groups, listMemberDevices: async () => members, sendDistribution: async (recipient, distribution) => sent.push({ recipient, distribution }) });
+  const restartResult = await afterRestart.distribute("group-1", sender);
+  assert.deepEqual(restartResult.recipients, [], "persisted SKDM delivery state prevents duplicate sends after restart");
 
   const encrypted = await manager.encrypt("group-1", sender, "group hello");
   assert.equal(Buffer.from(encrypted.body, "base64").toString(), "group hello");
@@ -66,7 +85,7 @@ const fca = require("../dist/index.js");
   let concurrentCreates = 0;
   let concurrentSends = 0;
   const concurrent = fca.createSignalGroupKeyManager({
-    store: { removeSenderKey: async () => {} },
+    store: makeStore(),
     groups: {
       ...groups,
       createDistribution: async (...args) => {
