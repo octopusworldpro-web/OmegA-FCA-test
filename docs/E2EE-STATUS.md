@@ -13,7 +13,7 @@ This file records current implementation evidence only. The four-step roadmap is
 | Step | Current status | Implemented evidence | Main remaining work |
 |---|---|---|---|
 | 1. E2EE Engine & Login Integration | Verified complete | Real libsignal 0.70 runtime; authenticated UID validation; encrypted account-scoped store; automatic account-local key/device bootstrap; restart/account-isolation tests; fail-open login integration | None within Step 1. Facebook ICDC/server key publication is Step 2; native Messenger MQTT wire integration is Step 3 |
-| 2. Facebook Device Registration & Key Sync | In progress | ICDC helper, encrypted key store, device metadata, public identity bundle, prekey lifecycle groundwork | ICDC helper is not yet called from authenticated login; verify real Facebook registration and key publishing with protocol-correct fields/formats |
+| 2. Facebook Device Registration & Key Sync | In progress | Authenticated login now passes the active cookie header and user agent into the E2EE lifecycle; when `e2ee.facebook.appId` and `e2ee.facebook.fbCat` are configured, the ICDC fetch/register helper is invoked with the persisted Signal identity and signed prekey; device metadata is persisted and registration is idempotent | Validate ICDC against an authorized live account; implement and verify Noise/WA-binary Signed PreKey and One-time PreKey upload; verify whether Messenger accepts Kyber publication and its exact stanza format |
 | 3. E2EE Messaging & Group System | In progress | Signal direct-message primitives with injected peer/bundle interfaces; Group Sender Keys/SKDM persistence and restart-safe retry; application-level encrypted group messaging | Native Messenger MQTT envelope integration, Facebook peer/device discovery and bundle exchange, direct/group wire compatibility and real interoperability |
 | 4. Encrypted Media & Full Compatibility Test | In progress | Direct/group media crypto helpers, group-media application-level orchestration, local transport tests | Native Facebook media transport, image/video/file interoperability, EryXen comparison, authorized real-account tests |
 
@@ -22,13 +22,31 @@ This file records current implementation evidence only. The four-step roadmap is
 - `src/domains/e2ee/bootstrap.ts`: creates account-scoped identity metadata and automatically generates/reuses a local encryption key and device ID; no E2EE environment variable or manual key setup is required.
 - `src/domains/e2ee/signal-key-store.ts`: encrypted persistence for Signal identity/session/prekey/group state and device metadata.
 - `src/domains/e2ee/libsignal-adapter.ts`: adapter boundary for the selected libsignal implementation.
-- `src/domains/e2ee/device-registration.ts`: Facebook ICDC registration helper. It is not yet invoked from the authenticated login lifecycle; helper presence does not prove Facebook registration.
+- `src/domains/e2ee/device-registration.ts`: Facebook ICDC registration helper, now wired into authenticated login when explicit Facebook app/category parameters are configured. A successful local test only proves request construction and lifecycle wiring; it does not prove Facebook server acceptance.
 - `src/domains/e2ee/direct-messages.ts` and `src/domains/e2ee/peer-manager.ts`: Signal direct-message primitives and transport-neutral peer/bundle interfaces; no native Facebook peer discovery or MQTT integration is claimed.
 - `src/domains/e2ee/group-key-manager.ts` and `src/domains/e2ee/sender-keys.ts`: group Sender Key/SKDM handling and delivery state.
 - `src/domains/e2ee/group-messaging.ts`: application-level encrypted group-message envelope orchestration over an injected authenticated transport.
 - `src/domains/e2ee/encrypted-media.ts`, `src/domains/e2ee/encrypted-group-media.ts`, and `src/domains/e2ee/group-media-messaging.ts`: local media crypto and application-level group-media orchestration.
 
 Local cryptographic foundations include X3DH/PQXDH orchestration, XEdDSA verification, and an experimental Double Ratchet. These are not by themselves proof of official Signal conformance or Messenger interoperability.
+
+## ICDC login configuration
+
+Enable E2EE and provide the Facebook ICDC application parameters in the login options:
+
+```js
+{
+  e2ee: {
+    enabled: true,
+    facebook: {
+      appId: "<verified Messenger app ID>",
+      fbCat: "<verified Facebook category>"
+    }
+  }
+}
+```
+
+The authenticated FCA login supplies its active cookie header and user agent internally; callers should not copy session cookies into configuration. If the Facebook parameters are omitted, OmegA initializes the local Signal runtime only and does not claim device registration.
 
 ## Local storage security note
 
