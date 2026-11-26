@@ -1,99 +1,133 @@
-# OmegA-FCA E2EE implementation roadmap
+# OmegA-FCA — Canonical E2EE Completion Plan
 
-**Baseline:** `0.2.3-beta.3`  
-**Target branch:** `feature/release-0.2.3-beta.3`  
-**Current state:** integration in progress — not production-ready or verified.
+**Version:** `0.2.3-beta.3`  
+**Branch:** `feature/release-0.2.3-beta.3`  
+**Authority:** This is the single source of truth for E2EE scope and progress. The work is grouped into exactly four Steps. Older E2EE task lists and previous 5-step/8-item checklists are superseded and must not be used for progress reporting.
 
-This roadmap groups the remaining Messenger E2EE work into four implementation steps. A step is complete only when its code, tests, and integration evidence are present; documentation or mocked tests alone do not count as completion.
+## Overall status
 
-## Step 1 — E2EE engine and existing-login integration
+**All four Steps have implementation work; none is fully complete or production-verified yet.**
 
-**Goal:** Start E2EE from the authenticated FCA session without changing the existing login contract.
+- Step 1: In progress
+- Step 2: In progress
+- Step 3: In progress
+- Step 4: In progress
 
-- Add and pin a compatible Signal/libsignal engine dependency; load it automatically rather than requiring callers to inject `signalModule`.
-- Reuse the already authenticated FCA AppState/session and cookies for the E2EE connection.
-- Initialize the account-scoped E2EE runtime and persistent local identity automatically when E2EE is enabled.
-- Keep password and 2FA handling inside the existing FCA login flow. Do not forward credentials to an external login API or relay.
-- Make E2EE initialization fail-open: an E2EE failure must not break ordinary FCA login, MQTT, humanizer, or regular message operations.
-- Keep key material and session data protected at rest; redact cookies, AppState, keys, and plaintext from logs.
+A Step is complete only after its code, tests, required integration, and acceptance evidence are present. Unit tests, mocks, helper modules, and a passing CI run do not by themselves prove Messenger interoperability.
 
-**Acceptance checks**
-- No new external credential-login path is introduced.
-- Existing login signatures and ordinary FCA behavior remain unchanged.
-- Restart reuses the same account identity and persisted keys.
-- Missing or incompatible E2EE dependencies produce a clear E2EE-disabled state while normal FCA remains usable.
+## Step 1 — E2EE Engine & Login Integration
 
-## Step 2 — Facebook device registration and key synchronization
+**Scope**
+- Automatic compatible libsignal engine setup.
+- Reuse the existing authenticated FCA AppState/session and cookies for E2EE; do not add an external credential relay.
+- Account-scoped automatic identity and key-store bootstrap.
+- Fail-open behavior: E2EE initialization failure must not break ordinary FCA login, MQTT, humanizer, or regular messaging.
+- Preserve the existing FCA login API and protect credentials/key material.
 
-**Goal:** Register the local Signal identity as a Messenger E2EE device and maintain its public key bundle.
+**Implemented in the current branch**
+- Pinned `@signalapp/libsignal-client` dependency.
+- Automatic local account identity bootstrap helper with persistent device metadata and generated local encryption material.
+- Fail-open login handling changes and bootstrap tests.
 
-- Connect the existing ICDC registration helper to the authenticated login lifecycle.
-- Persist and reuse the Facebook E2EE device ID and registration metadata per account.
-- Publish/synchronize the identity key, signed prekey, one-time prekeys, and protocol-supported post-quantum prekeys.
-- Verify signed-prekey and device identity data before trusting or publishing it.
-- Handle prekey replenishment, rotation, registration retries, and restart recovery without replacing an existing identity unexpectedly.
-- Ensure one-time prekeys are consumed atomically and cannot be reused after successful consumption.
+**Still required**
+- Verify the bootstrap is invoked in the actual authenticated login lifecycle for every supported login/session path.
+- Complete creation of the usable Signal runtime from the existing authenticated FCA session.
+- Verify normal FCA login/MQTT/humanizer behavior remains unchanged when E2EE is unavailable.
+- Verify restart, account switching, and storage recovery with the real selected libsignal engine.
 
-**Acceptance checks**
-- Registration uses the existing authenticated session only.
-- Device and key state survives restart and is isolated by account.
-- Invalid server responses and rejected registrations fail safely.
-- Key publication and consumption are tested against the selected protocol implementation, not only mocks.
+**Acceptance**
+- Existing AppState/Cookie login works unchanged.
+- No password, 2FA, AppState, or cookie is sent to an external E2EE credential service.
+- The selected Signal engine loads automatically and a persistent account runtime is initialized.
+- E2EE failure is fail-open for ordinary FCA behavior.
+- Lifecycle and restart tests pass.
 
-## Step 3 — E2EE direct messaging and groups
+## Step 2 — Facebook Device Registration & Key Sync
 
-**Goal:** Connect Signal sessions to Messenger's actual realtime message protocol.
+**Scope**
+- Facebook ICDC device registration.
+- Persistent identity key and Facebook E2EE device ID/registration metadata.
+- Signed PreKey, One-time PreKey, and protocol-supported Kyber/PQ PreKey publishing and synchronization.
+- Safe prekey replenishment, rotation, retry, and atomic one-time-key consumption.
 
-- Implement peer/device discovery and authenticated bundle exchange.
-- Establish and persist direct-message sessions with the selected Signal engine.
-- Encode/decode Messenger E2EE MQTT envelopes and route incoming encrypted events through the existing realtime event lifecycle.
-- Encrypt outgoing direct messages and decrypt incoming messages while preserving the public FCA API behavior.
-- Integrate group Sender Keys and Sender Key Distribution Messages (SKDM).
-- Support encrypted group message send/receive, membership/device changes, and key rotation.
-- Keep ordinary non-E2EE message paths and event handling backward-compatible.
+**Implemented in the current branch**
+- Facebook ICDC registration helper.
+- Encrypted key-store persistence and device metadata support.
+- Public identity-bundle metadata exposure.
+- Persistent EC/PQ prekey bundle groundwork and atomic Kyber-prekey consumption safeguards.
 
-**Acceptance checks**
-- Wire serialization and protocol fields match the supported Messenger implementation.
-- Direct and group messages pass cross-device interoperability tests.
-- Reconnect, duplicate delivery, out-of-order delivery, replay, and session recovery are covered.
-- Unsupported or malformed encrypted events fail safely without corrupting normal MQTT processing.
+**Still required**
+- Invoke ICDC registration from the authenticated FCA login lifecycle.
+- Verify actual Facebook registration and public key-bundle publishing using the authenticated session.
+- Verify the real protocol-matched PQ/Kyber provider and key formats; mock KEM tests are not production KEM evidence.
+- Verify server responses, key rotation, replenishment, and restart recovery against the selected protocol.
 
-## Step 4 — Encrypted media and end-to-end compatibility verification
+**Acceptance**
+- ICDC registration and key publishing succeed against Facebook using the existing authenticated session.
+- Device identity and key state survive restart and remain account-isolated.
+- Published key formats and one-time key consumption are verified against the target protocol.
 
-**Goal:** Complete encrypted media flows and prove the integrated system works with authorized test accounts.
+## Step 3 — E2EE Messaging & Group System
 
-- Encrypt media before upload and decrypt downloaded media only after successful authentication.
-- Integrate encrypted media metadata, upload/download transport, and temporary media handling.
-- Cover image, video, and file attachments; add group encrypted media where the Messenger protocol supports it.
-- Verify receipts, reactions, edit/unsend behavior, and attachment lifecycle on encrypted threads where supported.
-- Compare behavior with the reviewed EryXen reference while independently validating the actual OmegA implementation.
-- Run build, typecheck, lint, unit/integration tests, and authorized real-account tests.
-- Verify fresh login, restart, reconnect, multiple devices, and recovery behavior.
-- Document runtime/platform requirements, known limitations, and safe rollback behavior.
+**Scope**
+- Messenger MQTT encrypted send/receive and decrypt integration.
+- Direct-message encryption and peer/device bundle exchange.
+- Group Sender Keys/SKDM, encrypted group messaging, membership/device changes, and key rotation.
+- Preserve ordinary non-E2EE message/event handling.
 
-**Acceptance checks**
-- Encrypted media is interoperable across authorized test devices.
-- Real-account tests demonstrate successful encrypted send and receive; mocks are not accepted as proof.
-- Ordinary FCA login, MQTT, humanizer, and regular messages remain unaffected when E2EE is disabled or unavailable.
-- No secrets or plaintext appear in logs or test artifacts.
+**Implemented in the current branch**
+- Group Sender Key/SKDM delivery persistence and restart-aware retry logic.
+- Application-level encrypted group-message orchestration over an injected authenticated transport.
+- Tests for group key delivery persistence/retry and encrypted group-message envelope validation/decryption.
 
-## Current implementation boundary
+**Still required**
+- Implement and verify Messenger peer/device discovery and bundle exchange.
+- Integrate direct-message encryption/decryption with the real Messenger MQTT envelope and event lifecycle.
+- Establish Messenger wire-format compatibility for direct and group encrypted messages.
+- Verify cross-device send/receive, reconnect, duplicate/out-of-order delivery, replay protection, and recovery with authorized test devices.
 
-The branch already contains local encrypted key storage, libsignal adapter interfaces, local identity/prekey helpers, an ICDC registration helper, direct-message and group primitives, and experimental OmegA-authored cryptographic components. These are building blocks, not a complete Messenger E2EE implementation.
+**Acceptance**
+- A real authorized test account exchanges encrypted direct messages with a compatible peer.
+- Receiver decrypts successfully and session state remains consistent.
+- Group messages work across authorized devices using Messenger-compatible wire formats.
+- Ordinary FCA messaging remains backward-compatible.
 
-At the time of this roadmap update:
-- the Signal module is still caller-supplied to the runtime;
-- ICDC registration is not yet invoked by the login lifecycle;
-- key-bundle publication and peer exchange are not integrated;
-- Messenger E2EE MQTT envelope and wire-protocol integration is not established;
-- group messaging and encrypted media are not proven end-to-end;
-- local/mock tests do not prove live Messenger interoperability.
+## Step 4 — Encrypted Media & Full Compatibility Test
 
-## Compatibility and safety constraints
+**Scope**
+- Image/video/file encryption and decryption.
+- Encrypted media upload/download transport and metadata integration.
+- EryXen protocol comparison.
+- Reconnect, restart, multi-device, and authorized real-account interoperability tests.
 
-- Do not change or replace the existing FCA password/2FA login flow.
-- Do not add an external password/2FA relay or send credentials to a third-party login service.
-- Reuse the authenticated AppState/session for the separate E2EE connection.
-- E2EE remains opt-in and fail-open with respect to ordinary FCA functionality.
-- Preserve account isolation, persistent identity, encrypted storage, atomic one-time-key consumption, and secret redaction.
-- Do not claim production support until the acceptance checks above pass.
+**Implemented in the current branch**
+- Encrypted group-media pipeline and application-level transport orchestration.
+- Tests covering ciphertext upload, envelope handling, receive/decrypt, and group/sender validation.
+
+**Still required**
+- Integrate and verify the actual Messenger media upload/download transport for supported image, video, and file attachments.
+- Verify direct and group media interoperability with compatible Facebook E2EE devices.
+- Complete the EryXen protocol/reference comparison and record any differences.
+- Run authorized real-account tests for fresh login, reconnect, restart, multiple devices, and recovery.
+- Verify receipts and attachment lifecycle where supported by the target protocol.
+
+**Acceptance**
+- Encrypted media is sent and received across authorized compatible devices.
+- EryXen comparison is documented without copying unverified assumptions.
+- Real-account interoperability evidence is recorded separately from mock/unit tests.
+- Full build, tests, typecheck, lint, and package validation pass.
+
+## Verification record
+
+Latest checked branch head: `94ef32b965a4e6b2863373a55454a57a5a8d0cc4`
+
+Latest checked CI run: [45851159194](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45851159194) — **success** for build/tests, TypeScript, lint, security audit, and package dry run.
+
+CI success verifies the repository checks only. It does not prove native Messenger E2EE transport or real-account interoperability.
+
+## Reporting rules
+
+- Report progress only against these four Steps.
+- Use **Implemented**, **In progress**, **Blocked**, and **Verified complete** precisely.
+- Do not mark a Step complete based only on helper code, mocked tests, or CI.
+- Do not reintroduce superseded Labyrinth backup/restore, key-transparency, alias-parity, or other older audit-list items into this four-Step E2EE plan unless the user explicitly changes the scope.
