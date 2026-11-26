@@ -160,3 +160,5 @@ export { createE2EEBootstrap, type E2EEBootstrapOptions, type E2EEBootstrap } fr
 export { createSignalEncryptedGroupMessaging, type SignalGroupMessagingDeps, type EncryptedGroupMessageEnvelope } from "./domains/e2ee/group-messaging";
 
 export { createSignalEncryptedGroupMediaMessaging, type SignalGroupMediaMessagingDeps, type EncryptedGroupMediaMessageEnvelope } from "./domains/e2ee/group-media-messaging";
+
+export { initializeE2EEForLogin, type E2EELoginOptions, type E2EELoginResult } from "./domains/e2ee/login-integration";
