@@ -515,7 +515,7 @@ export class MessengerE2EEService extends EventEmitter {
     metadata: { fileName?: string; contentType?: string; width?: number; height?: number; seconds?: number; caption?: string; ptt?: boolean } = {}
   ): Promise<{ messageId: string; timestampMs: number; directPath: string; fileEncSHA256: string }> {
     await this.ready;
-    if (!/^\\d+$/.test(peerId)) throw new TypeError("Messenger peer ID must be numeric");
+    if (!/^\d+$/.test(peerId)) throw new TypeError("Messenger peer ID must be numeric");
     const kind = inferMessengerMediaType(metadata);
     const encrypted = encryptMessengerMedia(media, kind);
     const config = await fetchMessengerMediaUploadConfig(this.options.socket);
