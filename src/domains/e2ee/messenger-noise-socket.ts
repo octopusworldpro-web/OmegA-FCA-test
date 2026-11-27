@@ -226,6 +226,7 @@ export class MessengerNoiseSocket {
   private readonly pendingIQ = new Map<string, { resolve: (node: BinaryNode) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
   private dispatchTask: Promise<void> | null = null;
   private readonly bufferedNodes: BinaryNode[] = [];
+  private readonly undeliveredNodes: BinaryNode[] = [];
   private closedError: Error | null = null;
   private constructor(
     private readonly ws: WebSocket,
@@ -308,7 +309,7 @@ export class MessengerNoiseSocket {
           }
         }
         // Non-correlated IQs and message/presence/receipt nodes are never discarded.
-        this.events.emit("node", node);
+        this.emitNode(node);
       }
     })().catch((error) => this.stop(error instanceof Error ? error : new Error(String(error))));
   }
@@ -322,14 +323,27 @@ export class MessengerNoiseSocket {
     }
     this.events.emit("close", error);
   }
+  private emitNode(node: BinaryNode): void {
+    if (this.events.listenerCount("node") === 0) {
+      this.undeliveredNodes.push(node);
+      if (this.undeliveredNodes.length > 10000) this.stop(new Error("Messenger Noise incoming-node backlog limit exceeded"));
+      return;
+    }
+    this.events.emit("node", node);
+  }
+  private flushUndeliveredNodes(): void {
+    for (const node of this.undeliveredNodes.splice(0)) this.events.emit("node", node);
+  }
   onNode(listener: (node: BinaryNode) => void): () => void {
     if (typeof listener !== "function") throw new TypeError("Messenger node listener must be a function");
     this.events.on("node", listener);
+    this.flushUndeliveredNodes();
     return () => this.events.off("node", listener);
   }
   onceNode(listener: (node: BinaryNode) => void): void {
     if (typeof listener !== "function") throw new TypeError("Messenger node listener must be a function");
     this.events.once("node", listener);
+    this.flushUndeliveredNodes();
   }
   onClose(listener: (error: Error) => void): () => void {
     if (typeof listener !== "function") throw new TypeError("Messenger close listener must be a function");
