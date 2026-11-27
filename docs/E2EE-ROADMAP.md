@@ -93,7 +93,7 @@ A Step is complete only after its code, tests, required integration, and accepta
 - Group Sender Key/SKDM distribution over encrypted direct sessions, group `skmsg` send/receive/decrypt, and an explicit membership-sync/key-rotation API.
 - Server stanza acknowledgements, bounded retry receipts, inbound duplicate suppression, Noise reconnect with CAT refresh, and in-memory replay of the same pending encrypted stanza after reconnect.
 - FCA login exposes `api.e2ee.sendDirectText()`, `api.e2ee.sendGroupText()`, `api.e2ee.syncGroupMembership()`, and the `api.e2ee.messenger` event emitter when `e2ee.facebook` is configured.
-- Offline fixtures cover recursive WA-binary parsing, binary ciphertext/JID round-trips, peer/device and PreKeyBundle parsing, and reconnect/outbox replay.
+- Offline fixtures cover recursive WA-binary parsing, binary ciphertext/JID round-trips, peer/device and PreKeyBundle parsing, reconnect/outbox replay, and direct/group text send plus inbound decrypt/event delivery.
 
 **API usage**
 Native Messenger transport is enabled by opting in with `e2ee: { enabled: true, facebook: {} }`. Omitting `facebook` intentionally creates only the local Signal runtime.
@@ -351,12 +351,12 @@ This directive governs the remaining implementation work for Steps 2–4. It sup
 ### 2026-11-27 — Step 3 native text messaging implementation
 
 **Branch:** `feature/release-0.2.3-beta.3`  
-**Source head at implementation freeze:** `2cf46b80ea15982167b060046e860f8443c251ee`
+**Source head at implementation freeze:** `1a5b461ad41be89db50c8c41d9fd2383cbb4559d`
 
 - Added an attributed AGPL-compatible Messenger WA-binary codec from the public HerokeyVN/FB-Messenger-E2EE protocol reference; source headers preserve the upstream project attribution and license provenance.
 - Connected the authenticated Noise socket's full binary-node event dispatcher to the native peer directory, PreKeyBundle parser, libsignal sessions, direct text fanout/receive, group Sender Key/SKDM distribution, and group text encryption/decryption.
 - Integrated the service into the existing opt-in FCA login lifecycle. Native transport requires `e2ee.facebook` to be configured (an empty object uses the default app ID and automatic CAT retrieval); omitting it intentionally retains local-only E2EE bootstrap.
 - Exposed direct/group send, group membership key rotation, and inbound message events through `api.e2ee`. Ordinary FCA/MQTT messaging behavior remains unchanged.
 - Added bounded retry receipts, duplicate suppression, server-acknowledged outbound stanza tracking, CAT-refresh reconnect, and in-memory replay of the original ciphertext/stanza after socket reconnect.
-- Validation: offline build/test suite passed on the preceding source snapshot [CI run 46038030879](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46038030879). The newer reconnect and parser hardening changes at source head `2cf46b80ea15982167b060046e860f8443c251ee` still require their own CI result before this record can be treated as current validation.
+- Validation: [CI run 46039184482](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46039184482) for source head `1a5b461ad41be89db50c8c41d9fd2383cbb4559d` passed dependency/security audit, build and all tests, TypeScript check, lint, and package dry run.
 - **Status:** source implementation complete for direct/group text in the offline scope; Step 3 remains **In progress** until authorized live cross-device acceptance and the remaining items above are verified.
