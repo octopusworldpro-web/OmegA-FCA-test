@@ -15,7 +15,7 @@ export interface EncryptedDirectMediaEnvelope {
 
 export interface SignalDirectMediaMessagingDeps {
   signal: SignalDirectMessageDeps;
-  sendEnvelope(peerId: string, envelope: EncryptedDirectMediaEnvelope): Promise<void>;
+  sendEnvelope(peerId: string, remote: SignalPeerAddress, envelope: EncryptedDirectMediaEnvelope): Promise<void>;
 }
 
 function normalizePeerId(value: string): string {
@@ -58,7 +58,7 @@ export function createSignalEncryptedDirectMediaMessaging(deps: SignalDirectMedi
       const result = await encryptAndUploadSignalMedia(deps.signal, remote, plaintext, upload, metadata);
       const { upload: uploadRef, ...descriptor } = result;
       const envelope = validateEnvelope({ version: 1, kind: "direct_media", peerId, descriptor, upload: uploadRef });
-      await deps.sendEnvelope(peerId, envelope);
+      await deps.sendEnvelope(peerId, remote, envelope);
       return envelope;
     },
     async receive(
