@@ -50,6 +50,8 @@ interface SignalStoreState {
   device?: SignalDeviceRecord;
   /** Facebook IQ result acknowledgements, persisted across process restarts. */
   publishedPreKeys?: Record<string, number>;
+  /** Monotonic one-time-prekey ID high-water mark; prevents reuse after consumption. */
+  nextPreKeyId?: number;
   publishedSignedPreKeyId?: number;
   signedPreKeyPublishedAt?: number;
 }
@@ -169,6 +171,8 @@ export interface SignalKeyStore {
   storePreKey(keyId: number, record: SignalKeyPairRecord): Promise<void>;
   loadPreKey(keyId: number): SignalKeyPairRecord | undefined;
   listPreKeyIds(): number[];
+  /** Atomically reserves a never-before-used contiguous prekey ID range. */
+  reservePreKeyIds(count: number): Promise<number>;
   listUnpublishedPreKeyIds(): number[];
   markPreKeysPublished(keyIds: number[], publishedAt?: number): Promise<void>;
   isSignedPreKeyPublished(keyId: number): boolean;
@@ -308,6 +312,36 @@ export async function createSignalKeyStore(options: SignalStoreOptions): Promise
     }),
     loadPreKey: (keyId) => snapshot().oneTimePreKeys[String(requireId(keyId, "keyId"))],
     listPreKeyIds: () => Object.keys(snapshot().oneTimePreKeys).map(Number).sort((a, b) => a - b),
+    reservePreKeyIds: async (count) => {
+      if (!Number.isSafeInteger(count) || count < 1 || count > 1000) {
+        throw new RangeError("Prekey ID reservation count must be between 1 and 1000");
+      }
+      if (closed) throw new Error("Signal key store is closed");
+      let firstId = 0;
+      const operation = queue.then(async () => {
+        const previous = state;
+        const draft = structuredClone(state);
+        const existingIds = Object.keys(draft.oneTimePreKeys).map(Number);
+        const acknowledgedIds = Object.keys(draft.publishedPreKeys || {}).map(Number);
+        const maxUsedId = Math.max(0, ...existingIds, ...acknowledgedIds);
+        firstId = Math.max(draft.nextPreKeyId || 1, maxUsedId + 1);
+        const lastId = firstId + count - 1;
+        if (!Number.isSafeInteger(lastId) || lastId > 0xffffff) {
+          throw new RangeError("Messenger one-time prekey ID space is exhausted");
+        }
+        draft.nextPreKeyId = lastId + 1;
+        state = draft;
+        try {
+          await persist();
+        } catch (error) {
+          state = previous;
+          throw error;
+        }
+      });
+      queue = operation.catch(() => undefined);
+      await operation;
+      return firstId;
+    },
     listUnpublishedPreKeyIds: () => {
       const current = snapshot();
       const published = current.publishedPreKeys || {};
