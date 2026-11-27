@@ -215,7 +215,11 @@ export class MessengerE2EEService extends EventEmitter {
     });
     const groupMediaEngine = createSignalEncryptedGroupMedia(options.runtime.groups);
     this.groupMedia = createSignalEncryptedGroupMediaMessaging({
-      media: groupMediaEngine,
+      media: {
+        encryptAndUpload: groupMediaEngine.encryptAndUpload,
+        downloadAndDecrypt: (descriptor, download, expected) =>
+          groupMediaEngine.downloadAndDecrypt(descriptor, (item) => download(item, undefined), expected)
+      },
       sendEnvelope: async (groupId, envelope) => { await this.sendGroupText(groupId, JSON.stringify(envelope)); }
     });
     this.attachSocket(options.socket);
