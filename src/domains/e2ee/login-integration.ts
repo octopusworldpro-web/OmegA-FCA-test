@@ -81,11 +81,11 @@ export async function initializeE2EEForLogin(
         deviceId: options.facebook.deviceId,
         force: options.facebook.force
       });
-      const persistedNoiseKey = runtime.store.getNoiseKeyPair();
-      if (!persistedNoiseKey) throw new Error("Persisted Messenger Noise identity is missing");
       if (options.facebook.sendIQ) {
         preKeyPublication = await publishFacebookPreKeys(runtime, options.facebook.sendIQ);
       } else {
+        const persistedNoiseKey = runtime.store.getNoiseKeyPair();
+        if (!persistedNoiseKey) throw new Error("Persisted Messenger Noise identity is missing");
         const connectedNoiseSocket = await connectMessengerNoiseSocket({
           staticPrivateKey: Buffer.from(persistedNoiseKey.privateKey, "base64"),
           fbid: accountId,
