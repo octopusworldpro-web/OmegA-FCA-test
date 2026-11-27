@@ -41,6 +41,7 @@ export async function initializeE2EEForLogin(
   let initializedRuntime: SignalE2EERuntime | null = null;
   let noiseSocket: MessengerNoiseSocket | null = null;
   let messenger: MessengerE2EEService | null = null;
+  let reconnectNoise: (() => Promise<MessengerNoiseSocket>) | undefined;
   try {
     const bootstrapFactory = factories.bootstrap || createE2EEBootstrap;
     const runtimeFactory = factories.runtime || createSignalE2EERuntime;
@@ -116,6 +117,23 @@ export async function initializeE2EEForLogin(
         if (!connectedNoiseSocket) throw new Error("Messenger Noise connection could not be established");
         noiseSocket = connectedNoiseSocket;
         preKeyPublication = await publishFacebookPreKeys(runtime, connectedNoiseSocket.sendIQ.bind(connectedNoiseSocket));
+        reconnectNoise = async () => {
+          let refreshedCAT: string;
+          try { refreshedCAT = await fetchCAT(catOptions); }
+          catch (error) {
+            if (!options.facebook?.fbCat) throw error;
+            refreshedCAT = options.facebook.fbCat;
+          }
+          const replacement = await connectNoise({
+            staticPrivateKey: Buffer.from(persistedNoiseKey.privateKey, "base64"),
+            fbid: accountId,
+            deviceId: deviceRegistration!.waDeviceId,
+            fbCat: refreshedCAT,
+            userAgent: session.userAgent
+          });
+          await publishFacebookPreKeys(runtime, replacement.sendIQ.bind(replacement));
+          return replacement;
+        };
       }
       if (noiseSocket && deviceRegistration && typeof noiseSocket.onNode === "function" && typeof noiseSocket.onClose === "function") {
         messenger = new MessengerE2EEService({
@@ -123,7 +141,8 @@ export async function initializeE2EEForLogin(
           localDeviceId: deviceRegistration.waDeviceId,
           runtime,
           socket: noiseSocket,
-          signal: bootstrap.signal
+          signal: bootstrap.signal,
+          reconnect: reconnectNoise
         });
         await messenger.ready;
       }
