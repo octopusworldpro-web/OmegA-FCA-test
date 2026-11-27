@@ -10,7 +10,13 @@ const { initializeE2EEForLogin } = require("../dist/index.js");
   let runtimeOptions;
   let runtimeClosed = false;
   const runtime = {
-    store: { marker: true }, registrationId: 456,
+    store: {
+      marker: true,
+      listUnpublishedPreKeyIds: () => [1],
+      isSignedPreKeyPublished: () => false,
+      markPreKeysPublished: async () => {},
+      markSignedPreKeyPublished: async () => {}
+    }, registrationId: 456,
     identityKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 1)]).toString("base64"),
     signedPreKey: { keyId: 9, publicKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 2)]).toString("base64"), signature: Buffer.alloc(64, 3).toString("base64") },
     preKeys: [{ keyId: 1, publicKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 4)]).toString("base64") }],
