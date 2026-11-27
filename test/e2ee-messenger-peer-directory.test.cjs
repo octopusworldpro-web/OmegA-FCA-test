@@ -15,7 +15,7 @@ const responseDevices = {
     }]
   }]
 };
-const key = Buffer.alloc(32, 7);
+const key = Buffer.concat([Buffer.from([0x05]), Buffer.alloc(32, 7)]);
 const responseBundle = {
   tag: "iq", attrs: {}, content: [
     { tag: "user", attrs: { jid: "123456789.17@msgr" }, content: [
