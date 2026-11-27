@@ -112,6 +112,12 @@ export async function registerFacebookE2EEDevice(
 ): Promise<FacebookE2EERegistrationResult> {
   const fbid = requiredText(options?.fbid, "fbid");
   const fbCat = requiredText(options?.fbCat, "fbCat");
+  if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(fbCat)) throw new Error("Facebook returned a malformed CAT token");
+  const normalizedCAT = fbCat.replace(/-/g, "+").replace(/_/g, "/").replace(/=+$/, "");
+  const catBytes = Buffer.from(normalizedCAT, "base64");
+  if (!catBytes.length || catBytes.toString("base64").replace(/=+$/, "") !== normalizedCAT) {
+    throw new Error("Facebook returned an invalid CAT token encoding");
+  }
   const appId = requiredText(options?.appId, "appId");
   requiredText(options?.cookies, "cookies");
   requiredText(options?.userAgent, "userAgent");
@@ -144,7 +150,7 @@ export async function registerFacebookE2EEDevice(
   const identityPublic = rawPublicKey(Buffer.from(identity.publicKey, "base64"));
   const signedPublic = rawPublicKey(Buffer.from(availableSigned.publicKey, "base64"));
   const fetchForm = new URLSearchParams({
-    fbid, device_id: deviceId, app_id: appId, fb_cat: fbCat
+    fbid, device_id: deviceId, app_id: appId, fb_cat: catBytes.toString("utf8")
   });
   const fetched = await postForm<{
     device_identities?: string[];
@@ -197,7 +203,7 @@ export async function registerFacebookE2EEDevice(
   signedId.writeUInt32BE(availableSigned.keyId);
   const form = new URLSearchParams({
     fbid,
-    fb_cat: fbCat,
+    fb_cat: catBytes.toString("base64"),
     app_id: appId,
     device_id: deviceId,
     e_regid: regId.toString("base64"),

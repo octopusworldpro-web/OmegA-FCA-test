@@ -10,7 +10,7 @@ const fca = require("../dist/index.js");
   };
   const options = {
     fbid: "123456789",
-    fbCat: "www",
+    fbCat: "d3d3",
     appId: "219994525426954",
     cookies: "c_user=123456789; xs=test",
     userAgent: "test-agent",
@@ -51,6 +51,8 @@ const fca = require("../dist/index.js");
   assert.match(calls[0].url, /fb_icdc_fetch$/);
   assert.match(calls[1].url, /fb_register_v2$/);
   assert.match(calls[1].body, /e_ident=/);
+  assert.equal(new URLSearchParams(calls[0].body).get("fb_cat"), Buffer.from("d3d3", "base64").toString("utf8"));
+  assert.equal(new URLSearchParams(calls[1].body).get("fb_cat"), Buffer.from("d3d3", "base64").toString("base64"));
   const repeat = await fca.registerFacebookE2EEDevice({
     ...options,
     fetch: async () => { throw new Error("registered device must not register again"); }
