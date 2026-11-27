@@ -129,12 +129,13 @@ await api.e2ee.syncGroupMembership("GROUP_JID@g.us");
 - Reconnect, restart, multi-device, and authorized real-account interoperability tests.
 
 **Implemented groundwork**
-- Direct and group media cryptographic helpers.
-- Group-media application-level transport orchestration.
-- Local tests for selected ciphertext upload/envelope/receive/decrypt and group/sender validation paths.
+- Direct and group media cryptographic helpers using a fresh 64-byte attachment key, AES-256-CBC encryption, and truncated HMAC-SHA256 authentication; the attachment key is wrapped in the recipient's Signal session or group Sender Key.
+- Direct-media envelope orchestration now binds the wrapped key and encrypted metadata to the exact selected Signal recipient device. Group-media envelope orchestration sends its descriptor through the native group Signal text path.
+- FCA login exposes opt-in `api.e2ee.sendDirectMedia` and `api.e2ee.sendGroupMedia`; both upload ciphertext only through the existing `api.uploadAttachment` path. Receive/decrypt methods accept the existing attachment-download callback and verify ciphertext digest, MAC, dimensions, and expected peer/group context.
+- Added direct media upload/download/decrypt fixtures and included them in the full package test command. Existing group-media tests continue to cover ciphertext-only upload, receive/decrypt, and sender/group validation.
 
 **Still required**
-- Integrate and verify actual Messenger media upload/download transport for supported image, video, and file attachments.
+- Connect the receive methods to a verified default Messenger attachment download resolver; current receive APIs accept a caller-provided download callback because the repository does not expose a generic attachment-ID-to-ciphertext download contract.
 - Verify direct and group media interoperability with compatible Facebook E2EE devices.
 - Complete the EryXen protocol/reference comparison and document observed differences; do not copy unverified assumptions.
 - Run authorized real-account tests for fresh login, reconnect, restart, multiple devices, and recovery.
@@ -375,3 +376,19 @@ This directive governs the remaining implementation work for Steps 2–4. It sup
 - **Remaining acceptance boundary:** no authorized live Messenger account/cross-device direct or group round-trip was performed. This update does not claim Facebook server interoperability. Media remains Step 4.
 
 **Step 3 disposition:** offline source implementation now includes membership/device-change rotation and process-restart outbox recovery, and the full configured CI pipeline passed on the recorded source/test commit. Overall Step 3 remains **In progress** pending authorized live direct/group cross-device acceptance and real-device receipt/order/recovery validation; no live test is fabricated.
+
+
+### 2026-11-27 — Step 4 direct/group media integration batch
+
+**Branch:** `feature/release-0.2.3-beta.3`
+
+- Added `downloadAndDecryptSignalMedia` with strict uploaded-descriptor validation and ciphertext byte checks. The ciphertext digest, HMAC, IV/length, and plaintext-size checks run before media is returned.
+- Generalized direct-media key wrapping to use the active runtime Signal encrypt/decrypt adapter, not a separately constructed Signal store. Added `direct-media-messaging.ts` for ciphertext-only upload and Signal-encrypted envelope delivery/receive.
+- Connected `MessengerE2EEService.sendDirectMedia` and `sendGroupMedia` to the native direct/group encrypted text envelope paths. Direct media wraps its key for the exact selected peer device; group media uses the active Sender Key engine and existing group membership refresh/rotation.
+- Exposed `api.e2ee.sendDirectMedia`, `sendGroupMedia`, `receiveDirectMedia`, and `receiveGroupMedia`. Upload callbacks are wired to the existing FCA `api.uploadAttachment` method; only ciphertext is passed to that uploader.
+- Added `test/e2ee-direct-media.test.cjs` and included it in `npm test`. Existing group-media and group-media-messaging tests remain part of the suite.
+- Source commits in this batch: `4e0fe15536ca681c6d79743f77beaf964354655d`, `d1b158250a67ceff5267bb79c9120f48b15eeed4`, `fc06111c5e783981aced8e00d8ff44cd6bf75de8`, `06354e23d4e615dfdd0c5a50d92875d73f8f92b1`, `a3379107b5bd4b364474d833580830374ab6b4d9`, `712a83203c666d0c9d8fbb0b7dbc779f6981e95b`, `461406cc2a3f44b214e27efa66bef24d2e45de07`, `f62c8f2ad1dd9092aa129dc112ad29ceb4019c41`, `0246f9797c610de7917a4d0a79950e1cb9841389`, `563f08b86f831e757b966a26af13cfe1debe3e37`, `db79021e1eb9a22e5e76117aa79388d78b12bf60`, `cd75debed3c6025b32a11d76fac5395e4a466792`.
+- **Validation pending:** the current source head's CI must pass before this batch is considered CI-verified.
+- **Remaining:** no generic default download resolver is present in the legacy FCA surface, so receive methods currently require a caller-provided downloader. Direct-media delivery currently targets one selected peer device; multi-device key fanout is not yet implemented. Native Messenger attachment metadata/media stanza interoperability, video/file lifecycle checks, and authorized real-account tests remain open. No live media interoperability is claimed.
+
+**Step 4 status: IN PROGRESS.** This batch connects source-level direct/group media crypto to FCA upload and native encrypted message envelopes, but it does not yet satisfy full attachment download resolution or multi-device/live acceptance.
