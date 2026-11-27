@@ -207,7 +207,11 @@ export class MessengerE2EEService extends EventEmitter {
     });
     this.directMedia = createSignalEncryptedDirectMediaMessaging({
       signal: options.runtime.directMessages,
-      sendEnvelope: async (peerId, envelope) => { await this.sendDirectText(peerId, JSON.stringify(envelope)); }
+      sendEnvelope: async (_peerId, remote, envelope) => {
+        const transport = makeTransport(makeTextApplication(JSON.stringify(envelope)).messageApp);
+        const encrypted = await options.runtime.directMessages.encrypt(remote, transport);
+        await this.sendDirectCiphertext(remote, encrypted.type, Buffer.from(encrypted.body, "base64"));
+      }
     });
     const groupMediaEngine = createSignalEncryptedGroupMedia(options.runtime.groups);
     this.groupMedia = createSignalEncryptedGroupMediaMessaging({
@@ -441,8 +445,9 @@ export class MessengerE2EEService extends EventEmitter {
     metadata: { fileName?: string; contentType?: string } = {}
   ): Promise<EncryptedDirectMediaEnvelope> {
     await this.ready;
-    const remote = { name: peerId, deviceId: 1 };
-    await this.peers.preparePeer(peerId);
+    const devices = await this.peers.preparePeer(peerId);
+    const remote = devices[0];
+    if (!remote) throw new Error("No Messenger E2EE device is available for direct media");
     return this.directMedia.send(peerId, remote, media, upload, metadata);
   }
 
