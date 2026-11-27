@@ -262,9 +262,18 @@ export class MessengerE2EEService extends EventEmitter {
     this.options.socket = socket;
     this.directory.setSocket(socket);
     this.attachSocket(socket);
-    await this.startup();
+    try {
+      await this.startup();
+    } catch (error) {
+      this.unsubscribe();
+      this.unsubscribeClose();
+      socket.close();
+      throw error;
+    }
     for (const [id, pending] of this.pendingMessageAcks) this.transmitPending(id, pending, 15000);
   }
+
+  get socket(): MessengerNoiseSocket { return this.options.socket; }
 
   private async startup(): Promise<void> {
     await this.options.socket.sendFrame(marshal(encodeNode("presence", { type: "available" })));
@@ -294,8 +303,12 @@ export class MessengerE2EEService extends EventEmitter {
     const typeName = type === (this.options.signal as any)?.CiphertextMessageType?.PreKey ? "pkmsg" : "msg";
     const jid = `${recipient.name}.${recipient.deviceId}@msgr`;
     const id = randomMessageId();
-    const stanza = marshal(encodeNode("message", { to: jid, id, type: "text" }, [
-      encodeNode("enc", { v: "3", type: typeName }, ciphertext)
+    const stanza = marshal(encodeNode("message", { to: `${recipient.name}.0@msgr`, id, type: "text" }, [
+      encodeNode("participants", {}, [
+        encodeNode("to", { jid }, [
+          encodeNode("enc", { v: "3", type: typeName }, ciphertext)
+        ])
+      ])
     ]));
     await this.sendStanzaWithAck(stanza, id);
   }
@@ -317,6 +330,11 @@ export class MessengerE2EEService extends EventEmitter {
     timeoutMs: number
   ): void {
     if (this.closed || !this.pendingMessageAcks.has(id)) return;
+    if (this.options.reconnect && typeof this.options.socket.isConnected === "function" && !this.options.socket.isConnected()) {
+      clearTimeout(pending.timer);
+      this.scheduleReconnect();
+      return;
+    }
     clearTimeout(pending.timer);
     pending.attempts++;
     pending.timer = setTimeout(() => {
@@ -411,6 +429,7 @@ export class MessengerE2EEService extends EventEmitter {
     const count = (this.retryCounts.get(key) || 0) + 1;
     if (count > 2) return;
     this.retryCounts.set(key, count);
+    if (this.retryCounts.size > 1000) this.retryCounts.delete(this.retryCounts.keys().next().value as string);
 
     const registration = Buffer.alloc(4);
     registration.writeUInt32BE(this.options.runtime.registrationId);
