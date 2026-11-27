@@ -54,13 +54,20 @@ function marshal(node: Buffer): Buffer {
   return Buffer.concat([Buffer.from([0]), node]);
 }
 
+function rawSignalPublicKey(value: string, label: string): Buffer {
+  const key = Buffer.from(value, "base64");
+  if (key.length === 33 && key[0] === 0x05) return key.subarray(1);
+  if (key.length === 32) return key;
+  throw new Error(`${label} has an unexpected libsignal public-key encoding`);
+}
+
 function keyNode(tag: "key" | "skey", id: number, publicKey: string, signature?: string): Buffer {
   if (!Number.isSafeInteger(id) || id < 0 || id > 0xffffff) throw new RangeError("Messenger prekey ID must fit in 3 bytes");
   const idBytes = Buffer.alloc(3);
   idBytes.writeUIntBE(id, 0, 3);
   const children = [
     encodeNode("id", {}, idBytes),
-    encodeNode("value", {}, Buffer.from(publicKey, "base64"))
+    encodeNode("value", {}, rawSignalPublicKey(publicKey, `${tag} public key`))
   ];
   if (signature) children.push(encodeNode("signature", {}, Buffer.from(signature, "base64")));
   return encodeNode(tag, {}, children);
@@ -71,10 +78,10 @@ export function buildFacebookPreKeyUpload(runtime: SignalE2EERuntime, id = `pk-$
   if (!Number.isSafeInteger(runtime.registrationId) || runtime.registrationId < 1 || runtime.registrationId > 0xffffffff) {
     throw new RangeError("Signal registration ID must be a positive uint32");
   }
-  const identity = Buffer.from(runtime.identityKey, "base64");
-  const signedPublic = Buffer.from(runtime.signedPreKey.publicKey, "base64");
+  const identity = rawSignalPublicKey(runtime.identityKey, "identity public key");
+  const signedPublic = rawSignalPublicKey(runtime.signedPreKey.publicKey, "signed prekey public key");
   const signedSignature = Buffer.from(runtime.signedPreKey.signature, "base64");
-  if (![32, 33].includes(identity.length) || ![32, 33].includes(signedPublic.length) || signedSignature.length !== 64) {
+  if (identity.length !== 32 || signedPublic.length !== 32 || signedSignature.length !== 64) {
     throw new Error("Signal identity/signed-prekey bundle has an unexpected libsignal encoding");
   }
   if (!runtime.preKeys.length) throw new Error("At least one one-time prekey is required for initial Messenger publication");
