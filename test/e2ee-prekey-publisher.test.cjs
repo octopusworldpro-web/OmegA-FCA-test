@@ -7,7 +7,17 @@ const runtime = {
   registrationId: 12345,
   identityKey: key(1),
   signedPreKey: { keyId: 7, publicKey: key(2), signature: Buffer.alloc(64, 3).toString("base64") },
-  preKeys: Array.from({ length: 25 }, (_, i) => ({ keyId: i + 1, publicKey: key(i + 10) }))
+  preKeys: Array.from({ length: 25 }, (_, i) => ({ keyId: i + 1, publicKey: key(i + 10) })),
+  store: (() => {
+    const published = new Set();
+    let signedPublished = false;
+    return {
+      listUnpublishedPreKeyIds: () => Array.from({ length: 25 }, (_, i) => i + 1).filter((id) => !published.has(id)),
+      markPreKeysPublished: async (ids) => ids.forEach((id) => published.add(id)),
+      isSignedPreKeyPublished: () => signedPublished,
+      markSignedPreKeyPublished: async () => { signedPublished = true; }
+    };
+  })()
 };
 
 (async () => {
@@ -28,6 +38,10 @@ const runtime = {
   assert.equal(result.uploaded, 25);
   assert.equal(sent.id, result.id);
   assert.ok(sent.payload.equals(buildFacebookPreKeyUpload(runtime, sent.id)));
+  const skipped = await publishFacebookPreKeys(runtime, async () => {
+    throw new Error("acknowledged keys must not be uploaded twice");
+  });
+  assert.deepEqual(skipped, { id: "", uploaded: 0, skipped: true });
 
   await assert.rejects(
     publishFacebookPreKeys(runtime, async (_payload, id) => ({ tag: "iq", attrs: { id, type: "error" } })),
