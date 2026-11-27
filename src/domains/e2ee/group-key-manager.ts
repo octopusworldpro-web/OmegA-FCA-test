@@ -56,7 +56,7 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
 
   const distributed = new Map<string, Set<string>>();
   const distributionCache = new Map<string, SenderKeyDistribution>();
-  const inFlight = new Map<string, Promise<{ distribution: SenderKeyDistribution; recipients: SignalGroupDevice[] }>>();
+  const inFlight = new Map<string, Promise<{ distribution?: SenderKeyDistribution; recipients: SignalGroupDevice[] }>>();
   const keyId = (groupId: string, sender: SignalPeerAddress) => JSON.stringify([groupId, sender.name, sender.deviceId]);
   const deviceId = (device: SignalGroupDevice) => `${device.name}.${device.deviceId}`;
 
@@ -70,17 +70,23 @@ export function createSignalGroupKeyManager(deps: SignalGroupKeyManagerDeps) {
     const operation = (async () => {
       const recipients = normalizeMembers(await deps.listMemberDevices(groupId, sender), sender);
       if (!recipients.length) throw new Error("group has no remote member devices for Sender Key distribution");
+      const sent = distributed.get(distributionKey) ??
+        new Set<string>(deps.store.getSenderKeyDistributionRecipients(sender, groupId));
+      distributed.set(distributionKey, sent);
+      const pendingRecipients = recipients.filter((recipient) => !sent.has(deviceId(recipient)));
       let distribution = distributionCache.get(distributionKey);
+      // A restarted process may have persisted delivery acknowledgements but no
+      // in-memory distribution cache. Do not generate a fresh sender key unless
+      // at least one active device still needs its SKDM.
+      if (!distribution && pendingRecipients.length === 0) {
+        return { distribution: undefined, recipients: [] };
+      }
       if (!distribution) {
         distribution = await deps.groups.createDistribution(groupId, sender);
         distributionCache.set(distributionKey, distribution);
       }
-      const sent = distributed.get(distributionKey) ??
-        new Set<string>(deps.store.getSenderKeyDistributionRecipients(sender, groupId));
-      distributed.set(distributionKey, sent);
       const newlySent: SignalGroupDevice[] = [];
-      for (const recipient of recipients) {
-        if (sent.has(deviceId(recipient))) continue;
+      for (const recipient of pendingRecipients) {
         await deps.sendDistribution(recipient, distribution);
         await deps.store.markSenderKeyDistributionDelivered(sender, groupId, recipient);
         sent.add(deviceId(recipient));
