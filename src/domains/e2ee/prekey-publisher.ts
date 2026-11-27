@@ -130,6 +130,10 @@ async function publishFacebookPreKeysLocked(
   runtime: SignalE2EERuntime,
   sendIQ: FacebookE2EESendIQ
 ): Promise<{ id: string; uploaded: number; skipped?: boolean }> {
+  // Restore the local prekey pool after consumption and rotate an expired
+  // signed prekey before deciding which public keys need server publication.
+  await runtime.rotateSignedPreKeyIfDue?.();
+  await runtime.replenishPreKeys?.();
   // A persisted IQ result is the only event that marks keys as published.
   // On restart, never resend the full local key store: only unacknowledged
   // one-time keys are eligible for upload.
