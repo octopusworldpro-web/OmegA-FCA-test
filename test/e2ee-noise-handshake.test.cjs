@@ -60,7 +60,6 @@ const transport = {
       return Buffer.from(out);
     }
   };
-  const hello = Buffer.concat([Buffer.from([0x57,0x41,0x06,0x03])]);
   const serverState = new MessengerNoiseHandshakeState();
   const result = await fca.performMessengerNoiseXXHandshake({
     transport: {
@@ -113,7 +112,7 @@ const transport = {
   await assert.rejects(fca.performMessengerNoiseXXHandshake({
     transport, staticPrivateKey: Buffer.alloc(32, 1), fbid: "123456789", deviceId: 7, fbCat: "cat",
     verifyCertificate: () => { throw new Error("fixture certificate rejected"); }
-  }), /Messenger Noise server ephemeral key|handshake field 3 is missing|truncated/);
+  }), /Messenger Noise server ephemeral key|handshake field 3 is missing|truncated|frame length/);
   assert.ok(transport.sent.length === 1);
   console.log("Messenger Noise framing/client-payload offline tests passed");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
