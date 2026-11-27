@@ -11,12 +11,19 @@ class FakeSocket {
   close() { this.closed = true; for (const fn of [...this.closes]) fn(new Error("closed")); }
   emit(node) { for (const fn of [...this.nodes]) fn(node); }
 }
+const pendingMessages = new Map();
 const store = {
   loadSession: () => true,
   removeSenderKey: async () => {},
   getSenderKeyDistributionRecipients: () => [],
   markSenderKeyDistributionDelivered: async () => {},
-  clearSenderKeyDistribution: async () => {}
+  clearSenderKeyDistribution: async () => {},
+  enqueuePendingMessengerMessage: async (id, stanza) => pendingMessages.set(id, { stanza, createdAt: Date.now() }),
+  listPendingMessengerMessages: () => [...pendingMessages].map(([id, value]) => ({ id, ...value })),
+  removePendingMessengerMessage: async (id) => pendingMessages.delete(id),
+  getGroupMembershipSnapshot: () => undefined,
+  setGroupMembershipSnapshot: async () => {},
+  listGroupMembershipSnapshots: () => []
 };
 const runtime = {
   store,
@@ -55,5 +62,28 @@ const runtime = {
   second.emit({ tag: "ack", attrs: { id: "retry-fixture" } });
   await pending;
   service.close();
-  console.log("Messenger E2EE reconnect and encrypted outbox replay fixtures passed");
+
+  // A new process/service instance must replay the exact encrypted stanza from durable storage.
+  const interruptedSocket = new FakeSocket();
+  const interruptedService = new fca.MessengerE2EEService({
+    accountId: "123456789", localDeviceId: 42, runtime, socket: interruptedSocket, signal: {}
+  });
+  await interruptedService.ready;
+  const interruptedSend = interruptedService.sendStanzaWithAck(payload, "restart-fixture", 10000).catch(() => undefined);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pendingMessages.has("restart-fixture"), true, "outbox is persisted before the stanza is sent");
+  interruptedService.close();
+  await interruptedSend;
+
+  const resumedSocket = new FakeSocket();
+  const resumedService = new fca.MessengerE2EEService({
+    accountId: "123456789", localDeviceId: 42, runtime, socket: resumedSocket, signal: {}
+  });
+  await resumedService.ready;
+  assert.equal(resumedSocket.frames.some((frame) => frame.equals(payload)), true, "persisted stanza is replayed after process restart");
+  resumedSocket.emit({ tag: "ack", attrs: { id: "restart-fixture" } });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pendingMessages.has("restart-fixture"), false, "server acknowledgement clears durable outbox entry");
+  resumedService.close();
+  console.log("Messenger E2EE reconnect and restart-persistent encrypted outbox fixtures passed");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
