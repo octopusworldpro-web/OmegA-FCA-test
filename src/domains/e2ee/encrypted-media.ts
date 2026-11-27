@@ -19,6 +19,7 @@ export interface EncryptedMediaDescriptor {
   fileName?: string;
   contentType?: string;
 }
+export type UploadedEncryptedMediaDescriptor = Omit<EncryptedMediaDescriptor, "ciphertext"> & { upload: unknown };
 
 function toBytes(value: Uint8Array | Buffer): Buffer {
   if (!(value instanceof Uint8Array)) throw new TypeError("media must be a Buffer or Uint8Array");
@@ -75,7 +76,10 @@ export async function decryptSignalMedia(
   const iv = decode(descriptor.iv, "iv");
   const suppliedMac = decode(descriptor.mac, "mac");
   if (iv.length !== IV_LENGTH || suppliedMac.length !== MAC_LENGTH || ciphertext.length === 0 || ciphertext.length % 16 !== 0) throw new TypeError("Invalid encrypted media dimensions");
-  if (descriptor.ciphertextSize !== ciphertext.length || createHash("sha256").update(ciphertext).digest("hex") !== descriptor.digest) throw new Error("Encrypted media digest mismatch");
+  if (!Number.isSafeInteger(descriptor.plaintextSize) || descriptor.plaintextSize < 0 ||
+      descriptor.ciphertextSize !== ciphertext.length || typeof descriptor.digest !== "string" ||
+      !/^[a-f0-9]{64}$/i.test(descriptor.digest) ||
+      createHash("sha256").update(ciphertext).digest("hex") !== descriptor.digest) throw new Error("Encrypted media digest or size mismatch");
   const keyBytes = await decryptSignalDirectMessage(deps, remote, descriptor.encryptedKey);
   const key = Buffer.from(keyBytes);
   if (key.length !== KEY_LENGTH) throw new Error("Invalid decrypted media key length");
@@ -104,4 +108,22 @@ export async function encryptAndUploadSignalMedia(
   if (uploaded === undefined || uploaded === null) throw new Error("Encrypted media upload returned no result");
   const { ciphertext: _ciphertext, ...descriptor } = encrypted;
   return { ...descriptor, upload: uploaded };
+}
+
+
+/** Downloads ciphertext through the caller's existing FCA attachment path, then verifies and decrypts it. */
+export async function downloadAndDecryptSignalMedia(
+  deps: SignalDirectMessageDeps,
+  remote: SignalPeerAddress,
+  descriptor: UploadedEncryptedMediaDescriptor,
+  download: (upload: Dynamic, descriptor: UploadedEncryptedMediaDescriptor) => Promise<Uint8Array | Buffer>
+): Promise<Buffer> {
+  if (!descriptor || descriptor.version !== 1 || descriptor.algorithm !== "AES-256-CBC-HMAC-SHA256" ||
+      descriptor.upload === undefined || descriptor.upload === null) {
+    throw new TypeError("Uploaded encrypted media descriptor is required");
+  }
+  if (typeof download !== "function") throw new TypeError("download callback is required");
+  const ciphertext = await download(descriptor.upload, descriptor);
+  if (!(ciphertext instanceof Uint8Array)) throw new TypeError("download callback must return ciphertext bytes");
+  return decryptSignalMedia(deps, remote, { ...descriptor, ciphertext });
 }
