@@ -2,9 +2,9 @@ import { createHash } from "node:crypto";
 
 const P = (1n << 255n) - 19n;
 const Q = (1n << 252n) + 27742317777372353535851937790883648493n;
-const D = mod(-121665n * inv(121666n));
 const ZERO = 0n;
 const ONE = 1n;
+const D = mod(-121665n * inv(121666n));
 type Point = { x: bigint; y: bigint };
 
 function mod(value: bigint): bigint { const r = value % P; return r < ZERO ? r + P : r; }
