@@ -37,7 +37,7 @@ const fca = require("../dist/index.js");
     fetch: async (url, init) => {
       calls.push({ url, body: init.body });
       if (url.endsWith("fb_icdc_fetch")) {
-        return { ok: true, json: async () => ({ status: 200, device_identities: [], icdc_seq: 7 }) };
+        return { ok: true, json: async () => ({ status: 200, device_identities: [Buffer.alloc(32, 9).toString("base64url")], icdc_seq: 7 }) };
       }
       return { ok: true, json: async () => ({ status: 200, wa_device_id: 42 }) };
     }
