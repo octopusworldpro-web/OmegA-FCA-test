@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("node:assert/strict");
-const { initializeE2EEForLogin } = require("../dist/index.js");
+const { initializeE2EEForLogin, FACEBOOK_E2EE_APP_ID } = require("../dist/index.js");
 
 (async () => {
   const disabled = await initializeE2EEForLogin("123456789", { enabled: false });
@@ -58,6 +58,45 @@ const { initializeE2EEForLogin } = require("../dist/index.js");
   assert.equal(registrationOptions.userAgent, "test-agent");
   assert.equal(registrationOptions.signedPreKeyId, 9);
   assert.equal(registrationOptions.store.marker, true);
+
+
+  let retryCATCalls = 0;
+  let noiseConnectCalls = 0;
+  let usedCATs = [];
+  const retryRuntime = {
+    ...runtime,
+    store: {
+      ...runtime.store,
+      getNoiseKeyPair: () => ({ publicKey: Buffer.alloc(32, 2).toString("base64"), privateKey: Buffer.alloc(32, 3).toString("base64") })
+    }
+  };
+  const retryResult = await initializeE2EEForLogin("123456789", {
+    enabled: true,
+    facebook: {}
+  }, {
+    bootstrap: async () => ({ storagePath: "/tmp/account.signal", encryptionKey: Buffer.alloc(32, 7), localDeviceId: 123, signal: { marker: true } }),
+    runtime: async () => retryRuntime,
+    registerDevice: async (options) => {
+      assert.equal(options.appId, FACEBOOK_E2EE_APP_ID);
+      return { deviceId: "device-1", waDeviceId: 42, registrationId: 456, signedPreKeyId: 9, icdcSequence: 8 };
+    },
+    fetchCAT: async () => `cat-${++retryCATCalls}`,
+    connectNoise: async (options) => {
+      usedCATs.push(options.fbCat);
+      noiseConnectCalls++;
+      if (noiseConnectCalls === 1) throw new Error("temporary network socket failure");
+      return {
+        sendIQ: async (_stanza, id) => ({ tag: "iq", attrs: { id, type: "result" } }),
+        close: () => {}
+      };
+    },
+    sleep: async () => {}
+  }, { cookies: "c_user=123456789; xs=session", userAgent: "test-agent", fbDtsg: "dtsg" });
+  assert.equal(retryResult.status, "ready");
+  assert.equal(retryCATCalls, 2, "CAT is refreshed after a transient Noise connection failure");
+  assert.equal(noiseConnectCalls, 2);
+  assert.deepEqual(usedCATs, ["cat-1", "cat-2"]);
+  assert.equal(retryResult.preKeyPublication.uploaded, 1);
 
   const missingSession = await initializeE2EEForLogin("123456789", {
     enabled: true, facebook: { appId: "test-app", fbCat: "www" }

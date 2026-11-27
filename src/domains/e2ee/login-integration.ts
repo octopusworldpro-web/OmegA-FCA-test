@@ -104,7 +104,7 @@ export async function initializeE2EEForLogin(
             });
           } catch (connectError) {
             const message = connectError instanceof Error ? connectError.message : String(connectError);
-            const retryable = /timed out|websocket|socket|econn|enotfound|network|temporar|http 5\\d\\d/i.test(message);
+            const retryable = /timed out|websocket|socket|econn|enotfound|network|temporar|http 5\d\d/i.test(message);
             if (!retryable || attempt === 2) throw connectError;
             if (!options.facebook.fbCat) fbCat = await fetchCAT(catOptions);
             await wait(250 * (attempt + 1));
