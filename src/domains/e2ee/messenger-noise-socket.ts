@@ -3,10 +3,16 @@ import { performMessengerNoiseXXHandshake, type MessengerNoiseFrameCipher, type 
 
 const DEFAULT_ENDPOINT = "wss://web-chat-e2ee.facebook.com/ws/chat";
 const SINGLE_TOKENS = new Map<number, string>([
-  [0, ""], [4, "type"], [6, "from"], [8, "id"], [17, "to"], [20, "result"],
-  [22, "xmlns"], [25, "iq"], [29, "enc"], [30, "urn:xmpp:whatsapp:push"],
-  [31, "presence"], [43, "urn:xmpp:ping"], [48, "unavailable"], [52, "composing"],
-  [76, "success"], [86, "ping"], [92, "set"], [98, "list"], [203, "encrypt"]
+  [0, ""], [4, "type"], [6, "from"], [8, "id"], [11, "status"], [12, "jid"], [17, "to"], [20, "result"],
+  [21, "class"], [22, "xmlns"], [24, "notify"], [25, "iq"], [26, "t"], [29, "enc"],
+  [30, "urn:xmpp:whatsapp:push"], [31, "presence"], [43, "urn:xmpp:ping"], [48, "unavailable"],
+  [52, "composing"], [59, "device"], [74, "platform"], [76, "success"], [81, "v"], [84, "version"],
+  [86, "ping"], [92, "set"], [112, "code"], [113, "list"], [129, "category"], [136, "available"],
+  [137, "name"], [156, "identity"], [158, "key"], [168, "error"], [173, "registration"],
+  [203, "encrypt"], [212, "signature"]
+]);
+const DOUBLE_BYTE_TOKENS = new Map<string, string>([
+  ["0:46", "reason"], ["1:0", "reject"], ["1:145", "server-error"], ["2:60", "failure"]
 ]);
 
 interface BinaryNode { tag: string; attrs: Record<string, string>; content?: unknown; }
@@ -84,6 +90,13 @@ function readVarint(data: Buffer, cursor: { offset: number }): number {
 function readString(data: Buffer, cursor: { offset: number }): string {
   if (cursor.offset >= data.length) throw new Error("Truncated Messenger binary node string");
   const token = data[cursor.offset++];
+  if (token >= 236 && token <= 239) {
+    if (cursor.offset >= data.length) throw new Error("Truncated Messenger double-byte token");
+    const index = data[cursor.offset++];
+    const value = DOUBLE_BYTE_TOKENS.get(`${token - 236}:${index}`);
+    if (value === undefined) throw new Error(`Unsupported Messenger double-byte token ${token - 236}:${index}`);
+    return value;
+  }
   if (token < 236) {
     const value = SINGLE_TOKENS.get(token);
     if (value === undefined) throw new Error(`Unsupported Messenger binary token ${token}`);
