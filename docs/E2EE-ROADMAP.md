@@ -162,3 +162,17 @@ A documentation-only commit does not rerun or certify the source test suite. Che
 ### 2026-11-27 — Step 2 completion attempt
 
 A user-authorized implementation attempt rechecked the current ICDC, prekey publisher, login integration, login helper, key store, and focused tests. The standard login path still has no authenticated Messenger Noise IQ transport; the publisher depends on an injected `sendIQ` callback; server-acknowledged EC-prekey state and verified rotation/replenishment are absent. The named EryXen GitHub reference URL returned 404, and no authorized live Facebook account was available. No source changes were made because the missing wire protocol and server contract cannot safely be guessed from mocks. No tests/build/typecheck/lint were run in this attempt. Step 2 remains **In progress — NOT complete**; ordinary FCA login remains fail-open and no fake success was introduced. See the detailed report in [E2EE-STATUS.md](E2EE-STATUS.md).
+
+
+### 2026-11-27 — Step 2 source implementation checkpoint
+
+- Added persisted Facebook publication acknowledgement state to the encrypted Signal key store. Older store payloads remain readable because the new fields are optional and initialized when first used.
+- Changed the WA-binary prekey publisher to send only EC one-time prekeys not already acknowledged by a matching Messenger `iq type=result`. It records EC and signed-prekey acknowledgement only after that response is validated.
+- Added signed-prekey-only upload support so a new signed-prekey ID can be published without resending previously acknowledged one-time prekeys.
+- Added source tests for persistence across restart, duplicate-upload suppression, and signed-prekey-only upload.
+- Cross-checked the ICDC and IQ layout against the MIT `bhhoang/fbapi-unofficial` implementation. Reviewed Baileys' certificate verification and the published WA Noise protocol notes; certificate-chain verification is mandatory and must not be skipped.
+- The normal FCA login still does not create a verified authenticated Messenger Noise socket or automatically provide `sendIQ`; CAT retrieval/default ICDC wiring, server-side prekey-count/refill, and signed-prekey rotation/retirement remain unimplemented.
+- Intermediate CI runs were cancelled by subsequent commits. The final commit's CI result must be checked before claiming source tests/build/typecheck/lint passed.
+- No authorized live Facebook account test was run. No server acceptance is claimed.
+
+**Step 2 remains In progress — NOT complete.** The publication acknowledgement/retry behavior is implemented, but the integrated authenticated Noise transport and the remaining automatic synchronization lifecycle are still required for Step 2 acceptance.
