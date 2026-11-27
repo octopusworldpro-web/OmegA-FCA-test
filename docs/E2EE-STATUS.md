@@ -486,8 +486,19 @@ Reference repository reviewed: `akashxback/fca-eryxenx` on `main`.
 - `src/api/messaging/getMessage.js` (blob `d8dc59414adb44032f39150c952d8028f0f2b3f3`): message/attachment formatting from Messenger message data.
 - `src/api/messaging/resolvePhotoUrl.js` (blob `afb58618e1b4920b33499917b1653214d34a4e37`): Mercury photo URL resolution.
 
-Compatibility conclusion: OmegA preserves the established FCA attachment lifecycle and adds encryption before upload; the decryption key/descriptor is sent through the Signal-encrypted Messenger application envelope. The reviewed EryXen files establish ordinary attachment compatibility only; they do not establish a native Messenger E2EE media stanza format. No protocol claim beyond this source evidence is made.
+Compatibility conclusion: EryXen's ordinary FCA attachment lifecycle remains unchanged for non-E2EE messages. OmegA's E2EE media path is now separate and uses Messenger `media_conn` + encrypted-media CDN upload + native media protobufs; it does not send E2EE ciphertext as a legacy FCA attachment. The reviewed EryXen files establish ordinary attachment compatibility only, not the native E2EE media contract.
 
 ## 2026-11-27 — CI run cancellation note
 
 Workflow run [46045981492](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46045981492) for source commit `d4c226b52e0eeb29a7c462af9d460723d3b6f98e` ended with conclusion `cancelled`: dependency/security audit passed, but the build/test step was cancelled and TypeScript/lint/package checks were skipped. Later source/test commits `ff5f8014d9999b8a779ea03dc6cb5f1da3da47da` and `6bc34f5c3899ef4849d3e59f48ca8a35ac0c778a` therefore have no verified green CI result in this record. Do not treat the earlier green run for commit `58ebf84fae915d0375a330217b00393826586b58` as validation for these newer changes.
+
+
+## 2026-11-27 — Native Messenger media protocol source implementation
+
+- `messenger-media.ts` now implements 32-byte media keys, HKDF-SHA256 expansion, AES-256-CBC, 10-byte truncated HMAC-SHA256, and both plaintext/ciphertext SHA-256 checks.
+- E2EE upload obtains `media_conn` over the authenticated Messenger Noise socket and posts encrypted bytes to the `/wa-msgr/mms/{type}/{fileEncSHA256}` endpoint. FCA `uploadAttachment` / `sendMessage` is no longer used for E2EE media; ordinary FCA attachment methods remain untouched.
+- Native image/video/audio/document ConsumerApplication payloads include mediaKey, fileSHA256, fileEncSHA256, directPath, timestamp, MIME type, and optional media metadata; the complete application is Signal-encrypted for direct device fanout or group Sender Key delivery.
+- Inbound native media payloads emit `direct_media` / `group_media` with decoded metadata. `downloadMessengerMedia` fetches the encrypted CDN blob and verifies digest, HMAC, plaintext length, and plaintext digest.
+- Protocol reference: Meta Messenger E2EE whitepaper (2023-12-06), section 17; FME reference implementation `HerokeyVN/FB-Messenger-E2EE` (`src/e2ee/media/media-crypto.ts` and `src/e2ee/media/media-upload.ts`). FME is an unofficial implementation reference, not proof of live server acceptance.
+- Native media crypto/upload/protobuf and service send/receive fixtures were added. Latest test commit: `3ad4c6a00923cd7c5628881791ddf92a678b102b`.
+- No live media_conn/upload/download or real Messenger recipient acceptance test has been performed. Latest-head CI is still required; Step 4 remains **In progress**.
