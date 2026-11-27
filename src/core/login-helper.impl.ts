@@ -1037,13 +1037,20 @@ function loginHelper(
           runtime: e2eeResult.runtime,
           deviceRegistration: e2eeResult.status === "ready" ? e2eeResult.deviceRegistration : undefined,
           preKeyPublication: e2eeResult.status === "ready" ? e2eeResult.preKeyPublication : undefined,
-          noiseSocket: e2eeResult.status === "ready" ? e2eeResult.noiseSocket : undefined,
+          get noiseSocket() {
+            return e2eeResult.status === "ready"
+              ? (e2eeResult.messenger?.socket || e2eeResult.noiseSocket)
+              : undefined;
+          },
           messenger: e2eeResult.status === "ready" ? e2eeResult.messenger : undefined,
           sendDirectText: e2eeResult.status === "ready" && e2eeResult.messenger
             ? e2eeResult.messenger.sendDirectText.bind(e2eeResult.messenger)
             : undefined,
           sendGroupText: e2eeResult.status === "ready" && e2eeResult.messenger
             ? e2eeResult.messenger.sendGroupText.bind(e2eeResult.messenger)
+            : undefined,
+          syncGroupMembership: e2eeResult.status === "ready" && e2eeResult.messenger
+            ? e2eeResult.messenger.syncGroupMembership.bind(e2eeResult.messenger)
             : undefined,
           error: e2eeResult.status === "failed" ? e2eeResult.error : undefined,
           close: async () => {
