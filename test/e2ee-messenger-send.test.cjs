@@ -25,9 +25,9 @@ function textTransport(text) {
   const protocol = new ProtoWriter().bytes(1, integral).build();
   return new ProtoWriter().bytes(1, app).bytes(2, protocol).build();
 }
-const incomingTransport = textTransport("decrypted inbound");
+let incomingTransport = textTransport("decrypted inbound");
 class FakeSocket {
-  constructor() { this.nodes = new Set(); this.closes = new Set(); this.frames = []; this.remoteDeviceId = 17; }
+  constructor() { this.nodes = new Set(); this.closes = new Set(); this.frames = []; this.remoteDeviceId = 17; this.remoteDeviceIds = null; }
   onNode(fn) { this.nodes.add(fn); return () => this.nodes.delete(fn); }
   onClose(fn) { this.closes.add(fn); return () => this.closes.delete(fn); }
   async sendFrame(frame) {
@@ -143,6 +143,48 @@ const runtime = {
   assert.equal(received[0].text, "decrypted inbound");
   assert.equal(received[1].threadId, "123-456@g.us");
   assert.equal(received[1].senderId, "987654321");
+  // A direct media envelope is fanned out to every discovered peer device.
+  socket.remoteDeviceIds = [17, 18];
+  let mediaUploads = 0;
+  const mediaEnvelopes = await service.sendDirectMedia("987654321", Buffer.from("media-payload"), async (ciphertext) => {
+    mediaUploads++;
+    assert.notDeepEqual(ciphertext, Buffer.from("media-payload"), "only ciphertext is uploaded");
+    return { attachmentId: `encrypted-media-${mediaUploads}` };
+  }, { fileName: "fixture.bin", contentType: "application/octet-stream" });
+  assert.equal(mediaEnvelopes.length, 2);
+  assert.equal(mediaUploads, 2);
+  assert.deepEqual(mediaEnvelopes.map((item) => item.descriptor.encryptedKey.remote.deviceId), [17, 18]);
+
+  // Incoming Signal-encrypted media JSON is surfaced as typed media events,
+  // not misreported as a normal text chat message.
+  const directMediaEvents = [];
+  const groupMediaEvents = [];
+  service.on("direct_media", (event) => directMediaEvents.push(event));
+  service.on("group_media", (event) => groupMediaEvents.push(event));
+  const directEnvelope = { version: 1, kind: "direct_media", descriptor: {}, upload: { id: "d1" } };
+  incomingTransport = textTransport(JSON.stringify(directEnvelope));
+  socket.emit({
+    tag: "message", attrs: { from: "987654321.17@msgr", id: "incoming-direct-media", t: "1700000002" },
+    content: [{ tag: "participants", attrs: {}, content: [{
+      tag: "to", attrs: { jid: "123456789.42@msgr" }, content: [{
+        tag: "enc", attrs: { type: "msg" }, content: Buffer.from("direct-media-cipher")
+      }]
+    }] }]
+  });
+  const groupEnvelope = { version: 1, kind: "group_media", descriptor: {}, upload: { id: "g1" } };
+  incomingTransport = textTransport(JSON.stringify(groupEnvelope));
+  socket.emit({
+    tag: "message", attrs: { from: "123-456@g.us", participant: "987654321.17@msgr", id: "incoming-group-media", t: "1700000003" },
+    content: [{ tag: "enc", attrs: { type: "skmsg" }, content: Buffer.from("group-media-cipher") }]
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(directMediaEvents.length, 1);
+  assert.equal(directMediaEvents[0].envelope.kind, "direct_media");
+  assert.equal(directMediaEvents[0].sender.deviceId, 17);
+  assert.equal(groupMediaEvents.length, 1);
+  assert.equal(groupMediaEvents[0].envelope.kind, "group_media");
+  assert.equal(groupMediaEvents[0].groupId, "123-456@g.us");
+
   service.close();
-  console.log("Messenger direct/group send and receive fixtures passed");
+  console.log("Messenger direct/group send, receive, and media fanout fixtures passed");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
