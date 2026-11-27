@@ -205,6 +205,7 @@ export class MessengerNoiseSocket {
       this.pendingIQ.delete(id);
     }
     this.events.emit("close", error);
+    if (this.ws.readyState !== WebSocket.CLOSED && this.ws.readyState !== WebSocket.CLOSING) this.ws.close();
   }
   private emitNode(node: BinaryNode): void {
     if (this.events.listenerCount("node") === 0) {
@@ -225,8 +226,12 @@ export class MessengerNoiseSocket {
   }
   onceNode(listener: (node: BinaryNode) => void): void {
     if (typeof listener !== "function") throw new TypeError("Messenger node listener must be a function");
+    const queued = this.undeliveredNodes.shift();
+    if (queued) {
+      listener(queued);
+      return;
+    }
     this.events.once("node", listener);
-    this.flushUndeliveredNodes();
   }
   onClose(listener: (error: Error) => void): () => void {
     if (typeof listener !== "function") throw new TypeError("Messenger close listener must be a function");
