@@ -8,13 +8,13 @@ This file records source-level implementation evidence and its limits. The four-
 
 ## Overall
 
-**Step 1 is verified complete for local Signal runtime and FCA login lifecycle integration. Step 2 is verified complete for the user-approved offline source/fixture scope. Step 3's offline implementation now includes persistent outbox recovery and automatic group member/device-change key rotation; CI verification and authorized live acceptance remain distinct gates. Step 4 remains in progress. Live Facebook/Messenger interoperability is not established or claimed.**
+**Step 1 is verified complete for local Signal runtime and FCA login lifecycle integration. Step 2 is verified complete for the user-approved offline source/fixture scope. Step 3's offline implementation now includes persistent outbox recovery and automatic group member/device-change key rotation, with the full configured CI pipeline passing; authorized live acceptance remains pending. Step 4 remains in progress. Live Facebook/Messenger interoperability is not established or claimed.**
 
 | Step | Status | Implemented evidence | Main remaining work |
 |---|---|---|---|
 | 1. E2EE Engine & Login Integration | Verified complete (local boundary) | Pinned libsignal 0.70.0; authenticated UID validation; account-local bootstrap and encrypted store; automatic identity/device metadata; restart support; fail-open login integration | No remaining work within the stated local-engine/login boundary. Do not interpret this as server registration or native Messenger support |
 | 2. Facebook Device Registration & Key Sync | Verified complete — offline scope | Automatic CAT retrieval; default ICDC registration/reuse; authenticated Noise XX WebSocket key-sync transport; strict certificate verifier; encrypted frames and IQ correlation; persisted acknowledgements; monotonic prekey IDs; replenishment/rotation; bounded retries and restart recovery; offline fixtures and CI pass | Live Facebook acceptance was explicitly waived and is not claimed; no captured valid live certificate chain; long-lived encrypted message events/MQTT belong to Step 3; no verified Kyber upload format |
-| 3. E2EE Messaging & Group System | Offline implementation updated; CI/live acceptance pending | Native Noise WA-binary dispatcher; Messenger device/prekey discovery; direct/group encrypted text; ACK/retry/dedup; CAT-refresh reconnect; encrypted outbox persisted before send and replayed after restart until ACK; persisted group member/device snapshots and automatic Sender Key rotation on change during group send/reconnect; FCA API exposure | Current CI verification; authorized live cross-device acceptance; real receipts/order/replay validation |
+| 3. E2EE Messaging & Group System | Offline implementation verified by CI; live acceptance pending | Native Noise WA-binary dispatcher; Messenger device/prekey discovery; direct/group encrypted text; ACK/retry/dedup; CAT-refresh reconnect; encrypted outbox persisted before send and replayed after restart until ACK; persisted group member/device snapshots and automatic Sender Key rotation on change during group send/reconnect; FCA API exposure | Current CI verification; authorized live cross-device acceptance; real receipts/order/replay validation |
 | 4. Encrypted Media & Full Compatibility Test | In progress | Direct/group media crypto helpers and application-level group-media orchestration | Native Messenger media upload/download, real media interoperability, EryXen comparison, authorized real-account acceptance |
 
 ## Implemented components and boundaries
@@ -409,5 +409,13 @@ GitHub Actions runs [45990589918](https://github.com/octopusworldpro-web/OmegA-F
 - The service persists each encrypted stanza before network transmission, restores unacknowledged stanzas after process restart/reconnect, and removes durable entries after matching ACKs.
 - Group sends and reconnect recovery re-discover group participants and their devices. A changed member/device snapshot triggers Sender Key rotation and SKDM redistribution; snapshots are saved for subsequent comparisons.
 - Added focused persistence, process-restart replay, and device-change rotation tests.
-- CI run [46042120567](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46042120567) was pending at documentation time. Validation must be updated after it completes.
+- CI run [46042495729](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46042495729) passed for source/test commit `e5ba2b9e51df25413b4185e3ae921d6f551f4dd5`: dependency/security audit, build and full tests, TypeScript check, lint, and package dry run.
 - No authorized live Messenger account or cross-device acceptance test was available/performed. No live interoperability claim is made; media remains Step 4.
+
+
+### Step 3 CI verification — 2026-11-27
+
+- Source/test commit: `e5ba2b9e51df25413b4185e3ae921d6f551f4dd5`.
+- GitHub Actions [run 46042495729](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46042495729) completed successfully. Dependency/security audit, build and full test suite, TypeScript check, lint, and package dry run all passed.
+- The passing suite includes encrypted-store persistence across restart, durable Messenger outbox replay/ACK removal, and automatic group Sender Key rotation when the discovered member-device set changes.
+- This verifies the offline source/fixture implementation only. No authorized live Messenger cross-device test was run; Step 3 remains **In progress** until live direct/group interoperability and real-device receipt/order/recovery acceptance are evidenced.
