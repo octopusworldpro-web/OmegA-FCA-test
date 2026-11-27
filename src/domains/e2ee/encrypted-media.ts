@@ -84,7 +84,7 @@ export async function encryptSignalMedia(
 
 /** Verifies ciphertext digest and MAC before decrypting; the attachment key arrives in a Signal DM. */
 export async function decryptSignalMedia(
-  deps: SignalDirectMessageDeps,
+  deps: SignalMediaCrypto,
   remote: SignalPeerAddress,
   descriptor: EncryptedMediaDescriptor
 ): Promise<Buffer> {
@@ -110,7 +110,7 @@ export async function decryptSignalMedia(
 
 /** Convenience composition: encrypt locally, upload only ciphertext, and return transport-safe metadata. */
 export async function encryptAndUploadSignalMedia(
-  deps: SignalDirectMessageDeps,
+  deps: SignalMediaCrypto,
   remote: SignalPeerAddress,
   media: Uint8Array | Buffer,
   upload: (ciphertext: Buffer, metadata: { fileName: string; contentType: string }) => Promise<Dynamic>,
@@ -130,7 +130,7 @@ export async function encryptAndUploadSignalMedia(
 
 /** Downloads ciphertext through the caller's existing FCA attachment path, then verifies and decrypts it. */
 export async function downloadAndDecryptSignalMedia(
-  deps: SignalDirectMessageDeps,
+  deps: SignalMediaCrypto,
   remote: SignalPeerAddress,
   descriptor: UploadedEncryptedMediaDescriptor,
   download: (upload: Dynamic, descriptor: UploadedEncryptedMediaDescriptor) => Promise<Uint8Array | Buffer>
