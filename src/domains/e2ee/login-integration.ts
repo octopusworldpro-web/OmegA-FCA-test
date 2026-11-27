@@ -131,8 +131,13 @@ export async function initializeE2EEForLogin(
             fbCat: refreshedCAT,
             userAgent: session.userAgent
           });
-          await publishFacebookPreKeys(runtime, replacement.sendIQ.bind(replacement));
-          return replacement;
+          try {
+            await publishFacebookPreKeys(runtime, replacement.sendIQ.bind(replacement));
+            return replacement;
+          } catch (error) {
+            replacement.close();
+            throw error;
+          }
         };
       }
       if (noiseSocket && deviceRegistration && typeof noiseSocket.onNode === "function" && typeof noiseSocket.onClose === "function") {
