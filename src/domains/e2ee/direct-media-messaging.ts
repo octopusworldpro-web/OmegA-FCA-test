@@ -34,7 +34,7 @@ function validateEnvelope(value: unknown): EncryptedDirectMediaEnvelope {
   const descriptor = item.descriptor as Omit<UploadedEncryptedMediaDescriptor, "upload">;
   if (descriptor.version !== 1 || descriptor.algorithm !== "AES-256-CBC-HMAC-SHA256" ||
       typeof descriptor.iv !== "string" || typeof descriptor.mac !== "string" ||
-      typeof descriptor.digest !== "string" || !descriptor.encryptedKey ||
+      typeof descriptor.digest !== "string" || !/^[a-f0-9]{64}$/i.test(descriptor.digest) || !descriptor.encryptedKey ||
       !Number.isSafeInteger(descriptor.plaintextSize) || !Number.isSafeInteger(descriptor.ciphertextSize)) {
     throw new TypeError("invalid encrypted direct media descriptor");
   }
