@@ -395,7 +395,7 @@ export class MessengerE2EEService extends EventEmitter {
     if (node.tag === "notification" && node.attrs.type === "encrypt") {
       const count = Number(findNode(node, "count")?.attrs.value);
       if (Number.isFinite(count) && count < 5) {
-        const { publishFacebookPreKeys } = await import("./prekey-publisher");
+        const { publishFacebookPreKeys } = await import("./prekey-publisher.js");
         await publishFacebookPreKeys(this.options.runtime, this.options.socket.sendIQ.bind(this.options.socket));
       }
       this.emit("notification", node);
