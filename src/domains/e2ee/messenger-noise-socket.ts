@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { EventEmitter } from "node:events";
 import { performMessengerNoiseXXHandshake, type MessengerNoiseFrameCipher, type MessengerNoiseRawTransport } from "./messenger-noise";
 
 const DEFAULT_ENDPOINT = "wss://web-chat-e2ee.facebook.com/ws/chat";
@@ -173,46 +174,42 @@ function readListSize(data: Buffer, cursor: { offset: number }): number {
   }
   throw new Error(`Unsupported Messenger binary list token ${token}`);
 }
-export function decodeMessengerBinaryNode(frame: Uint8Array): BinaryNode {
-  const data = Buffer.from(frame);
-  const cursor = { offset: 0 };
-  if (data[0] === 0) cursor.offset++;
+function readNode(data: Buffer, cursor: { offset: number }): BinaryNode {
   const size = readListSize(data, cursor);
   if (size < 1 || size > 255) throw new Error("Invalid Messenger binary node size");
   const tag = readString(data, cursor);
   const hasContent = ((size - 1) % 2) === 1;
   const attributeCount = Math.floor((size - 1) / 2);
-  const attrs: Record<string, string> = {};
+  const attrs: Record<string, string> = Object.create(null) as Record<string, string>;
   for (let i = 0; i < attributeCount; i++) {
     const key = readString(data, cursor);
-    const value = readString(data, cursor);
-    attrs[key] = value;
+    if (Object.prototype.hasOwnProperty.call(attrs, key)) throw new Error(`Duplicate Messenger node attribute: ${key}`);
+    attrs[key] = readString(data, cursor);
   }
   let content: unknown;
   if (hasContent) {
-    if (cursor.offset < data.length && [0, 248, 249].includes(data[cursor.offset])) {
-      const childSize = readListSize(data, cursor);
+    if (cursor.offset >= data.length) throw new Error("Messenger binary node content is missing");
+    const marker = data[cursor.offset];
+    if (marker === 0 || marker === 248 || marker === 249) {
+      const childCount = readListSize(data, cursor);
       const children: BinaryNode[] = [];
-      for (let i = 0; i < childSize; i++) {
-        const start = cursor.offset;
-        const childList = readListSize(data, cursor);
-        const childTag = readString(data, cursor);
-        const childHasContent = ((childList - 1) % 2) === 1;
-        const childAttrs: Record<string, string> = {};
-        const childAttrCount = Math.floor((childList - 1) / 2);
-        for (let j = 0; j < childAttrCount; j++) childAttrs[readString(data, cursor)] = readString(data, cursor);
-        let childContent: unknown;
-        if (childHasContent) childContent = readString(data, cursor);
-        children.push({ tag: childTag, attrs: childAttrs, content: childContent });
-        if (cursor.offset <= start) throw new Error("Messenger binary child parser did not advance");
-      }
+      for (let i = 0; i < childCount; i++) children.push(readNode(data, cursor));
       content = children;
     } else {
       content = readString(data, cursor);
     }
   }
-  if (cursor.offset !== data.length) throw new Error("Unexpected trailing Messenger binary node bytes");
   return { tag, attrs, content };
+}
+
+/** Decode one complete WA-binary node, including arbitrarily nested child nodes. */
+export function decodeMessengerBinaryNode(frame: Uint8Array): BinaryNode {
+  const data = Buffer.from(frame);
+  const cursor = { offset: 0 };
+  if (data[0] === 0) cursor.offset++;
+  const node = readNode(data, cursor);
+  if (cursor.offset !== data.length) throw new Error("Unexpected trailing Messenger binary node bytes");
+  return node;
 }
 
 export interface MessengerNoiseSocketOptions {
@@ -225,13 +222,19 @@ export interface MessengerNoiseSocketOptions {
   timeoutMs?: number;
 }
 export class MessengerNoiseSocket {
-  private iqQueue: Promise<void> = Promise.resolve();
+  private readonly events = new EventEmitter();
+  private readonly pendingIQ = new Map<string, { resolve: (node: BinaryNode) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
+  private dispatchTask: Promise<void> | null = null;
+  private closedError: Error | null = null;
   private constructor(
     private readonly ws: WebSocket,
     private readonly raw: WebSocketByteTransport,
     private readonly cipher: MessengerNoiseFrameCipher,
     readonly handshakeHash: Buffer
-  ) {}
+  ) {
+    ws.once("close", () => this.stop(new Error("Messenger Noise WebSocket closed")));
+    ws.once("error", (error) => this.stop(error instanceof Error ? error : new Error("Messenger Noise WebSocket error")));
+  }
   static async connect(options: MessengerNoiseSocketOptions): Promise<MessengerNoiseSocket> {
     const endpoint = options.endpoint || DEFAULT_ENDPOINT;
     const userAgent = options.userAgent || "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
@@ -258,15 +261,16 @@ export class MessengerNoiseSocket {
       }), options.timeoutMs || 15000, "Messenger Noise XX handshake");
       const socket = new MessengerNoiseSocket(ws, raw, handshake.cipher, handshake.handshakeHash);
       await socket.waitForSuccess(options.timeoutMs || 15000);
+      socket.startDispatcher();
       return socket;
     } catch (error) {
       ws.close();
       throw error;
     }
   }
-  isConnected(): boolean { return this.ws.readyState === WebSocket.OPEN; }
+  isConnected(): boolean { return this.ws.readyState === WebSocket.OPEN && !this.closedError; }
   async sendFrame(payload: Uint8Array): Promise<void> {
-    if (!this.isConnected()) throw new Error("Messenger Noise socket is disconnected");
+    if (!this.isConnected()) throw this.closedError || new Error("Messenger Noise socket is disconnected");
     await this.raw.send(this.cipher.encryptFrame(payload));
   }
   async readFrame(timeoutMs = 15000): Promise<Buffer> {
@@ -282,24 +286,80 @@ export class MessengerNoiseSocket {
       const node = decodeMessengerBinaryNode(await this.readFrame(Math.max(1, deadline - Date.now())));
       if (node.tag === "success") return;
       if (node.tag === "failure") throw new Error(`Messenger E2EE login rejected: ${node.attrs.reason || node.attrs.type || "unknown reason"}`);
+      this.events.emit("pre-ready-node", node);
     }
     throw new Error("Messenger E2EE login success acknowledgement timed out");
   }
-  sendIQ(stanza: Buffer, id: string): Promise<{ tag?: string; attrs?: Record<string, string>; content?: unknown }> {
-    const operation = this.iqQueue.then(async () => {
-      if (!id) throw new TypeError("Messenger IQ correlation ID is required");
-      await this.sendFrame(stanza);
-      const deadline = Date.now() + 15000;
-      while (Date.now() < deadline) {
-        const node = decodeMessengerBinaryNode(await this.readFrame(Math.max(1, deadline - Date.now())));
-        if (node.tag === "iq" && node.attrs.id === id) return node;
+  private startDispatcher(): void {
+    if (this.dispatchTask) return;
+    this.dispatchTask = (async () => {
+      while (this.isConnected()) {
+        const node = decodeMessengerBinaryNode(await this.readFrame());
+        if (node.tag === "failure") throw new Error(`Messenger E2EE server failure: ${node.attrs.reason || node.attrs.type || "unknown reason"}`);
+        if (node.tag === "iq" && node.attrs.id) {
+          const pending = this.pendingIQ.get(node.attrs.id);
+          if (pending) {
+            clearTimeout(pending.timer);
+            this.pendingIQ.delete(node.attrs.id);
+            if (node.attrs.type === "error") pending.reject(new Error(`Messenger IQ ${node.attrs.id} returned an error`));
+            else pending.resolve(node);
+            continue;
+          }
+        }
+        // Non-correlated IQs and message/presence/receipt nodes are never discarded.
+        this.events.emit("node", node);
       }
-      throw new Error(`Messenger IQ ${id} acknowledgement timed out`);
-    });
-    this.iqQueue = operation.then(() => undefined, () => undefined);
-    return operation;
+    })().catch((error) => this.stop(error instanceof Error ? error : new Error(String(error))));
   }
-  close(): void { if (this.ws.readyState !== WebSocket.CLOSED) this.ws.close(); }
+  private stop(error: Error): void {
+    if (this.closedError) return;
+    this.closedError = error;
+    for (const [id, pending] of this.pendingIQ) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+      this.pendingIQ.delete(id);
+    }
+    this.events.emit("close", error);
+  }
+  onNode(listener: (node: BinaryNode) => void): () => void {
+    if (typeof listener !== "function") throw new TypeError("Messenger node listener must be a function");
+    this.events.on("node", listener);
+    return () => this.events.off("node", listener);
+  }
+  onceNode(listener: (node: BinaryNode) => void): void {
+    if (typeof listener !== "function") throw new TypeError("Messenger node listener must be a function");
+    this.events.once("node", listener);
+  }
+  onClose(listener: (error: Error) => void): () => void {
+    if (typeof listener !== "function") throw new TypeError("Messenger close listener must be a function");
+    this.events.on("close", listener);
+    if (this.closedError) listener(this.closedError);
+    return () => this.events.off("close", listener);
+  }
+  sendIQ(stanza: Buffer, id: string, timeoutMs = 15000): Promise<BinaryNode> {
+    if (!id) return Promise.reject(new TypeError("Messenger IQ correlation ID is required"));
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1) return Promise.reject(new RangeError("Messenger IQ timeout must be positive"));
+    if (this.pendingIQ.has(id)) return Promise.reject(new Error(`Messenger IQ ${id} is already pending`));
+    if (!this.isConnected()) return Promise.reject(this.closedError || new Error("Messenger Noise socket is disconnected"));
+    return new Promise<BinaryNode>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingIQ.delete(id);
+        reject(new Error(`Messenger IQ ${id} acknowledgement timed out`));
+      }, timeoutMs);
+      this.pendingIQ.set(id, { resolve, reject, timer });
+      this.sendFrame(stanza).catch((error) => {
+        const pending = this.pendingIQ.get(id);
+        if (!pending) return;
+        clearTimeout(pending.timer);
+        this.pendingIQ.delete(id);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      });
+    });
+  }
+  close(): void {
+    this.stop(new Error("Messenger Noise socket closed by client"));
+    if (this.ws.readyState !== WebSocket.CLOSED) this.ws.close();
+  }
 }
 
 export async function connectMessengerNoiseSocket(options: MessengerNoiseSocketOptions): Promise<MessengerNoiseSocket> {
