@@ -108,7 +108,7 @@ const fca = require("../dist/index.js");
   assert.equal(concurrentSends, 1, "concurrent calls do not duplicate SKDM delivery");
 
   const duplicate = fca.createSignalGroupKeyManager({
-    store: { removeSenderKey: async () => {} }, groups,
+    store: Object.assign(makeStore(), { removeSenderKey: async () => {} }), groups,
     listMemberDevices: async () => [{ name: "alice", deviceId: 1 }, { name: "alice", deviceId: 1 }],
     sendDistribution: async () => {}
   });
