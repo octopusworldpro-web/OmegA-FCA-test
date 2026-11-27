@@ -1032,6 +1032,47 @@ function loginHelper(
             }
           }
         );
+        const uploadEncryptedMediaToThread = async (
+          threadId: string,
+          ciphertext: Buffer,
+          uploadMetadata: { fileName: string; contentType: string }
+        ) => {
+          const uploaded = await api.uploadAttachment({
+            buffer: Buffer.from(ciphertext),
+            filename: uploadMetadata.fileName,
+            contentType: uploadMetadata.contentType
+          });
+          if (!Array.isArray(uploaded) || uploaded.length === 0) throw new Error("FCA attachment upload returned no attachment IDs");
+          const attachmentPairs = uploaded.flatMap((item: Loose) => {
+            const key = ["file_id", "image_id", "video_id", "audio_id", "gif_id", "fbid", "id"].find((candidate) => item?.[candidate] !== undefined);
+            return key ? [[key, String(item[key])]] : [];
+          });
+          if (!attachmentPairs.length) throw new Error("FCA attachment upload returned no usable attachment references");
+          const sentAttachment = await api.sendMessage({ attachment: attachmentPairs }, threadId);
+          if (!sentAttachment?.messageID) throw new Error("FCA did not confirm the encrypted attachment message ID");
+          return { threadId, messageId: String(sentAttachment.messageID), attachments: uploaded };
+        };
+        const downloadEncryptedMediaFromThread = async (uploadRef: Loose): Promise<Buffer> => {
+          if (!uploadRef || typeof uploadRef.threadId !== "string" || typeof uploadRef.messageId !== "string") {
+            throw new TypeError("Encrypted media upload reference is missing its FCA thread/message IDs");
+          }
+          const message = await api.getMessage(uploadRef.threadId, uploadRef.messageId);
+          const attachment = Array.isArray(message?.attachments)
+            ? message.attachments.find((item: Loose) => typeof item?.url === "string" && item.url)
+            : undefined;
+          if (!attachment?.url) throw new Error("FCA message lookup did not return an encrypted attachment URL");
+          const mediaUrl = new URL(String(attachment.url));
+          const allowedHost = ["fbcdn.net", "fbsbx.com", "facebook.com"].some((domain) =>
+            mediaUrl.hostname === domain || mediaUrl.hostname.endsWith("." + domain)
+          );
+          if (mediaUrl.protocol !== "https:" || !allowedHost) throw new Error("Refusing an untrusted encrypted attachment URL");
+          const response = await axios.get(mediaUrl.toString(), {
+            responseType: "arraybuffer", timeout: 30000, maxContentLength: 100 * 1024 * 1024,
+            headers: { "User-Agent": globalOptions.userAgent || "Mozilla/5.0" }
+          });
+          if (response.status < 200 || response.status >= 300) throw new Error(`Encrypted attachment download failed with HTTP ${response.status}`);
+          return Buffer.from(response.data);
+        };
         api.e2ee = {
           status: e2eeResult.status,
           runtime: e2eeResult.runtime,
@@ -1054,33 +1095,27 @@ function loginHelper(
             : undefined,
           sendDirectMedia: e2eeResult.status === "ready" && e2eeResult.messenger && typeof api.uploadAttachment === "function"
             ? (peerId: string, media: Uint8Array | Buffer, metadata: { fileName?: string; contentType?: string } = {}) =>
-                e2eeResult.messenger!.sendDirectMedia(peerId, media, async (ciphertext, uploadMetadata) => {
-                  const uploaded = await api.uploadAttachment({
-                    buffer: Buffer.from(ciphertext),
-                    filename: uploadMetadata.fileName,
-                    contentType: uploadMetadata.contentType
-                  });
-                  if (!Array.isArray(uploaded) || uploaded.length === 0) throw new Error("FCA attachment upload returned no attachment IDs");
-                  return uploaded;
-                }, metadata)
+                e2eeResult.messenger!.sendDirectMedia(peerId, media, (ciphertext, uploadMetadata) =>
+                  uploadEncryptedMediaToThread(peerId, ciphertext, uploadMetadata), metadata)
             : undefined,
           sendGroupMedia: e2eeResult.status === "ready" && e2eeResult.messenger && typeof api.uploadAttachment === "function"
             ? (groupJid: string, media: Uint8Array | Buffer, metadata: { fileName?: string; contentType?: string } = {}) =>
-                e2eeResult.messenger!.sendGroupMedia(groupJid, media, async (ciphertext, uploadMetadata) => {
-                  const uploaded = await api.uploadAttachment({
-                    buffer: Buffer.from(ciphertext),
-                    filename: uploadMetadata.fileName,
-                    contentType: uploadMetadata.contentType
-                  });
-                  if (!Array.isArray(uploaded) || uploaded.length === 0) throw new Error("FCA attachment upload returned no attachment IDs");
-                  return uploaded;
-                }, metadata)
+                e2eeResult.messenger!.sendGroupMedia(groupJid, media, (ciphertext, uploadMetadata) =>
+                  uploadEncryptedMediaToThread(groupJid.replace(/@g\\.us$/, ""), ciphertext, uploadMetadata), metadata)
             : undefined,
           receiveDirectMedia: e2eeResult.status === "ready" && e2eeResult.messenger
             ? e2eeResult.messenger.receiveDirectMedia.bind(e2eeResult.messenger)
             : undefined,
           receiveGroupMedia: e2eeResult.status === "ready" && e2eeResult.messenger
             ? e2eeResult.messenger.receiveGroupMedia.bind(e2eeResult.messenger)
+            : undefined,
+          downloadDirectMedia: e2eeResult.status === "ready" && e2eeResult.messenger
+            ? (envelope: unknown, remote: { name: string; deviceId: number }) =>
+                e2eeResult.messenger!.receiveDirectMedia(envelope, remote, (uploadRef) => downloadEncryptedMediaFromThread(uploadRef))
+            : undefined,
+          downloadGroupMedia: e2eeResult.status === "ready" && e2eeResult.messenger
+            ? (envelope: unknown, expected?: { groupId?: string; sender?: { name: string; deviceId: number } }) =>
+                e2eeResult.messenger!.receiveGroupMedia(envelope, (_descriptor, uploadRef) => downloadEncryptedMediaFromThread(uploadRef), expected)
             : undefined,
           error: e2eeResult.status === "failed" ? e2eeResult.error : undefined,
           close: async () => {
