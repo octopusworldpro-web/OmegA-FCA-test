@@ -162,3 +162,5 @@ export { createSignalEncryptedGroupMessaging, type SignalGroupMessagingDeps, typ
 export { createSignalEncryptedGroupMediaMessaging, type SignalGroupMediaMessagingDeps, type EncryptedGroupMediaMessageEnvelope } from "./domains/e2ee/group-media-messaging";
 
 export { initializeE2EEForLogin, type E2EELoginOptions, type E2EELoginResult } from "./domains/e2ee/login-integration";
+
+export { buildFacebookPreKeyUpload, publishFacebookPreKeys, type FacebookE2EESendIQ } from "./domains/e2ee/prekey-publisher";
