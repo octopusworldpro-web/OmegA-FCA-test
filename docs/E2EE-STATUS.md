@@ -13,7 +13,7 @@ This file records source-level implementation evidence and its limits. The four-
 | Step | Status | Implemented evidence | Main remaining work |
 |---|---|---|---|
 | 1. E2EE Engine & Login Integration | Verified complete (local boundary) | Pinned libsignal 0.70.0; authenticated UID validation; account-local bootstrap and encrypted store; automatic identity/device metadata; restart support; fail-open login integration | No remaining work within the stated local-engine/login boundary. Do not interpret this as server registration or native Messenger support |
-| 2. Facebook Device Registration & Key Sync | In progress | Login calls ICDC registration when Facebook app/category options are supplied; authenticated cookies/user agent are passed internally; device metadata persistence/idempotency; WA-binary prekey IQ builder and ACK validation | No live Facebook acceptance evidence; publication requires caller-provided authenticated Messenger Noise `sendIQ`; default FCA login does not create that transport; no verified Kyber upload format |
+| 2. Facebook Device Registration & Key Sync | In progress — transport/acceptance blocked | Conditional ICDC registration; encrypted persistent EC-prekey publication acknowledgements; duplicate-upload suppression; signed-prekey-only upload; matching IQ-result validation; focused source tests | No default authenticated Messenger Noise XX transport with certificate-chain validation; no live ICDC/IQ acceptance; CAT auto-retrieval/login wiring and verified server-aware replenishment/rotation remain open; no verified Kyber upload format |
 | 3. E2EE Messaging & Group System | In progress | Signal direct-message primitives; injected peer/bundle interfaces; Sender Key/SKDM persistence/retry; application-level group envelope orchestration | Native peer discovery/bundle exchange and direct/group Messenger MQTT wire integration; real compatible-device tests |
 | 4. Encrypted Media & Full Compatibility Test | In progress | Direct/group media crypto helpers and application-level group-media orchestration | Native Messenger media upload/download, real media interoperability, EryXen comparison, authorized real-account acceptance |
 
@@ -229,3 +229,31 @@ The remaining Step 2 transport work was re-investigated against the public Messe
 5. Run an authorized live-account registration and prekey acceptance test.
 
 **Status remains: Step 2 In progress — NOT complete.** The source-level ACK persistence and duplicate-upload changes from the preceding implementation remain in place. This follow-up review found that the available reference Noise implementations are not sufficient evidence for a secure production transport; the missing acceptance items above are not marked complete.
+
+
+## 2026-11-27 — Step 2 target completion audit
+
+**Reviewed branch:** `feature/release-0.2.3-beta.3`  
+**Reviewed head before this report:** `8882fcc32f27436bd7b8875b42232f5f647a48df`
+
+### Verified implementation now present
+
+- `src/domains/e2ee/signal-key-store.ts`: encrypted, backward-compatible persistence for acknowledged one-time EC prekeys and the currently acknowledged signed-prekey ID/timestamp.
+- `src/domains/e2ee/prekey-publisher.ts`: selects only unacknowledged local EC prekeys; requires an IQ response with tag `iq`, matching request ID, and `type=result`; persists acknowledgements only after that validation; supports signed-prekey-only publication and skips already acknowledged keys.
+- Focused test files include persistence across restart, duplicate-upload suppression, signed-prekey-only publication, and ICDC/prekey helper behavior.
+- `device-registration.ts` persists the ICDC device record after a response passes its local shape checks. Those checks are not live Facebook acceptance evidence.
+- Current branch CI run [45978434688](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45978434688) completed successfully for the reviewed head. This verifies the configured CI pipeline only; it does not verify Facebook server behavior or live Messenger transport.
+
+### Step 2 acceptance items still blocked
+
+1. The ordinary FCA login path still passes no authenticated Messenger Noise `sendIQ` transport. `state.ts` exposes an optional caller-supplied adapter, but `login-helper.impl.ts` does not construct a Noise XX session or bind one to the E2EE endpoint.
+2. The public Noise references reviewed for this task do not provide a safe drop-in implementation: the inspected code either lacks an independently verified certificate-chain validation path or contains a certificate-verification TODO and unsafe ephemeral-key logging. No certificate bypass or unauthenticated transport was added.
+3. Automatic CAT retrieval and default ICDC wiring are not integrated. ICDC registration still depends on configured `appId` and `fbCat`; no authorized live-account request/response was available to validate its contract.
+4. Server-side prekey-count query, bounded server-aware replenishment, and safe signed-prekey rotation/retirement are not implemented or verified.
+5. No authorized live Facebook account test confirmed device registration or real IQ publication/acknowledgement.
+
+### Corrections to earlier status notes
+
+The earlier recheck statement that the key store had no publication acknowledgement ledger was superseded by the later source update documented above. The current source does persist acknowledgement state. Likewise, earlier statements that the publisher always re-uploaded the full stored EC prekey set are superseded by the current unacknowledged-only selection behavior. The remaining blocker is transport and live protocol acceptance, not the absence of local acknowledgement persistence.
+
+**Final Step 2 disposition: IN PROGRESS — NOT VERIFIED COMPLETE.** The local acknowledgement/retry groundwork and CI validation are present, but the target's authenticated transport, automatic login integration, server-aware lifecycle, and live acceptance criteria are not met. Marking Step 2 complete would be inaccurate. Ordinary FCA login remains fail-open; no guessed protocol or false server-success path was introduced.
