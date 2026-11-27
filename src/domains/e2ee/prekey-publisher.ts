@@ -4,6 +4,8 @@ import type { SignalE2EERuntime } from "./runtime";
 type IQResponse = { tag?: string; attrs?: Record<string, string>; content?: unknown };
 export type FacebookE2EESendIQ = (stanza: Buffer, id: string) => Promise<IQResponse>;
 
+const publicationQueues = new WeakMap<object, Promise<void>>();
+
 const TOKEN = {
   ListEmpty: 0,
   JIDPair: 250,
@@ -107,7 +109,27 @@ export async function publishFacebookPreKeys(
   sendIQ: FacebookE2EESendIQ
 ): Promise<{ id: string; uploaded: number; skipped?: boolean }> {
   if (typeof sendIQ !== "function") throw new TypeError("An authenticated Messenger Noise sendIQ transport is required");
+  if (!runtime?.store || typeof runtime.store !== "object") throw new TypeError("A Signal key store is required");
 
+  // Serialize publications per account store to prevent duplicate concurrent uploads.
+  const storeKey = runtime.store as object;
+  const previous = publicationQueues.get(storeKey) || Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => { release = resolve; });
+  publicationQueues.set(storeKey, current);
+  await previous.catch(() => undefined);
+  try {
+    return await publishFacebookPreKeysLocked(runtime, sendIQ);
+  } finally {
+    release();
+    if (publicationQueues.get(storeKey) === current) publicationQueues.delete(storeKey);
+  }
+}
+
+async function publishFacebookPreKeysLocked(
+  runtime: SignalE2EERuntime,
+  sendIQ: FacebookE2EESendIQ
+): Promise<{ id: string; uploaded: number; skipped?: boolean }> {
   // A persisted IQ result is the only event that marks keys as published.
   // On restart, never resend the full local key store: only unacknowledged
   // one-time keys are eligible for upload.
@@ -128,7 +150,7 @@ export async function publishFacebookPreKeys(
   }
 
   const acknowledgedAt = Date.now();
-  await runtime.store.markPreKeysPublished(unpublishedIds, acknowledgedAt);
+  // Acknowledge only keys actually included in this IQ, not every pending store ID.\n  await runtime.store.markPreKeysPublished(pendingPreKeys.map((key) => key.keyId), acknowledgedAt);
   await runtime.store.markSignedPreKeyPublished(runtime.signedPreKey.keyId, acknowledgedAt);
   return { id, uploaded: pendingPreKeys.length };
 }
