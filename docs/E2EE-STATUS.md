@@ -159,3 +159,29 @@ See [E2EE-ROADMAP.md](E2EE-ROADMAP.md) for the only approved four-Step checklist
 5. Verify each behavior against the real server; keep E2EE failures fail-open for ordinary FCA login.
 
 **Step 2 status: In progress — not complete.**
+
+
+### 2026-11-27 — Step 2 completion attempt (user-authorized)
+
+**Requested outcome:** complete the entire Step 2 target on the existing branch and report the result.
+
+**Recheck performed**
+- Re-read the current branch implementations of `device-registration.ts`, `prekey-publisher.ts`, `login-integration.ts`, `login-helper.impl.ts`, `signal-key-store.ts`, and the two focused test files.
+- Confirmed the standard FCA login path calls E2EE with an empty factory dependency object. It supplies authenticated cookies and user agent to ICDC registration, but it does not create or inject a Messenger Noise IQ transport.
+- Confirmed the prekey publisher only accepts a caller-provided `sendIQ` function. Its tests simulate an IQ result; they do not establish a real authenticated socket or server acknowledgement.
+- Confirmed there is no persisted EC-prekey server-publication/acknowledgement ledger in the key store. Current runtime prekey replenishment is local initialization behavior, not verified server-aware replenishment/rotation.
+- Attempted to retrieve the named EryXen FCA GitHub reference repository for protocol comparison, but the advertised repository URL was unavailable (GitHub returned 404). No reference source could be verified from this session.
+
+**Safety decision / implementation result**
+- No E2EE source files were changed. The missing Noise transport, ICDC server contract, and prekey stanza/acknowledgement behavior cannot be safely inferred from mocked tests or from the unavailable reference source. Implementing guessed protocol fields or treating the ordinary MQTT JSON channel as Noise would create false compatibility and could corrupt device registration/key state.
+- No live Facebook account was available for authorized ICDC registration or real prekey-publication acceptance testing.
+- No tests/build/typecheck/lint were run in this attempt; the previous CI result is not being reused as validation for a new implementation.
+
+**Remaining Step 2 blockers**
+1. A verified authenticated Messenger Noise transport and IQ response decoder integrated with the existing FCA session.
+2. Authoritative/observed ICDC request and response contract, verified against an authorized account.
+3. Persistent server-acknowledged EC-prekey state with idempotent upload/retry and correct one-time-key lifecycle.
+4. Protocol-verified replenishment, signed-prekey rotation/retirement, and restart recovery.
+5. Authorized live-server acceptance evidence for registration and signed/one-time prekey publication.
+
+**Status: In progress — NOT complete.** This is an explicit implementation blocker report, not a completion claim. E2EE remains fail-open for ordinary FCA login; no fake success path was added.
