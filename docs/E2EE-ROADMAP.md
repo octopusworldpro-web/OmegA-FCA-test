@@ -97,6 +97,24 @@ A Step is complete only after its code, tests, required integration, and accepta
 - FCA login exposes `api.e2ee.sendDirectText()`, `api.e2ee.sendGroupText()`, `api.e2ee.syncGroupMembership()`, and the `api.e2ee.messenger` event emitter when `e2ee.facebook` is configured.
 - Offline fixtures cover recursive WA-binary parsing, binary ciphertext/JID round-trips, peer/device and PreKeyBundle parsing, reconnect/outbox replay, and direct/group text send plus inbound decrypt/event delivery.
 
+**Media event API**
+
+The native Messenger service emits typed media events after decrypting the Signal application envelope:
+
+```js
+api.e2ee.messenger.on("direct_media", async (event) => {
+  const bytes = await api.e2ee.downloadDirectMedia(event.envelope, event.sender);
+});
+api.e2ee.messenger.on("group_media", async (event) => {
+  const bytes = await api.e2ee.downloadGroupMedia(event.envelope, {
+    groupId: event.groupId,
+    sender: event.sender
+  });
+});
+```
+
+Ordinary text continues to emit through `message`; media envelopes are not exposed as chat text.
+
 **API usage**
 Native Messenger transport is enabled by opting in with `e2ee: { enabled: true, facebook: {} }`. Omitting `facebook` intentionally creates only the local Signal runtime.
 
@@ -136,7 +154,7 @@ await api.e2ee.syncGroupMembership("GROUP_JID@g.us");
 
 **Still required**
 - Direct-media send now discovers every peer device and independently wraps the media key in each device's Signal session. Delivery continues when one device fails; successful device deliveries are returned, while partial failures emit `direct_media_partial_delivery` and per-device `e2ee_error`. Each device currently receives its own encrypted upload (correct but not bandwidth-optimal). Source commit: `d43411fc03451daab0c5553f87682ead064b9bc6`.
-- Confirm native Messenger E2EE media stanza interoperability and supported video/file lifecycle details against captured protocol fixtures; the current attachment blob is ciphertext sent through the legacy attachment channel while its key/descriptor travels in the native Signal-encrypted envelope.
+- The implemented media wire design deliberately uses the existing FCA/EryXen-compatible attachment upload/send/getMessage channel for ciphertext bytes; media key and descriptor travel only inside the Signal-encrypted application envelope. Incoming decrypted `direct_media` and `group_media` envelopes are now dispatched as typed `messenger` events rather than ordinary chat text. This is an application-envelope integration, not evidence of Meta's native encrypted-media stanza contract.
 - Verify direct and group media interoperability with compatible Facebook E2EE devices.
 - Complete the EryXen protocol/reference comparison and document observed differences; do not copy unverified assumptions.
 - Run authorized real-account tests for fresh login, reconnect, restart, multiple devices, and recovery.
@@ -422,3 +440,15 @@ This directive governs the remaining implementation work for Steps 2–4. It sup
 - Each device currently receives a separate encrypted media upload. This favors clear device/session key isolation over bandwidth efficiency; a shared ciphertext with separately wrapped keys remains a possible optimization.
 - Source commit: `d43411fc03451daab0c5553f87682ead064b9bc6`.
 - No CI status was returned for this commit at the time of this update. No runtime tests were executed by this GitHub-only edit session. Native Messenger media stanza fixtures, video/file lifecycle verification, EryXen evidence review, and authorized live-device acceptance remain outstanding. Step 4 remains **In progress**.
+
+
+### 2026-11-27 — Step 4 inbound media dispatch and lifecycle fixtures
+
+- `messenger-e2ee-service.ts` now parses decrypted Signal application text and emits `direct_media` / `group_media` events for version-1 media envelopes. Ordinary text retains the existing `message` event. The events include sender/device and thread/group context so callers can invoke the existing download/decrypt helpers.
+- `e2ee-messenger-send.test.cjs` now exercises direct-media fanout across two discovered devices and inbound direct/group media event dispatch, in addition to existing text and group membership/device-rotation fixtures.
+- `e2ee-direct-media.test.cjs` now covers a binary video-like payload (256 KiB), metadata preservation, ciphertext-only upload, decrypt round-trip, and a zero-byte file round-trip, while retaining tamper/digest/peer validation checks.
+- Source commits: `6bc34f5c3899ef4849d3e59f48ca8a35ac0c778a`, `ab42a9e59116fee240555e5fce142a35c510b779`, `d4c226b52e0eeb29a7c462af9d460723d3b6f98e`, `ff5f8014d9999b8a779ea03dc6cb5f1da3da47da`.
+- Workflow run [46045981492](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46045981492) was triggered for an earlier fanout commit and was still running at this update; it is not evidence for the latest test commit.
+- EryXen comparison remains scoped to the existing attachment lifecycle: upload returns attachment IDs, sendMessage attaches pre-uploaded IDs, and getMessage resolves attachment metadata/URLs. The E2EE extension encrypts bytes before upload and carries the decryption key/descriptor over Signal. No EryXen native encrypted-media stanza implementation or live Messenger media acceptance is claimed.
+- Step 4 remains **In progress** pending latest-head CI, captured/authoritative Messenger media wire evidence, and authorized real-device interoperability/reconnect/restart acceptance.
+\n
