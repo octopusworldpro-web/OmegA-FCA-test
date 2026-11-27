@@ -6,7 +6,7 @@ const SINGLE_TOKENS = new Map<number, string>([
   [4, "type"], [6, "from"], [8, "id"], [17, "to"], [20, "result"],
   [22, "xmlns"], [25, "iq"], [29, "enc"], [30, "urn:xmpp:whatsapp:push"],
   [31, "presence"], [43, "urn:xmpp:ping"], [48, "unavailable"], [52, "composing"],
-  [73, "success"], [86, "ping"], [92, "set"], [98, "list"], [115, "encrypt"]
+  [76, "success"], [86, "ping"], [92, "set"], [98, "list"], [203, "encrypt"]
 ]);
 
 interface BinaryNode { tag: string; attrs: Record<string, string>; content?: unknown; }

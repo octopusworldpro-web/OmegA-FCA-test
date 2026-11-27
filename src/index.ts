@@ -169,6 +169,6 @@ export { verifyMessengerNoiseCertificateChain, MESSENGER_NOISE_ROOT_PUBLIC_KEY }
 
 export { fetchFacebookCryptoAuthToken, FACEBOOK_CAT_GRAPHQL_DOC_ID, type FacebookCATRequestOptions } from "./domains/e2ee/messenger-cat";
 
-export { performMessengerNoiseXXHandshake, buildMessengerClientPayload, MessengerNoiseFrameCipher, type MessengerNoiseRawTransport, type MessengerNoiseHandshakeOptions, type MessengerNoiseHandshakeResult } from "./domains/e2ee/messenger-noise";
+export { performMessengerNoiseXXHandshake, buildMessengerClientPayload, MessengerNoiseFrameCipher, MessengerNoiseHandshakeState, type MessengerNoiseRawTransport, type MessengerNoiseHandshakeOptions, type MessengerNoiseHandshakeResult } from "./domains/e2ee/messenger-noise";
 
 export { connectMessengerNoiseSocket, MessengerNoiseSocket, type MessengerNoiseSocketOptions } from "./domains/e2ee/messenger-noise-socket";
