@@ -23,7 +23,7 @@ const fca = require("../dist/index.js");
   let uploaded = Buffer.alloc(0);
   const media = fca.createSignalEncryptedDirectMediaMessaging({
     signal: deps,
-    sendEnvelope: async (peerId, envelope) => sent.push({ peerId, envelope })
+    sendEnvelope: async (peerId, remote, envelope) => sent.push({ peerId, remote, envelope })
   });
   const original = Buffer.from([0, 1, 2, 255, 10, 13, 42]);
   const envelope = await media.send("200", peer, original, async (ciphertext, metadata) => {
@@ -37,6 +37,7 @@ const fca = require("../dist/index.js");
   assert.equal(envelope.kind, "direct_media");
   assert.equal(sent.length, 1);
   assert.equal(sent[0].peerId, "200");
+  assert.deepEqual(sent[0].remote, peer);
   const plaintext = await media.receive(envelope, peer, async (upload, descriptor) => {
     assert.equal(upload.ids[0].file_id, "opaque-attachment-id");
     assert.equal(descriptor.contentType, "image/png");
