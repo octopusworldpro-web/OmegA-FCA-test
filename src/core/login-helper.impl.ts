@@ -1028,6 +1028,7 @@ function loginHelper(
           status: e2eeResult.status,
           runtime: e2eeResult.runtime,
           deviceRegistration: e2eeResult.status === "ready" ? e2eeResult.deviceRegistration : undefined,
+          preKeyPublication: e2eeResult.status === "ready" ? e2eeResult.preKeyPublication : undefined,
           error: e2eeResult.status === "failed" ? e2eeResult.error : undefined,
           close: async () => {
             if (e2eeResult.runtime) await e2eeResult.runtime.close();
