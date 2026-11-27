@@ -152,6 +152,7 @@ export interface MessengerE2EEServiceOptions {
   runtime: SignalE2EERuntime;
   socket: MessengerNoiseSocket;
   signal: unknown;
+  reconnect?: () => Promise<MessengerNoiseSocket>;
 }
 
 /**
@@ -162,17 +163,21 @@ export class MessengerE2EEService extends EventEmitter {
   readonly directory: MessengerPeerDirectory;
   readonly peers: ReturnType<typeof createMessengerSignalPeerManager>;
   private readonly local: SignalPeerAddress;
-  private readonly unsubscribe: () => void;
+  private unsubscribe: () => void = () => {};
+  private unsubscribeClose: () => void = () => {};
   readonly ready: Promise<void>;
   private readonly groupKeys: ReturnType<typeof createSignalGroupKeyManager>;
-  private readonly pendingMessageAcks = new Map<string, { resolve: () => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
+  private readonly pendingMessageAcks = new Map<string, { resolve: () => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout>; stanza: Buffer; attempts: number }>();
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempts = 0;
+  private closed = false;
   private readonly retryCounts = new Map<string, number>();
   private readonly seenIncoming = new Set<string>();
-  constructor(private readonly options: MessengerE2EEServiceOptions) {
+  constructor(private options: MessengerE2EEServiceOptions) {
     super();
     this.local = { name: options.accountId, deviceId: options.localDeviceId };
-    this.directory = new MessengerPeerDirectory(options.socket);
     this.peers = createMessengerSignalPeerManager(options.runtime, options.socket, options.signal);
+    this.directory = this.peers.directory;
     this.groupKeys = createSignalGroupKeyManager({
       store: options.runtime.store,
       groups: options.runtime.groups,
@@ -195,22 +200,70 @@ export class MessengerE2EEService extends EventEmitter {
         await this.sendDirectCiphertext(recipient, encrypted.type, Buffer.from(encrypted.body, "base64"));
       }
     });
-    this.unsubscribe = options.socket.onNode((node) => {
+    this.attachSocket(options.socket);
+    this.ready = this.startup();
+    this.ready.catch((error) => this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error))));
+  }
+
+  private attachSocket(socket: MessengerNoiseSocket): void {
+    this.unsubscribe = socket.onNode((node) => {
       void this.handleNode(node).catch(async (error) => {
         if (node.tag === "message") await this.sendRetryReceipt(node).catch((retryError) => this.emit("e2ee_error", retryError));
         this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error)));
       });
     });
-    options.socket.onClose((error) => {
+    this.unsubscribeClose = socket.onClose((error) => this.handleDisconnect(error));
+  }
+
+  private handleDisconnect(error: Error): void {
+    for (const [id, pending] of this.pendingMessageAcks) {
+      clearTimeout(pending.timer);
+      if (!this.options.reconnect) {
+        pending.reject(error);
+        this.pendingMessageAcks.delete(id);
+      }
+    }
+    this.emit("disconnected", error);
+    this.scheduleReconnect();
+  }
+
+  private scheduleReconnect(): void {
+    if (this.closed || !this.options.reconnect || this.reconnectTimer) return;
+    if (this.reconnectAttempts >= 5) {
+      const error = new Error("Messenger E2EE reconnect attempts exhausted");
       for (const [id, pending] of this.pendingMessageAcks) {
         clearTimeout(pending.timer);
         pending.reject(error);
         this.pendingMessageAcks.delete(id);
       }
-      this.emit("disconnected", error);
-    });
-    this.ready = this.startup();
-    this.ready.catch((error) => this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error))));
+      this.emit("reconnect_failed", error);
+      return;
+    }
+    const attempt = this.reconnectAttempts++;
+    const delay = Math.min(30000, 1000 * (2 ** attempt));
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
+      try {
+        const socket = await this.options.reconnect!();
+        await this.replaceConnection(socket);
+        this.reconnectAttempts = 0;
+        this.emit("reconnected");
+      } catch (error) {
+        this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error)));
+        this.scheduleReconnect();
+      }
+    }, delay);
+  }
+
+  private async replaceConnection(socket: MessengerNoiseSocket): Promise<void> {
+    if (this.closed) { socket.close(); throw new Error("Messenger E2EE service is closed"); }
+    this.unsubscribe();
+    this.unsubscribeClose();
+    this.options.socket = socket;
+    this.directory.setSocket(socket);
+    this.attachSocket(socket);
+    await this.startup();
+    for (const [id, pending] of this.pendingMessageAcks) this.transmitPending(id, pending, 15000);
   }
 
   private async startup(): Promise<void> {
@@ -248,20 +301,39 @@ export class MessengerE2EEService extends EventEmitter {
   }
 
   private sendStanzaWithAck(stanza: Buffer, id: string, timeoutMs = 15000): Promise<void> {
+    if (this.closed) return Promise.reject(new Error("Messenger E2EE service is closed"));
     if (this.pendingMessageAcks.has(id)) return Promise.reject(new Error(`Duplicate outgoing Messenger message ID ${id}`));
     return new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => {
+      const pending = { resolve, reject, timer: setTimeout(() => {}, 0), stanza: Buffer.from(stanza), attempts: 0 };
+      clearTimeout(pending.timer);
+      this.pendingMessageAcks.set(id, pending);
+      this.transmitPending(id, pending, timeoutMs);
+    });
+  }
+
+  private transmitPending(
+    id: string,
+    pending: { resolve: () => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout>; stanza: Buffer; attempts: number },
+    timeoutMs: number
+  ): void {
+    if (this.closed || !this.pendingMessageAcks.has(id)) return;
+    clearTimeout(pending.timer);
+    pending.attempts++;
+    pending.timer = setTimeout(() => {
+      if (pending.attempts < 3) {
+        this.transmitPending(id, pending, timeoutMs);
+        return;
+      }
+      this.pendingMessageAcks.delete(id);
+      pending.reject(new Error(`Messenger message acknowledgement timed out: ${id}`));
+    }, timeoutMs);
+    this.options.socket.sendFrame(pending.stanza).catch((error) => {
+      clearTimeout(pending.timer);
+      if (this.options.reconnect) this.scheduleReconnect();
+      else {
         this.pendingMessageAcks.delete(id);
-        reject(new Error(`Messenger message acknowledgement timed out: ${id}`));
-      }, timeoutMs);
-      this.pendingMessageAcks.set(id, { resolve, reject, timer });
-      this.options.socket.sendFrame(stanza).catch((error) => {
-        const pending = this.pendingMessageAcks.get(id);
-        if (!pending) return;
-        clearTimeout(pending.timer);
-        this.pendingMessageAcks.delete(id);
-        reject(error instanceof Error ? error : new Error(String(error)));
-      });
+        pending.reject(error instanceof Error ? error : new Error(String(error)));
+      }
     });
   }
 
@@ -491,7 +563,12 @@ export class MessengerE2EEService extends EventEmitter {
   }
 
   close(): void {
+    if (this.closed) return;
+    this.closed = true;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
     this.unsubscribe();
+    this.unsubscribeClose();
     for (const [id, pending] of this.pendingMessageAcks) {
       clearTimeout(pending.timer);
       pending.reject(new Error("Messenger E2EE service closed"));
