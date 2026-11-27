@@ -625,18 +625,6 @@ export class MessengerE2EEService extends EventEmitter {
     return this.directMedia.receive(envelope, remote, download);
   }
 
-  async sendGroupMedia(
-    groupJid: string,
-    media: Uint8Array | Buffer,
-    upload: (ciphertext: Buffer, metadata: { fileName: string; contentType: string }) => Promise<unknown>,
-    metadata: { fileName?: string; contentType?: string } = {}
-  ): Promise<EncryptedGroupMediaMessageEnvelope> {
-    await this.ready;
-    const participants = await this.getGroupParticipants(groupJid);
-    await this.refreshGroupMembership(groupJid, participants);
-    return this.groupMedia.send(groupJid, this.local, media, upload, metadata);
-  }
-
   receiveGroupMedia(
     envelope: unknown,
     download: (descriptor: any, upload: unknown) => Promise<Uint8Array | Buffer>,
