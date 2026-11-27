@@ -120,7 +120,8 @@ export { createSignalKeyStore, type SignalKeyStore, type SignalStoreOptions, typ
 
 export { createLibsignalStores, ensureSignalIdentity, createSignalSignedPreKey, createSignalPreKey, createSignalKyberPreKey, createSignalPreKeyBatch, createSignalKyberPreKeyBatch } from "./domains/e2ee/libsignal-adapter";
 export { establishSignalDirectSession, encryptSignalDirectMessage, decryptSignalDirectMessage, createSignalDirectMessages, type SignalPeerAddress, type SignalCiphertext, type SignalDirectMessageDeps } from "./domains/e2ee/direct-messages";
-export { encryptSignalMedia, decryptSignalMedia, encryptAndUploadSignalMedia, type EncryptedMediaDescriptor } from "./domains/e2ee/encrypted-media";
+export { encryptSignalMedia, decryptSignalMedia, encryptAndUploadSignalMedia, downloadAndDecryptSignalMedia, type EncryptedMediaDescriptor, type UploadedEncryptedMediaDescriptor } from "./domains/e2ee/encrypted-media";
+export { createSignalEncryptedDirectMediaMessaging, type SignalDirectMediaMessagingDeps, type EncryptedDirectMediaEnvelope } from "./domains/e2ee/direct-media-messaging";
 
 export { createSignalE2EEActions, type E2EEAction, type E2EEReadReceipt, type E2EEDeliveryReceipt, type E2EETypingAction, type E2EEPresenceAction, type E2EEActionsDeps } from "./domains/e2ee/actions";
 
