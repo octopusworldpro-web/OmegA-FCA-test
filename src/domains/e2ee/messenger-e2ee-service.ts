@@ -166,6 +166,8 @@ export class MessengerE2EEService extends EventEmitter {
   readonly ready: Promise<void>;
   private readonly groupKeys: ReturnType<typeof createSignalGroupKeyManager>;
   private readonly pendingMessageAcks = new Map<string, { resolve: () => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
+  private readonly retryCounts = new Map<string, number>();
+  private readonly seenIncoming = new Set<string>();
   constructor(private readonly options: MessengerE2EEServiceOptions) {
     super();
     this.local = { name: options.accountId, deviceId: options.localDeviceId };
@@ -194,7 +196,10 @@ export class MessengerE2EEService extends EventEmitter {
       }
     });
     this.unsubscribe = options.socket.onNode((node) => {
-      void this.handleNode(node).catch((error) => this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error))));
+      void this.handleNode(node).catch(async (error) => {
+        if (node.tag === "message") await this.sendRetryReceipt(node).catch((retryError) => this.emit("e2ee_error", retryError));
+        this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error)));
+      });
     });
     options.socket.onClose((error) => {
       for (const [id, pending] of this.pendingMessageAcks) {
@@ -325,6 +330,49 @@ export class MessengerE2EEService extends EventEmitter {
     return id;
   }
 
+  private async sendRetryReceipt(node: Node): Promise<void> {
+    const id = String(node.attrs.id || "");
+    const to = String(node.attrs.from || "");
+    if (!id || !to) return;
+    const senderJid = String(node.attrs.participant || to);
+    const key = `${to}:${senderJid}:${id}`;
+    const count = (this.retryCounts.get(key) || 0) + 1;
+    if (count > 2) return;
+    this.retryCounts.set(key, count);
+
+    const registration = Buffer.alloc(4);
+    registration.writeUInt32BE(this.options.runtime.registrationId);
+    const children: Buffer[] = [
+      encodeNode("retry", { count: String(count), id, t: String(node.attrs.t || Math.floor(Date.now() / 1000)), v: "1" }),
+      encodeNode("registration", {}, registration)
+    ];
+    const unpublished = new Set(this.options.runtime.store.listUnpublishedPreKeyIds());
+    const oneTime = this.options.runtime.preKeys.find((item) => unpublished.has(item.keyId));
+    const signed = this.options.runtime.signedPreKey;
+    const raw = (value: string) => {
+      const data = Buffer.from(value, "base64");
+      return data.length === 33 && data[0] === 0x05 ? data.subarray(1) : data;
+    };
+    const keyNode = (tag: "key" | "skey", keyId: number, publicKey: string, signature?: string) => {
+      const idBytes = Buffer.alloc(3);
+      idBytes.writeUIntBE(keyId, 0, 3);
+      const nodes = [encodeNode("id", {}, idBytes), encodeNode("value", {}, raw(publicKey))];
+      if (signature) nodes.push(encodeNode("signature", {}, Buffer.from(signature, "base64")));
+      return encodeNode(tag, {}, nodes);
+    };
+    const keyChildren: Buffer[] = [
+      encodeNode("type", {}, Buffer.from([0x05])),
+      encodeNode("identity", {}, raw(this.options.runtime.identityKey))
+    ];
+    if (oneTime) keyChildren.push(keyNode("key", oneTime.keyId, oneTime.publicKey));
+    keyChildren.push(keyNode("skey", signed.keyId, signed.publicKey, signed.signature));
+    children.push(encodeNode("keys", {}, keyChildren));
+
+    const attrs: Record<string, string> = { id, to, type: "retry" };
+    if (node.attrs.participant || to.endsWith("@g.us")) attrs.participant = senderJid;
+    await this.options.socket.sendFrame(marshal(encodeNode("receipt", attrs, children)));
+  }
+
   private async handleNode(node: Node): Promise<void> {
     if (node.tag === "ack") {
       const id = String(node.attrs.id || "");
@@ -357,6 +405,11 @@ export class MessengerE2EEService extends EventEmitter {
     const senderJid = String(node.attrs.participant || node.attrs.from || "");
     const from = String(node.attrs.from || senderJid);
     const sender = jidAddress(senderJid);
+    const incomingId = String(node.attrs.id || "");
+    if (incomingId && this.seenIncoming.has(incomingId)) {
+      await this.options.socket.sendFrame(marshal(encodeNode("ack", { class: "message", id: incomingId, to: from })));
+      return;
+    }
     const participantNode = list(node).find((child) => child.tag === "participants");
     let participantProcessed = false;
     for (const recipientNode of list(participantNode)) {
@@ -431,7 +484,19 @@ export class MessengerE2EEService extends EventEmitter {
     const ackAttrs: Record<string, string> = { class: "message", id: String(node.attrs.id || ""), to: from };
     if (node.attrs.participant) ackAttrs.participant = String(node.attrs.participant);
     await this.options.socket.sendFrame(marshal(encodeNode("ack", ackAttrs)));
+    if (incomingId) {
+      this.seenIncoming.add(incomingId);
+      if (this.seenIncoming.size > 5000) this.seenIncoming.delete(this.seenIncoming.values().next().value as string);
+    }
   }
 
-  close(): void { this.unsubscribe(); this.options.socket.close(); }
+  close(): void {
+    this.unsubscribe();
+    for (const [id, pending] of this.pendingMessageAcks) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error("Messenger E2EE service closed"));
+      this.pendingMessageAcks.delete(id);
+    }
+    this.options.socket.close();
+  }
 }
