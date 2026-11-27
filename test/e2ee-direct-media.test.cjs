@@ -45,6 +45,29 @@ const fca = require("../dist/index.js");
   });
   assert.deepEqual(plaintext, original);
 
+  // Binary-safe lifecycle coverage for video/file payloads and empty files.
+  const videoFixture = Buffer.alloc(256 * 1024);
+  for (let i = 0; i < videoFixture.length; i++) videoFixture[i] = (i * 31) & 255;
+  let videoCiphertext;
+  const videoEnvelope = await media.send("200", peer, videoFixture, async (ciphertext, metadata) => {
+    videoCiphertext = Buffer.from(ciphertext);
+    assert.notDeepEqual(videoCiphertext, videoFixture);
+    assert.equal(metadata.fileName, "sample.mp4.enc");
+    assert.equal(metadata.contentType, "application/octet-stream");
+    return { ids: [{ file_id: "video-attachment" }] };
+  }, { fileName: "sample.mp4", contentType: "video/mp4" });
+  assert.equal(videoEnvelope.descriptor.contentType, "video/mp4");
+  assert.equal(videoEnvelope.descriptor.plaintextSize, videoFixture.length);
+  assert.deepEqual(await media.receive(videoEnvelope, peer, async () => videoCiphertext), videoFixture);
+
+  let emptyCiphertext;
+  const emptyEnvelope = await media.send("200", peer, Buffer.alloc(0), async (ciphertext) => {
+    emptyCiphertext = Buffer.from(ciphertext);
+    return { ids: [{ file_id: "empty-attachment" }] };
+  }, { fileName: "empty.bin", contentType: "application/octet-stream" });
+  assert.equal(emptyEnvelope.descriptor.plaintextSize, 0);
+  assert.deepEqual(await media.receive(emptyEnvelope, peer, async () => emptyCiphertext), Buffer.alloc(0));
+
   await assert.rejects(media.receive(envelope, { name: "201", deviceId: 7 }, async () => uploaded), /expected peer/);
   await assert.rejects(media.send("200", { name: "201", deviceId: 7 }, original, async () => ({ id: "x" })), /does not match peerId/);
   await assert.rejects(media.receive({ ...envelope, descriptor: { ...envelope.descriptor, digest: "bad" } }, peer, async () => uploaded), /invalid encrypted direct media descriptor/);
