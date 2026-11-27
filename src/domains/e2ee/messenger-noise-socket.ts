@@ -291,7 +291,7 @@ export class MessengerNoiseSocket {
       await this.sendFrame(stanza);
       const deadline = Date.now() + 15000;
       while (Date.now() < deadline) {
-        const node = decodeBinaryNode(await this.readFrame(Math.max(1, deadline - Date.now())));
+        const node = decodeMessengerBinaryNode(await this.readFrame(Math.max(1, deadline - Date.now())));
         if (node.tag === "iq" && node.attrs.id === id) return node;
       }
       throw new Error(`Messenger IQ ${id} acknowledgement timed out`);
