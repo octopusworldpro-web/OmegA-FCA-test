@@ -109,5 +109,5 @@ export function createSignalPeerManager(deps: SignalPeerManagerDeps) {
     return deps.directMessages.decrypt({ name: peerName, deviceId: remote.deviceId }, ciphertext);
   }
 
-  return { resolveDevices, preparePeer, encryptForPeer, decryptFromDevice };
+  return { resolveDevices, preparePeer, ensureSession, encryptForPeer, decryptFromDevice };
 }
