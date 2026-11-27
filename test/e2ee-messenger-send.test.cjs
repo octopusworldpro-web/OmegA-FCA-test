@@ -195,7 +195,7 @@ const runtime = {
   const sampleFields = { ...sampleEncrypted.fields, directPath: "/v/t59.2708-21/incoming", mimeType: "image/png" };
   const originalDownloadFetch = global.fetch;
   global.fetch = async (url) => {
-    assert.match(String(url), /^https:\\/\\/rupload\\.facebook\\.com\\/v\\/t59/);
+    assert.match(String(url), /^https:\/\/rupload\.facebook\.com\/v\/t59/);
     return { ok: true, arrayBuffer: async () => sampleEncrypted.uploadBytes };
   };
   try {
