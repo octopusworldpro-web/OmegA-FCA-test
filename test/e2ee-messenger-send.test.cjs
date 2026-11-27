@@ -64,6 +64,7 @@ class FakeSocket {
 const socket = new FakeSocket();
 const delivered = ["987654321.17", "123456789.43"];
 const groupMemberships = new Map();
+const encryptedForDevices = [];
 const runtime = {
   registrationId: 7,
   identityKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 1)]).toString("base64"),
@@ -82,7 +83,7 @@ const runtime = {
   },
   directMessages: {
     establishSession: async () => {},
-    encrypt: async () => ({ type: 2, body: Buffer.from("ciphertext").toString("base64") }),
+    encrypt: async (remote) => { encryptedForDevices.push(remote.deviceId); return { type: 2, body: Buffer.from("ciphertext").toString("base64") }; },
     decrypt: async () => incomingTransport
   },
   groups: {
@@ -145,6 +146,7 @@ const runtime = {
   assert.equal(received[1].senderId, "987654321");
   // A direct media envelope is fanned out to every discovered peer device.
   socket.remoteDeviceIds = [17, 18];
+  encryptedForDevices.length = 0;
   let mediaUploads = 0;
   const mediaEnvelopes = await service.sendDirectMedia("987654321", Buffer.from("media-payload"), async (ciphertext) => {
     mediaUploads++;
@@ -153,7 +155,8 @@ const runtime = {
   }, { fileName: "fixture.bin", contentType: "application/octet-stream" });
   assert.equal(mediaEnvelopes.length, 2);
   assert.equal(mediaUploads, 2);
-  assert.deepEqual(mediaEnvelopes.map((item) => item.descriptor.encryptedKey.remote.deviceId), [17, 18]);
+  assert.deepEqual([...new Set(encryptedForDevices)].sort(), [17, 18]);
+  assert.ok(mediaEnvelopes.every((item) => typeof item.descriptor.encryptedKey.body === "string"));
 
   // Incoming Signal-encrypted media JSON is surfaced as typed media events,
   // not misreported as a normal text chat message.
