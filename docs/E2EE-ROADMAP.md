@@ -10,7 +10,7 @@
 
 - Step 1: Verified complete — local engine and fail-open FCA login lifecycle
 - Step 2: Verified complete — automatic CAT/ICDC, authenticated Noise XX key-sync transport, acknowledged prekey publication, replenishment/rotation, bounded retry, restart recovery, and offline CI/fixture acceptance. Live Facebook acceptance was explicitly waived by the user.
-- Step 3: Implementation complete for the offline native text-messaging scope; overall acceptance remains in progress pending authorized live cross-device testing
+- Step 3: Native text messaging, persistent encrypted outbox/restart replay, and automatic group member/device-change Sender Key rotation implemented; offline CI verification pending and authorized live acceptance remains separately pending
 - Step 4: In progress — local media crypto helpers exist; native media transport and real-device acceptance remain
 
 A Step is complete only after its code, tests, required integration, and acceptance evidence are present. Unit tests, mocks, helper modules, and CI success do not by themselves prove Messenger interoperability.
@@ -91,7 +91,9 @@ A Step is complete only after its code, tests, required integration, and accepta
 - Native Messenger device-directory and encrypt-IQ PreKeyBundle discovery, including conversion to libsignal's native PreKeyBundle and per-device session establishment.
 - Direct text fanout to remote and own devices, including self-device DSM; incoming `msg`/`pkmsg` participant payloads are decrypted and decoded.
 - Group Sender Key/SKDM distribution over encrypted direct sessions, group `skmsg` send/receive/decrypt, and an explicit membership-sync/key-rotation API.
-- Server stanza acknowledgements, bounded retry receipts, inbound duplicate suppression, Noise reconnect with CAT refresh, and in-memory replay of the same pending encrypted stanza after reconnect.
+- Server stanza acknowledgements, bounded retry receipts, inbound duplicate suppression, Noise reconnect with CAT refresh, and durable encrypted-stanza outbox replay after process restart until server acknowledgement.
+- Encrypted outbox entries are stored in the existing account-scoped encrypted Signal store before transmission and removed only after a matching server message ACK.
+- Group member/device snapshots are persisted. Group sends compare the current member-device directory with the prior snapshot and rotate Sender Keys when it changes; tracked groups are rechecked after reconnect and rotation is automatic.
 - FCA login exposes `api.e2ee.sendDirectText()`, `api.e2ee.sendGroupText()`, `api.e2ee.syncGroupMembership()`, and the `api.e2ee.messenger` event emitter when `e2ee.facebook` is configured.
 - Offline fixtures cover recursive WA-binary parsing, binary ciphertext/JID round-trips, peer/device and PreKeyBundle parsing, reconnect/outbox replay, and direct/group text send plus inbound decrypt/event delivery.
 
@@ -109,8 +111,7 @@ await api.e2ee.syncGroupMembership("GROUP_JID@g.us");
 
 **Still required for verified completion**
 - Authorized live-account tests with compatible devices for direct and group send/receive; no live server acceptance is claimed.
-- Automatic group membership/device-change notification wiring. The current service exposes `syncGroupMembership(groupJid)` for explicit rotation.
-- Persistent outbox replay across process restart; current encrypted-stanza replay is in-memory across socket reconnects.
+- Authorized live-account direct/group send/receive tests with compatible devices; no live server acceptance is claimed.
 - Verify receipts, out-of-order delivery, and replay/recovery behavior on real Messenger devices.
 - Media payloads and upload/download transport remain Step 4 scope.
 
@@ -360,3 +361,18 @@ This directive governs the remaining implementation work for Steps 2–4. It sup
 - Added bounded retry receipts, duplicate suppression, server-acknowledged outbound stanza tracking, CAT-refresh reconnect, and in-memory replay of the original ciphertext/stanza after socket reconnect.
 - Validation: [CI run 46039184482](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46039184482) for source head `1a5b461ad41be89db50c8c41d9fd2383cbb4559d` passed dependency/security audit, build and all tests, TypeScript check, lint, and package dry run.
 - **Status:** source implementation complete for direct/group text in the offline scope; Step 3 remains **In progress** until authorized live cross-device acceptance and the remaining items above are verified.
+
+
+### 2026-11-27 — Step 3 durable recovery and automatic group rotation update
+
+**Branch:** `feature/release-0.2.3-beta.3`
+
+- `signal-key-store.ts` now persists pending encrypted Messenger stanzas in the existing encrypted account-scoped store, alongside persisted group member/device snapshots. Existing version-1 store payloads remain backward-compatible because the new fields are optional.
+- `messenger-e2ee-service.ts` writes an encrypted stanza to the durable outbox before sending it, replays unacknowledged entries during service startup/reconnect, and removes an entry after its matching server ACK.
+- Group sends compare the currently discovered member-device set with the persisted snapshot. A change rotates the Sender Key and redistributes SKDM before the next group ciphertext is sent. Tracked groups are rechecked after reconnect; `syncGroupMembership(groupJid)` remains available for explicit refresh.
+- Added persistence/reopen coverage in `test/signal-key-store.test.cjs`, restart replay coverage in `test/e2ee-messenger-reconnect.test.cjs`, and member-device-change rotation coverage in `test/e2ee-messenger-send.test.cjs`.
+- Source/test commits: `171766fd63dd6002655cc6c58c335e14c9b5f25d`, `5b065404ef922784ec51d8f1df9014c99a9e3269`, `f3ebd0517d10ed1d8deb11580b01d58ef800162c`, `debee420042c98cb99582f9cde8245faa7d3a87f`, `83b7d5da909b4370489fa394aa147d571d7c9785`.
+- CI run [46042120567](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46042120567) was running when this entry was written; do not treat the source changes as CI-verified until that run completes successfully.
+- **Remaining acceptance boundary:** no authorized live Messenger account/cross-device direct or group round-trip was performed. This update does not claim Facebook server interoperability. Media remains Step 4.
+
+**Step 3 disposition:** offline source implementation now includes the previously missing membership/device-change rotation and process-restart outbox recovery. Overall Step 3 remains **In progress** until the current CI run and the separately documented real-device acceptance boundary are resolved; no live test is fabricated.
