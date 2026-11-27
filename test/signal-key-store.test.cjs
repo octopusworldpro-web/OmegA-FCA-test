@@ -13,6 +13,10 @@ const fca = require("../dist/index.js");
   try {
     const store = await fca.createSignalKeyStore({ accountId: "account-123", storagePath, encryptionKey });
     await store.setIdentityKeyPair({ publicKey: Buffer.from("public").toString("base64"), privateKey: Buffer.from("private").toString("base64") });
+    const noiseKeyPair = fca.generateOmegAX25519KeyPair();
+    await store.setNoiseKeyPair({ publicKey: noiseKeyPair.publicKey.toString("base64"), privateKey: noiseKeyPair.privateKey.toString("base64") });
+    assert.deepEqual(store.getNoiseKeyPair(), { publicKey: noiseKeyPair.publicKey.toString("base64"), privateKey: noiseKeyPair.privateKey.toString("base64") });
+    await assert.rejects(store.setNoiseKeyPair({ publicKey: Buffer.alloc(31).toString("base64"), privateKey: Buffer.alloc(32).toString("base64") }), /32-byte X25519/);
     await store.setRegistrationId(4567);
     await store.setDeviceRecord({ deviceId: "device-uuid-1", waDeviceId: 42, registeredAt: 1700000000, icdcSequence: 8 });
     await store.storeSignedPreKey({ keyId: 1, publicKey: "cHVi", privateKey: "cHJp", signature: "c2ln", createdAt: 1700000000 });
@@ -71,6 +75,7 @@ const fca = require("../dist/index.js");
     assert.equal(encrypted.includes("serialized-session"), false);
     const reopened = await fca.createSignalKeyStore({ accountId: "account-123", storagePath, encryptionKey });
     assert.equal(reopened.loadSession(address), Buffer.from("serialized-session").toString("base64"));
+    assert.deepEqual(reopened.getNoiseKeyPair(), { publicKey: noiseKeyPair.publicKey.toString("base64"), privateKey: noiseKeyPair.privateKey.toString("base64") });
     assert.equal(reopened.loadSenderKey(address, "group-abc"), Buffer.from("serialized-sender-key").toString("base64"));
     assert.deepEqual(reopened.getSenderKeyDistributionRecipients(localSender, "group-abc"), ["member.2"]);
     await reopened.markSenderKeyDistributionDelivered(localSender, "group-abc", { name: "member", deviceId: 3 });
