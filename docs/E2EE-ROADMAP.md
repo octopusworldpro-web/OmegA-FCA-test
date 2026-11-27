@@ -110,7 +110,6 @@ await api.e2ee.syncGroupMembership("GROUP_JID@g.us");
 ```
 
 **Still required for verified completion**
-- Authorized live-account tests with compatible devices for direct and group send/receive; no live server acceptance is claimed.
 - Authorized live-account direct/group send/receive tests with compatible devices; no live server acceptance is claimed.
 - Verify receipts, out-of-order delivery, and replay/recovery behavior on real Messenger devices.
 - Media payloads and upload/download transport remain Step 4 scope.
