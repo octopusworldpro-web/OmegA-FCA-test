@@ -89,7 +89,7 @@ function makeTransport(messageApp?: Buffer, skdm?: { groupId: string; bytes: Buf
   if (payload) out.bytes(1, payload);
   return out.bytes(2, protocol).build();
 }
-function decodeTransport(plaintext: Buffer): { messageApp?: Buffer; skdm?: { groupId: string; bytes: Buffer } } {
+function decodeTransport(plaintext: Buffer): { messageApp?: Buffer; skdm?: { groupId: string; bytes: Buffer }; destinationJid?: string } {
   const transport = readProto(plaintext);
   const payload = fieldBytes(transport, 1);
   let messageApp: Buffer | undefined;
@@ -98,7 +98,11 @@ function decodeTransport(plaintext: Buffer): { messageApp?: Buffer; skdm?: { gro
     if (appPayload) messageApp = fieldBytes(readProto(appPayload), 1);
   }
   const protocol = fieldBytes(transport, 2);
-  const ancillary = protocol ? fieldBytes(readProto(protocol), 2) : undefined;
+  const protocolFields = protocol ? readProto(protocol) : undefined;
+  const integral = protocolFields ? fieldBytes(protocolFields, 1) : undefined;
+  const dsm = integral ? fieldBytes(readProto(integral), 2) : undefined;
+  const destinationJid = dsm ? fieldString(readProto(dsm), 1) : undefined;
+  const ancillary = protocolFields ? fieldBytes(protocolFields, 2) : undefined;
   const skdmPayload = ancillary ? fieldBytes(readProto(ancillary), 2) : undefined;
   let skdm: { groupId: string; bytes: Buffer } | undefined;
   if (skdmPayload) {
@@ -106,7 +110,7 @@ function decodeTransport(plaintext: Buffer): { messageApp?: Buffer; skdm?: { gro
     const groupId = fieldString(parsed, 1), body = fieldBytes(parsed, 2);
     if (groupId && body) skdm = { groupId, bytes: body };
   }
-  return { messageApp, skdm };
+  return { messageApp, skdm, destinationJid };
 }
 function decodeText(messageApp: Buffer): string | undefined {
   const appPayload = fieldBytes(readProto(messageApp), 1);
@@ -336,6 +340,20 @@ export class MessengerE2EEService extends EventEmitter {
           groupId: participantPayload.skdm.groupId, sender, body: participantPayload.skdm.bytes.toString("base64")
         });
         participantProcessed = true;
+      }
+      if (participantPayload.messageApp) {
+        const text = decodeText(participantPayload.messageApp);
+        if (text !== undefined) {
+          this.emit("message", {
+            id: String(node.attrs.id || ""),
+            threadId: participantPayload.destinationJid || from,
+            senderJid,
+            senderId: sender.name,
+            text,
+            timestampMs: Number(node.attrs.t || Date.now()) * 1000
+          } satisfies MessengerE2EEMessageEvent);
+          participantProcessed = true;
+        }
       }
     }
     const mainEnc = list(node).find((child) => child.tag === "enc");
