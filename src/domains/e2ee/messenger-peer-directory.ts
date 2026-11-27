@@ -41,9 +41,13 @@ function rawPublicKey(node: Node | undefined, label: string): Buffer {
 function parseMessengerJid(jid: string): { user: string; deviceId: number } {
   const [local = "", server = ""] = jid.split("@");
   if (server !== "msgr") throw new Error(`Unsupported Messenger device JID: ${jid}`);
-  const match = /^([0-9]+)(?:[.:]([0-9]+))?$/.exec(local);
-  if (!match) throw new Error(`Invalid Messenger device JID: ${jid}`);
-  return { user: match[1]!, deviceId: Number(match[2] || 0) };
+  const colon = local.indexOf(":");
+  const dot = local.indexOf(".");
+  const userEnd = dot >= 0 ? dot : (colon >= 0 ? colon : local.length);
+  const user = local.slice(0, userEnd);
+  const deviceText = colon >= 0 ? local.slice(colon + 1) : (dot >= 0 ? local.slice(dot + 1) : "0");
+  if (!/^\d+$/.test(user) || !/^\d+$/.test(deviceText)) throw new Error(`Invalid Messenger device JID: ${jid}`);
+  return { user, deviceId: Number(deviceText) };
 }
 function requiredText(value: unknown, label: string): string {
   if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} is required`);
@@ -70,7 +74,10 @@ export class MessengerPeerDirectory {
       encodeNode("users", {}, [encodeNode("user", { jid: userJid })])
     ]);
     const users = findNode(response, "users");
-    const user = children(users).find((item) => item.tag === "user" && parseMessengerJid(String(item.attrs.jid || "")).user === peerName);
+    const user = children(users).find((item) => {
+      if (item.tag !== "user" || typeof item.attrs.jid !== "string") return false;
+      try { return parseMessengerJid(item.attrs.jid).user === peerName; } catch { return false; }
+    });
     if (!user) return [];
     const devices = findNode(user, "devices");
     const result = children(devices).filter((item) => item.tag === "device").map((item) => {
