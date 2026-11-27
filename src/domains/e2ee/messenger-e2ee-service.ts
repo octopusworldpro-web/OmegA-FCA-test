@@ -174,7 +174,7 @@ function decodeMessengerMediaApplication(messageApp: Buffer): MessengerMediaFiel
   const dimensions = mediaPayloadFields ? fieldBytes(mediaPayloadFields, 2) : undefined;
   const dimensionFields = dimensions ? readProto(dimensions) : new Map<number, ProtoField[]>();
   const wrapperFields = readProto(wrapper);
-  const captionBytes = fieldBytes(wrapperFields, 2);
+  const captionBytes = kind === "image" || kind === "video" ? fieldBytes(wrapperFields, 2) : undefined;
   const caption = captionBytes ? fieldString(readProto(captionBytes), 1) : undefined;
   return {
     kind, mediaKey, fileSHA256, fileEncSHA256, directPath, mimeType,
