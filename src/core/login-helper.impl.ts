@@ -1052,6 +1052,36 @@ function loginHelper(
           syncGroupMembership: e2eeResult.status === "ready" && e2eeResult.messenger
             ? e2eeResult.messenger.syncGroupMembership.bind(e2eeResult.messenger)
             : undefined,
+          sendDirectMedia: e2eeResult.status === "ready" && e2eeResult.messenger && typeof api.uploadAttachment === "function"
+            ? (peerId: string, media: Uint8Array | Buffer, metadata: { fileName?: string; contentType?: string } = {}) =>
+                e2eeResult.messenger!.sendDirectMedia(peerId, media, async (ciphertext, uploadMetadata) => {
+                  const uploaded = await api.uploadAttachment({
+                    buffer: Buffer.from(ciphertext),
+                    filename: uploadMetadata.fileName,
+                    contentType: uploadMetadata.contentType
+                  });
+                  if (!Array.isArray(uploaded) || uploaded.length === 0) throw new Error("FCA attachment upload returned no attachment IDs");
+                  return uploaded;
+                }, metadata)
+            : undefined,
+          sendGroupMedia: e2eeResult.status === "ready" && e2eeResult.messenger && typeof api.uploadAttachment === "function"
+            ? (groupJid: string, media: Uint8Array | Buffer, metadata: { fileName?: string; contentType?: string } = {}) =>
+                e2eeResult.messenger!.sendGroupMedia(groupJid, media, async (ciphertext, uploadMetadata) => {
+                  const uploaded = await api.uploadAttachment({
+                    buffer: Buffer.from(ciphertext),
+                    filename: uploadMetadata.fileName,
+                    contentType: uploadMetadata.contentType
+                  });
+                  if (!Array.isArray(uploaded) || uploaded.length === 0) throw new Error("FCA attachment upload returned no attachment IDs");
+                  return uploaded;
+                }, metadata)
+            : undefined,
+          receiveDirectMedia: e2eeResult.status === "ready" && e2eeResult.messenger
+            ? e2eeResult.messenger.receiveDirectMedia.bind(e2eeResult.messenger)
+            : undefined,
+          receiveGroupMedia: e2eeResult.status === "ready" && e2eeResult.messenger
+            ? e2eeResult.messenger.receiveGroupMedia.bind(e2eeResult.messenger)
+            : undefined,
           error: e2eeResult.status === "failed" ? e2eeResult.error : undefined,
           close: async () => {
             if (e2eeResult.status === "ready") {
