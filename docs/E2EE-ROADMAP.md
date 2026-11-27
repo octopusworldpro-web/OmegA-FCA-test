@@ -131,11 +131,12 @@ await api.e2ee.syncGroupMembership("GROUP_JID@g.us");
 **Implemented groundwork**
 - Direct and group media cryptographic helpers using a fresh 64-byte attachment key, AES-256-CBC encryption, and truncated HMAC-SHA256 authentication; the attachment key is wrapped in the recipient's Signal session or group Sender Key.
 - Direct-media envelope orchestration now binds the wrapped key and encrypted metadata to the exact selected Signal recipient device. Group-media envelope orchestration sends its descriptor through the native group Signal text path.
-- FCA login exposes opt-in `api.e2ee.sendDirectMedia` and `api.e2ee.sendGroupMedia`; both upload ciphertext only through the existing `api.uploadAttachment` path. Receive/decrypt methods accept the existing attachment-download callback and verify ciphertext digest, MAC, dimensions, and expected peer/group context.
+- FCA login exposes opt-in `api.e2ee.sendDirectMedia` and `api.e2ee.sendGroupMedia`; both upload ciphertext only through the existing `api.uploadAttachment` path, then attach the returned pre-uploaded IDs to the target thread using the unchanged legacy `api.sendMessage` attachment tuple path. The Signal-encrypted envelope carries the attachment message reference and key metadata. `api.e2ee.downloadDirectMedia` and `downloadGroupMedia` resolve the attachment through `api.getMessage`, enforce HTTPS Facebook CDN host allowlists, and download bytes before verifying ciphertext digest, MAC, dimensions, and expected peer/group context.
 - Added direct media upload/download/decrypt fixtures and included them in the full package test command. Existing group-media tests continue to cover ciphertext-only upload, receive/decrypt, and sender/group validation.
 
 **Still required**
-- Connect the receive methods to a verified default Messenger attachment download resolver; current receive APIs accept a caller-provided download callback because the repository does not expose a generic attachment-ID-to-ciphertext download contract.
+- Direct-media sends currently wrap the attachment key for one selected peer device; implement multi-device key fanout and test delivery to every peer device.
+- Confirm native Messenger E2EE media stanza interoperability and supported video/file lifecycle details against captured protocol fixtures; the current attachment blob is ciphertext sent through the legacy attachment channel while its key/descriptor travels in the native Signal-encrypted envelope.
 - Verify direct and group media interoperability with compatible Facebook E2EE devices.
 - Complete the EryXen protocol/reference comparison and document observed differences; do not copy unverified assumptions.
 - Run authorized real-account tests for fresh login, reconnect, restart, multiple devices, and recovery.
@@ -392,3 +393,15 @@ This directive governs the remaining implementation work for Steps 2–4. It sup
 - **Remaining:** no generic default download resolver is present in the legacy FCA surface, so receive methods currently require a caller-provided downloader. Direct-media delivery currently targets one selected peer device; multi-device key fanout is not yet implemented. Native Messenger attachment metadata/media stanza interoperability, video/file lifecycle checks, and authorized real-account tests remain open. No live media interoperability is claimed.
 
 **Step 4 status: IN PROGRESS.** This batch connects source-level direct/group media crypto to FCA upload and native encrypted message envelopes, but it does not yet satisfy full attachment download resolution or multi-device/live acceptance.
+
+
+### 2026-11-27 — Step 4 FCA attachment transport and EryXen parity review
+
+- Completed the source comparison against EryXen FCA `akashxback/fca-eryxenx` main: `src/api/messaging/uploadAttachment.js` uses the Mercury upload endpoint; `sendMessage.js` publishes pre-uploaded attachment IDs in MQTT task 46; `getMessage.js` formats returned attachment metadata/URLs; `resolvePhotoUrl.js` resolves photo IDs through the Mercury attachment endpoint.
+- Confirmed OmegA's corresponding paths: `src/transport/http/upload-attachment.ts`, `src/domains/messages/commands/send-message.ts`, `src/domains/messages/queries/get-message.ts`, and `src/domains/messages/queries/resolve-photo-url.ts`. No legacy attachment API was replaced or behavior changed.
+- Updated the E2EE media upload flow to encrypt bytes first, upload only ciphertext using `api.uploadAttachment`, attach the pre-uploaded ID to the intended thread with the existing `api.sendMessage` tuple form, then send the attachment reference/key descriptor inside the native Signal-encrypted direct/group envelope.
+- Added default receive helpers that use `api.getMessage` to resolve the attachment URL, enforce HTTPS and Facebook CDN host allowlists (`fbcdn.net`, `fbsbx.com`, `facebook.com`), and download ciphertext with a bounded 100 MiB response limit before cryptographic verification/decryption.
+- Direct media currently targets one selected peer device. Group media uses the existing Sender Key engine. Multi-device direct key fanout, live media protocol acceptance, and captured Messenger media fixtures remain open.
+- CI validation for the current source commit is pending; do not treat this batch as verified until the exact-head run passes.
+
+**Step 4 remains In progress.** The FCA upload/attachment/download path is now connected at source level; this does not claim that Messenger's native E2EE media wire format has been independently verified against live devices.
