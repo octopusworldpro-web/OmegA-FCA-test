@@ -207,3 +207,27 @@ No certificate-validation bypass or guessed server acceptance has been introduce
 - These improvements close local publication concurrency/acknowledgement correctness gaps only. Authenticated Messenger Noise XX transport with verified certificate chain, automatic FCA/CAT/ICDC wiring, server-aware replenishment and rotation, and authorized live-account acceptance remain required.
 
 **Disposition unchanged: Step 2 is In progress, not complete.** See [E2EE-STATUS.md](E2EE-STATUS.md) for implementation evidence and exact blockers.
+
+## User-approved implementation directive — 2026-11-27
+
+This directive governs the remaining implementation work for Steps 2–4. It supplements the acceptance criteria above; it does not rename, reorder, or replace the four canonical Steps.
+
+### Required working method
+
+1. Implement against the existing unofficial FCA architecture and preserve its established login, MQTT, callback, command, attachment, and non-E2EE behavior. E2EE remains opt-in and fail-open: an E2EE failure must never break ordinary FCA login or ordinary messages.
+2. Use EryXen FCA as the primary protocol/architecture comparison and the selected GoatBot compatibility branch only to verify FCA API expectations. Inspect actual source before adapting any behavior. Do not invent protocol fields or pretend an injected mock is a live transport.
+3. Complete source implementation and automated validation without waiting for a live Facebook account test. Live account acceptance is a separately reported interoperability check, not an excuse to leave source integration unimplemented. Never fabricate live acceptance or claim production interoperability without evidence.
+4. Build the authenticated Messenger transport as a real protocol layer, not by sending Noise IQ payloads through ordinary MQTT JSON. The Noise handshake must validate the server certificate chain and must never log ephemeral/private key material. A reference implementation with a certificate-verification placeholder or secret logging is research material only, not production code to copy.
+5. Wire the same authenticated session through device registration and prekey IQ publication, then connect Signal peer/device discovery, bundle exchange, direct-message encryption/decryption, group Sender Keys/SKDM, and encrypted event handling to the FCA send/receive lifecycle.
+6. Integrate encrypted image/video/file handling with the existing FCA attachment upload/download path. Preserve ordinary attachment behavior when E2EE is disabled or the target cannot use E2EE.
+7. Add deterministic tests for protocol encoding, transport state, certificate rejection, key publication/acknowledgement, retries/reconnect, direct and group envelopes, media lifecycle, restart persistence, and fail-open compatibility. Use fixtures/mocks for repeatability; clearly separate these from live-server evidence.
+8. Compare every modified legacy path before/after. Do not remove or rename existing public APIs, change default behavior, or introduce destructive storage migrations. Add backward-compatible optional state fields and migration tests where needed.
+9. After each implementation batch: run focused tests, full build/test, typecheck, lint, and package validation where available; inspect CI for the exact commit. Update this document and E2EE-STATUS.md with changed files, exact checks and results, and remaining live-only validation.
+10. Commit all work only to `feature/release-0.2.3-beta.3`. Never modify `main`. Keep each completion claim tied to source and test evidence.
+
+### Completion interpretation
+
+- “Source implementation complete” means the FCA code path is integrated and automated tests cover its behavior and compatibility boundaries.
+- “Live interoperability verified” means an authorized Facebook/Messenger account and compatible peer/device have actually completed the relevant exchange.
+- Report these states separately. Steps 2–4 must not be left as helper-only work: complete the source-level implementation and tests first, then report any live-only verification independently.
+- Do not mark any live acceptance criterion as passed without real evidence. Conversely, do not defer source implementation merely because live acceptance has not yet been run.
