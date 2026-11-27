@@ -43,12 +43,25 @@ const runtime = {
   });
   assert.deepEqual(skipped, { id: "", uploaded: 0, skipped: true });
 
+  const makeUnpublishedRuntime = () => ({
+    ...runtime,
+    store: (() => {
+      const pending = new Set();
+      let signed = false;
+      return {
+        listUnpublishedPreKeyIds: () => runtime.preKeys.map((item) => item.keyId).filter((id) => !pending.has(id)),
+        markPreKeysPublished: async (ids) => ids.forEach((id) => pending.add(id)),
+        isSignedPreKeyPublished: () => signed,
+        markSignedPreKeyPublished: async () => { signed = true; }
+      };
+    })()
+  });
   await assert.rejects(
-    publishFacebookPreKeys(runtime, async (_payload, id) => ({ tag: "iq", attrs: { id, type: "error" } })),
+    publishFacebookPreKeys(makeUnpublishedRuntime(), async (_payload, id) => ({ tag: "iq", attrs: { id, type: "error" } })),
     /rejected or did not acknowledge/
   );
   await assert.rejects(
-    publishFacebookPreKeys(runtime, async () => null),
+    publishFacebookPreKeys(makeUnpublishedRuntime(), async () => null),
     /rejected or did not acknowledge/
   );
   const signedOnly = buildFacebookPreKeyUpload({ ...runtime, preKeys: [] }, "pk-signed-only");
