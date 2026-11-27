@@ -105,17 +105,14 @@ The native Messenger service emits typed media events after decrypting the Signa
 
 ```js
 api.e2ee.messenger.on("direct_media", async (event) => {
-  const bytes = await api.e2ee.downloadDirectMedia(event.envelope, event.sender);
+  const bytes = await api.e2ee.downloadDirectMedia(event.media);
 });
 api.e2ee.messenger.on("group_media", async (event) => {
-  const bytes = await api.e2ee.downloadGroupMedia(event.envelope, {
-    groupId: event.groupId,
-    sender: event.sender
-  });
+  const bytes = await api.e2ee.downloadGroupMedia(event.media);
 });
 ```
 
-Ordinary text continues to emit through `message`; media envelopes are not exposed as chat text.
+Ordinary text continues to emit through `message`; native media messages emit decoded `event.media` metadata. The download helpers fetch and decrypt the CDN blob.
 
 **API usage**
 Native Messenger transport is enabled by opting in with `e2ee: { enabled: true, facebook: {} }`. Omitting `facebook` intentionally creates only the local Signal runtime.
