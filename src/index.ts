@@ -171,4 +171,4 @@ export { fetchFacebookCryptoAuthToken, FACEBOOK_CAT_GRAPHQL_DOC_ID, type Faceboo
 
 export { performMessengerNoiseXXHandshake, buildMessengerClientPayload, MessengerNoiseFrameCipher, MessengerNoiseHandshakeState, type MessengerNoiseRawTransport, type MessengerNoiseHandshakeOptions, type MessengerNoiseHandshakeResult } from "./domains/e2ee/messenger-noise";
 
-export { connectMessengerNoiseSocket, MessengerNoiseSocket, type MessengerNoiseSocketOptions } from "./domains/e2ee/messenger-noise-socket";
+export { connectMessengerNoiseSocket, MessengerNoiseSocket, decodeMessengerBinaryNode, type MessengerNoiseSocketOptions } from "./domains/e2ee/messenger-noise-socket";

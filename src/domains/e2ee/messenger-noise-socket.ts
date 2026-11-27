@@ -173,7 +173,7 @@ function readListSize(data: Buffer, cursor: { offset: number }): number {
   }
   throw new Error(`Unsupported Messenger binary list token ${token}`);
 }
-function decodeBinaryNode(frame: Uint8Array): BinaryNode {
+export function decodeMessengerBinaryNode(frame: Uint8Array): BinaryNode {
   const data = Buffer.from(frame);
   const cursor = { offset: 0 };
   if (data[0] === 0) cursor.offset++;
@@ -279,7 +279,7 @@ export class MessengerNoiseSocket {
   async waitForSuccess(timeoutMs = 15000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      const node = decodeBinaryNode(await this.readFrame(Math.max(1, deadline - Date.now())));
+      const node = decodeMessengerBinaryNode(await this.readFrame(Math.max(1, deadline - Date.now())));
       if (node.tag === "success") return;
       if (node.tag === "failure") throw new Error(`Messenger E2EE login rejected: ${node.attrs.reason || node.attrs.type || "unknown reason"}`);
     }
