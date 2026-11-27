@@ -96,7 +96,7 @@ export async function decryptSignalMedia(
   if (!Number.isSafeInteger(descriptor.plaintextSize) || descriptor.plaintextSize < 0 ||
       descriptor.ciphertextSize !== ciphertext.length || typeof descriptor.digest !== "string" ||
       !/^[a-f0-9]{64}$/i.test(descriptor.digest) ||
-      createHash("sha256").update(ciphertext).digest("hex") !== descriptor.digest) throw new Error("Encrypted media digest or size mismatch");
+      createHash("sha256").update(ciphertext).digest("hex") !== descriptor.digest) throw new Error("Encrypted media digest mismatch or size mismatch");
   const keyBytes = await decryptMediaKey(deps, remote, descriptor.encryptedKey);
   const key = Buffer.from(keyBytes);
   if (key.length !== KEY_LENGTH) throw new Error("Invalid decrypted media key length");
