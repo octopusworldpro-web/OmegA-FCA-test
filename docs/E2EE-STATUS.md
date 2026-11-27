@@ -446,4 +446,11 @@ Reviewed EryXen FCA `akashxback/fca-eryxenx` main and compared its `src/api/mess
 - Default direct/group media download methods retrieve the thread message through api.getMessage, select its attachment URL, require HTTPS plus a Facebook CDN hostname allowlist, and cap downloads at 100 MiB before decrypt/integrity validation.
 - Direct media currently wraps the key for one selected peer device; multi-device fanout remains open. Group media uses the existing Sender Key group engine.
 - No captured native Messenger E2EE media protocol fixture or authorized live media test exists yet. The ciphertext attachment travels over the established FCA attachment channel; its key and descriptor travel inside the native Signal-encrypted direct/group message. This is not a claim that Messenger's own native E2EE attachment stanza contract has been live-verified.
-- CI for the latest source head is pending.
+- GitHub Actions [run 46044369909](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46044369909) passed for source commit `58ebf84fae915d0375a330217b00393826586b58`: dependency/security audit, build/full tests, TypeScript check, lint, and package dry run.
+
+
+## Step 4 CI verification — 2026-11-27
+
+- Source commit: `58ebf84fae915d0375a330217b00393826586b58`.
+- [GitHub Actions run 46044369909](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46044369909) passed dependency/security audit, build and full test suite, TypeScript check, lint, and package dry run.
+- This verifies the implemented offline media helpers and source integration. It does not establish live Messenger E2EE media interoperability.
