@@ -86,14 +86,15 @@ export async function initializeE2EEForLogin(
       if (options.facebook.sendIQ) {
         preKeyPublication = await publishFacebookPreKeys(runtime, options.facebook.sendIQ);
       } else {
-        noiseSocket = await connectMessengerNoiseSocket({
+        const connectedNoiseSocket = await connectMessengerNoiseSocket({
           staticPrivateKey: Buffer.from(persistedNoiseKey.privateKey, "base64"),
           fbid: accountId,
           deviceId: deviceRegistration.waDeviceId,
           fbCat,
           userAgent: session.userAgent
         });
-        preKeyPublication = await publishFacebookPreKeys(runtime, noiseSocket.sendIQ.bind(noiseSocket));
+        noiseSocket = connectedNoiseSocket;
+        preKeyPublication = await publishFacebookPreKeys(runtime, connectedNoiseSocket.sendIQ.bind(connectedNoiseSocket));
       }
     }
     return { status: "ready", runtime, deviceRegistration, preKeyPublication, noiseSocket: noiseSocket || undefined };
