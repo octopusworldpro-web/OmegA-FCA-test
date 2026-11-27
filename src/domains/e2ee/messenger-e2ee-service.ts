@@ -153,6 +153,7 @@ export class MessengerE2EEService extends EventEmitter {
   readonly peers: ReturnType<typeof createMessengerSignalPeerManager>;
   private readonly local: SignalPeerAddress;
   private readonly unsubscribe: () => void;
+  readonly ready: Promise<void>;
   private readonly groupKeys: ReturnType<typeof createSignalGroupKeyManager>;
   constructor(private readonly options: MessengerE2EEServiceOptions) {
     super();
@@ -184,7 +185,8 @@ export class MessengerE2EEService extends EventEmitter {
       void this.handleNode(node).catch((error) => this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error))));
     });
     options.socket.onClose((error) => this.emit("disconnected", error));
-    void this.startup().catch((error) => this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error))));
+    this.ready = this.startup();
+    this.ready.catch((error) => this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error))));
   }
 
   private async startup(): Promise<void> {
