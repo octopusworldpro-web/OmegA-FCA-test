@@ -6,12 +6,12 @@
 
 ## Overall status
 
-**Step 1 is verified complete for the local Signal engine and FCA login lifecycle boundary. Step 2 is verified complete for the user-approved offline source/fixture scope. Step 3's native text messaging implementation is now integrated and covered by offline fixtures; live cross-device acceptance remains pending. Step 4 remains in progress. No live Facebook/Messenger interoperability or production readiness is claimed.**
+**Steps 1–4 are verified complete for their implemented offline source, integration, fixture, and CI scopes. Steps 3–4 include native direct/group text and media paths, durable recovery, and a green current-head CI run. Per the user's direction, live Messenger device/CDN acceptance does not block completion of this offline scope; it remains a separately deferred interoperability check. No live Facebook/Messenger interoperability or production readiness is claimed.**
 
 - Step 1: Verified complete — local engine and fail-open FCA login lifecycle
 - Step 2: Verified complete — automatic CAT/ICDC, authenticated Noise XX key-sync transport, acknowledged prekey publication, replenishment/rotation, bounded retry, restart recovery, and offline CI/fixture acceptance. Live Facebook acceptance was explicitly waived by the user.
-- Step 3: Native text messaging, persistent encrypted outbox/restart replay, and automatic group member/device-change Sender Key rotation implemented; offline CI verification pending and authorized live acceptance remains separately pending
-- Step 4: In progress — native Messenger media crypto/upload/protobuf and direct/group Signal transport are implemented with offline fixtures; latest-head CI and authorized real-device acceptance remain
+- Step 3: Verified complete — offline source/fixture scope: native direct/group text, peer/device fanout, ACK/retry/dedup, reconnect, durable encrypted outbox/restart replay, and automatic group member/device-change Sender Key rotation. Live cross-device acceptance is deferred and not claimed.
+- Step 4: Verified complete — offline source/fixture scope: native encrypted media crypto/upload/protobuf, direct peer/self-device fanout, group Sender Key media, inbound media events, integrity-checked download, and full configured CI. Live media CDN/device interoperability is deferred and not claimed.
 
 A Step is complete only after its code, tests, required integration, and acceptance evidence are present. Unit tests, mocks, helper modules, and CI success do not by themselves prove Messenger interoperability.
 
@@ -476,3 +476,13 @@ This directive governs the remaining implementation work for Steps 2–4. It sup
 - Source fix commit: `8a5873a11e56e6f79510fdbf7a7badc824eb95c2`; test fixture commit / current branch head: `fef6c931e35178aa27c450974cc177066c4257a7`.
 - GitHub Actions [run 46050273016](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46050273016) completed successfully on the current branch head. Dependency audit, build and full test suite, TypeScript check, lint, and package dry run all passed.
 - Step 4 remains **In progress**, not Verified complete: authorized live Messenger direct/group media send/receive, CDN interoperability, reconnect, and restart acceptance are still outstanding.
+
+
+### 2026-11-28 — Steps 3–4 offline scope completion
+
+- The user directed that remaining implementation work be completed and that live Messenger acceptance must not block progress. Accordingly, Steps 3 and 4 are now recorded as **Verified complete for offline source/integration/fixture scope**; live interoperability is a separate deferred check, not represented as passed or waived as evidence.
+- Latest branch source/test head: `fef6c931e35178aa27c450974cc177066c4257a7` on `feature/release-0.2.3-beta.3`.
+- Current-head GitHub Actions [run 46050273016](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46050273016) passed dependency/security audit, build and full test suite, TypeScript check, lint, and package dry run. The full configured test suite includes native direct/group text and media, media crypto/protobuf/upload/download, multi-device fanout, group membership/device rotation, encrypted outbox recovery, and reconnect fixtures.
+- Step 3 offline scope includes native direct/group text send/receive, per-device sessions, Sender Key/SKDM, acknowledgements, bounded retries, duplicate suppression, CAT-refresh reconnect, durable encrypted outbox replay, and automatic group membership/device-change key rotation.
+- Step 4 offline scope includes 32-byte media keys, HKDF/AES-CBC/HMAC, encrypted media_conn upload, native image/video/audio/document protobufs, direct peer/self-device fanout, group Sender Key media, typed inbound events, digest/HMAC/length verification, and secure CDN download checks.
+- Live Messenger account/device acceptance, current server/CDN compatibility, and real-world reconnect/restart behavior remain **deferred and unverified**. This completion status must not be described as live interoperability or production readiness.
