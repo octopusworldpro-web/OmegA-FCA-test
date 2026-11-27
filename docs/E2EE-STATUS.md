@@ -4,7 +4,7 @@
 **Version:** `0.2.3-beta.3`  
 **Branch:** `feature/release-0.2.3-beta.3`
 
-This file records source-level implementation evidence and its limits. The four-step roadmap is the sole authority for scope and completion criteria. The latest native media protocol implementation supersedes earlier historical entries describing FCA attachment relay; E2EE media no longer uses the ordinary FCA attachment upload/send path.
+This file records source-level implementation evidence and its limits. The four-step roadmap is the sole authority for scope and completion criteria. The current overall/table disposition supersedes historical dated progress entries where they show Steps 3 or 4 as in progress. The latest native media protocol implementation supersedes earlier historical entries describing FCA attachment relay; E2EE media no longer uses the ordinary FCA attachment upload/send path.
 
 ## Overall
 
