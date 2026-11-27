@@ -178,7 +178,6 @@ export function buildMessengerMediaApplication(fields: MessengerMediaFields): { 
     mediaTransport = new ProtoWriter().bytes(1, mediaIntegral).bytes(2, Buffer.alloc(0)).build();
     contentField = 7; wrapper = new ProtoWriter().bytes(1, new ProtoWriter().bytes(1, mediaTransport).var(2, 1).build());
     if (fields.fileName) wrapper.string(2, fields.fileName);
-    if (fields.caption) wrapper.string(3, fields.caption);
   }
   const content = new ProtoWriter().bytes(contentField, wrapper.build()).build();
   const payload = new ProtoWriter().bytes(1, content).build();
