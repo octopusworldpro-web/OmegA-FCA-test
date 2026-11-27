@@ -289,3 +289,52 @@ export function createLibsignalSenderKeyStore(signal: Dynamic, store: SignalKeyS
     }
   })();
 }
+
+/**
+ * Convert a Messenger encrypt-IQ response into the native libsignal PreKeyBundle.
+ * Messenger currently publishes Curve25519 identity/signed/one-time keys; optional
+ * Kyber fields are left null rather than fabricated.
+ */
+export function buildMessengerSignalPreKeyBundle(signal: Dynamic, raw: {
+  registrationId: number;
+  deviceId: number;
+  identityKey: Uint8Array;
+  signedPreKey: { keyId: number; publicKey: Uint8Array; signature: Uint8Array };
+  preKey?: { keyId: number; publicKey: Uint8Array };
+}): Dynamic {
+  if (!signal?.PreKeyBundle?.new || !signal?.PublicKey?.deserialize) {
+    throw new TypeError("A compatible libsignal PreKeyBundle and PublicKey API is required");
+  }
+  if (!Number.isSafeInteger(raw?.registrationId) || raw.registrationId < 1 ||
+      !Number.isSafeInteger(raw?.deviceId) || raw.deviceId < 1) {
+    throw new TypeError("Messenger PreKeyBundle registrationId and deviceId must be positive integers");
+  }
+  const publicKey = (value: Uint8Array, label: string) => {
+    const bytes = Buffer.from(value);
+    const normalized = bytes.length === 32 ? Buffer.concat([Buffer.from([0x05]), bytes]) : bytes;
+    if (normalized.length !== 33 || normalized[0] !== 0x05) {
+      throw new TypeError(`Messenger ${label} must be a 32-byte Curve25519 public key`);
+    }
+    return signal.PublicKey.deserialize(normalized);
+  };
+  const identity = publicKey(raw.identityKey, "identity key");
+  const signed = publicKey(raw.signedPreKey.publicKey, "signed prekey");
+  const signature = Buffer.from(raw.signedPreKey.signature);
+  if (signature.length !== 64 || !Number.isSafeInteger(raw.signedPreKey.keyId) || raw.signedPreKey.keyId < 0) {
+    throw new TypeError("Messenger signed prekey ID/signature is invalid");
+  }
+  if (raw.preKey) {
+    if (!Number.isSafeInteger(raw.preKey.keyId) || raw.preKey.keyId < 0) {
+      throw new TypeError("Messenger one-time prekey ID is invalid");
+    }
+    return signal.PreKeyBundle.new(
+      raw.registrationId, raw.deviceId, raw.preKey.keyId,
+      publicKey(raw.preKey.publicKey, "one-time prekey"),
+      raw.signedPreKey.keyId, signed, signature, identity, null, null, null
+    );
+  }
+  return signal.PreKeyBundle.new(
+    raw.registrationId, raw.deviceId, null, null,
+    raw.signedPreKey.keyId, signed, signature, identity, null, null, null
+  );
+}
