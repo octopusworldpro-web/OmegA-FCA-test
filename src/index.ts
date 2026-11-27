@@ -179,3 +179,6 @@ export { MessengerPeerDirectory, createMessengerSignalPeerManager, type Messenge
 export { MessengerE2EEService, type MessengerE2EEServiceOptions, type MessengerE2EEMessageEvent } from "./domains/e2ee/messenger-e2ee-service";
 export { encodeNode as encodeMessengerNode, marshal as marshalMessengerNode } from "./domains/e2ee/messenger-binary/encoder";
 export { unmarshal as decodeMessengerNode } from "./domains/e2ee/messenger-binary/decoder";
+
+export { encryptMessengerMedia, decryptMessengerMedia, buildMessengerMediaApplication, uploadMessengerMedia, fetchMessengerMediaUploadConfig } from "./domains/e2ee/messenger-media";
+export type { MessengerMediaType, MessengerMediaFields, EncryptedMessengerMedia, MessengerMediaUploadConfig, MessengerMediaUploadResult } from "./domains/e2ee/messenger-media";
