@@ -1038,15 +1038,27 @@ function loginHelper(
           deviceRegistration: e2eeResult.status === "ready" ? e2eeResult.deviceRegistration : undefined,
           preKeyPublication: e2eeResult.status === "ready" ? e2eeResult.preKeyPublication : undefined,
           noiseSocket: e2eeResult.status === "ready" ? e2eeResult.noiseSocket : undefined,
+          messenger: e2eeResult.status === "ready" ? e2eeResult.messenger : undefined,
+          sendDirectText: e2eeResult.status === "ready" && e2eeResult.messenger
+            ? e2eeResult.messenger.sendDirectText.bind(e2eeResult.messenger)
+            : undefined,
+          sendGroupText: e2eeResult.status === "ready" && e2eeResult.messenger
+            ? e2eeResult.messenger.sendGroupText.bind(e2eeResult.messenger)
+            : undefined,
           error: e2eeResult.status === "failed" ? e2eeResult.error : undefined,
           close: async () => {
-            if (e2eeResult.status === "ready") e2eeResult.noiseSocket?.close();
+            if (e2eeResult.status === "ready") {
+              if (e2eeResult.messenger) e2eeResult.messenger.close();
+              else e2eeResult.noiseSocket?.close();
+            }
             if (e2eeResult.runtime) await e2eeResult.runtime.close();
             api.e2ee = { status: "disabled", runtime: null };
           }
         };
         if (e2eeResult.status === "ready") {
-          logger("E2EE: local Signal runtime initialized for authenticated account", "success");
+          logger(e2eeResult.messenger
+            ? "E2EE: native Messenger Signal transport and messaging service ready"
+            : "E2EE: local Signal runtime initialized for authenticated account", "success");
         } else if (e2eeResult.status === "failed") {
           logger(`E2EE initialization skipped; normal FCA remains available: ${e2eeResult.error}`, "warn");
         }
