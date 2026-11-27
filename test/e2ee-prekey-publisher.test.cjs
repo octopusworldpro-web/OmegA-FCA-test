@@ -51,6 +51,7 @@ const runtime = {
     publishFacebookPreKeys(runtime, async () => null),
     /rejected or did not acknowledge/
   );
-  assert.throws(() => buildFacebookPreKeyUpload({ ...runtime, preKeys: [] }), /one-time prekey is required/);
+  const signedOnly = buildFacebookPreKeyUpload({ ...runtime, preKeys: [] }, "pk-signed-only");
+  assert.ok(signedOnly.includes(Buffer.from("skey")), "signed-prekey rotation can be published without re-uploading old one-time keys");
   console.log("Messenger WA-binary prekey upload construction and IQ acknowledgement tests passed");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
