@@ -112,16 +112,26 @@ export async function fetchMessengerMediaUploadConfig(socket: MessengerNoiseSock
 export async function uploadMessengerMedia(
   config: MessengerMediaUploadConfig,
   encrypted: EncryptedMessengerMedia,
-  kind: MessengerMediaType
+  kind: MessengerMediaType,
+  refreshConfig?: () => Promise<MessengerMediaUploadConfig>
 ): Promise<MessengerMediaUploadResult> {
   const mmsType = kind === "audio" ? "ptt" : kind;
   const token = toUploadToken(encrypted.fields.fileEncSHA256);
-  const url = `https://${config.host}/wa-msgr/mms/${mmsType}/${token}?auth=${encodeURIComponent(config.auth)}&token=${encodeURIComponent(token)}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/octet-stream", "Content-Length": String(encrypted.uploadBytes.length), "Origin": "https://www.facebook.com", "Referer": "https://www.facebook.com/" },
-    body: encrypted.uploadBytes
-  });
+  let activeConfig = config;
+  let response: Response;
+  for (let attempt = 0; ; attempt++) {
+    const url = `https://${activeConfig.host}/wa-msgr/mms/${mmsType}/${token}?auth=${encodeURIComponent(activeConfig.auth)}&token=${encodeURIComponent(token)}`;
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "Content-Length": String(encrypted.uploadBytes.length), "Origin": "https://www.facebook.com", "Referer": "https://www.facebook.com/" },
+      body: encrypted.uploadBytes
+    });
+    if (response.status === 401 && attempt === 0 && refreshConfig) {
+      activeConfig = await refreshConfig();
+      continue;
+    }
+    break;
+  }
   if (!response.ok) throw new Error(`Messenger encrypted media upload failed: HTTP ${response.status}`);
   const result = await response.json() as Record<string, unknown>;
   const directPath = String(result.direct_path ?? result.directPath ?? "");
