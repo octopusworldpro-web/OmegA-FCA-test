@@ -190,8 +190,19 @@ const runtime = {
   const groupMediaEvents = [];
   service.on("direct_media", (event) => directMediaEvents.push(event));
   service.on("group_media", (event) => groupMediaEvents.push(event));
-  const sampleEncrypted = fca.encryptMessengerMedia(Buffer.from("received media"), "image");
+  const samplePlaintext = Buffer.from("received media");
+  const sampleEncrypted = fca.encryptMessengerMedia(samplePlaintext, "image");
   const sampleFields = { ...sampleEncrypted.fields, directPath: "/v/t59.2708-21/incoming", mimeType: "image/png" };
+  const originalDownloadFetch = global.fetch;
+  global.fetch = async (url) => {
+    assert.match(String(url), /^https:\\/\\/rupload\\.facebook\\.com\\/v\\/t59/);
+    return { ok: true, arrayBuffer: async () => sampleEncrypted.uploadBytes };
+  };
+  try {
+    assert.deepEqual(await service.downloadMessengerMedia(sampleFields), samplePlaintext);
+  } finally {
+    global.fetch = originalDownloadFetch;
+  }
   const sampleApp = fca.buildMessengerMediaApplication(sampleFields).messageApp;
   incomingTransport = applicationTransport(sampleApp);
   socket.emit({
