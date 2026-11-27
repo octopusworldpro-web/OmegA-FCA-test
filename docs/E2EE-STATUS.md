@@ -257,3 +257,16 @@ The remaining Step 2 transport work was re-investigated against the public Messe
 The earlier recheck statement that the key store had no publication acknowledgement ledger was superseded by the later source update documented above. The current source does persist acknowledgement state. Likewise, earlier statements that the publisher always re-uploaded the full stored EC prekey set are superseded by the current unacknowledged-only selection behavior. The remaining blocker is transport and live protocol acceptance, not the absence of local acknowledgement persistence.
 
 **Final Step 2 disposition: IN PROGRESS — NOT VERIFIED COMPLETE.** The local acknowledgement/retry groundwork and CI validation are present, but the target's authenticated transport, automatic login integration, server-aware lifecycle, and live acceptance criteria are not met. Marking Step 2 complete would be inaccurate. Ordinary FCA login remains fail-open; no guessed protocol or false server-success path was introduced.
+
+
+## 2026-11-27 — Step 2 source implementation follow-up
+
+This entry records actual source changes after the prior audit; it does not change the Step 2 acceptance boundary.
+
+- `src/domains/e2ee/prekey-publisher.ts`: serialized prekey publication per `SignalKeyStore` instance. Concurrent login/recovery calls for the same account now wait for the preceding publication to finish and re-read persisted acknowledgements before deciding what to upload.
+- The publisher now persists acknowledgement only for EC prekey IDs actually present in the uploaded IQ. It no longer marks every ID returned by the store as published when an injected/stale runtime bundle omitted some of those keys.
+- `test/e2ee-prekey-publisher.test.cjs`: added coverage for concurrent publication suppression and for keeping absent-from-bundle prekeys unacknowledged.
+- Source commit: `a1eac676a485c8650d1eec0c467423961af4e73b`; regression test commit: `f9266d7a8dd52617a4ce1fd2acdd5165f535fd72`; final source correction commit: `ba90859b90ccd79ce661d26e18d7a6531742139e`.
+- CI for final source commit [45980647560](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45980647560) completed successfully: build/tests, TypeScript check, lint, and package dry run all passed.
+
+**Step 2 remains IN PROGRESS — NOT VERIFIED COMPLETE.** These are real local publication correctness improvements, not a substitute for the missing authenticated Messenger Noise transport, default FCA login wiring, server-aware prekey lifecycle, or authorized live Facebook acceptance. Those protocol requirements remain open; no transport or server behavior was fabricated.
