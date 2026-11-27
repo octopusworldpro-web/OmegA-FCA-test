@@ -126,12 +126,15 @@ export async function uploadMessengerMedia(
   const token = toUploadToken(encrypted.fields.fileEncSHA256);
   let activeConfig = config;
   let response: Response;
+  // Use a standalone ArrayBuffer so Node and DOM BodyInit typings agree across supported TS/Node versions.
+  const uploadBody = new ArrayBuffer(encrypted.uploadBytes.length);
+  new Uint8Array(uploadBody).set(encrypted.uploadBytes);
   for (let attempt = 0; ; attempt++) {
     const url = `https://${activeConfig.host}/wa-msgr/mms/${mmsType}/${token}?auth=${encodeURIComponent(activeConfig.auth)}&token=${encodeURIComponent(token)}`;
     response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/octet-stream", "Content-Length": String(encrypted.uploadBytes.length), "Origin": "https://www.facebook.com", "Referer": "https://www.facebook.com/" },
-      body: encrypted.uploadBytes,
+      body: uploadBody,
       signal: AbortSignal.timeout(30000)
     });
     if (response.status === 401 && attempt === 0 && refreshConfig) {
