@@ -124,6 +124,7 @@ export function createSignalDirectMessages(signal: Dynamic, keyStore: SignalKeyS
   const deps: SignalDirectMessageDeps = { signal, stores, localAddress: validateAddress(localAddress, "local") };
   return {
     stores,
+    setLocalAddress(address: SignalPeerAddress) { deps.localAddress = validateAddress(address, "local"); },
     establishSession: (remote: SignalPeerAddress, bundle: Dynamic, now?: Date) => establishSignalDirectSession(deps, remote, bundle, now),
     encrypt: (remote: SignalPeerAddress, plaintext: string | Uint8Array, now?: Date) => encryptSignalDirectMessage(deps, remote, plaintext, now),
     decrypt: (remote: SignalPeerAddress, ciphertext: SignalCiphertext) => decryptSignalDirectMessage(deps, remote, ciphertext)
