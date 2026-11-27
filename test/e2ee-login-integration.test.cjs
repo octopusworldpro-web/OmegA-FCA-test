@@ -92,7 +92,7 @@ const { initializeE2EEForLogin, FACEBOOK_E2EE_APP_ID } = require("../dist/index.
     },
     sleep: async () => {}
   }, { cookies: "c_user=123456789; xs=session", userAgent: "test-agent", fbDtsg: "dtsg" });
-  assert.equal(retryResult.status, "ready");
+  assert.equal(retryResult.status, "ready", retryResult.error);
   assert.equal(retryCATCalls, 2, "CAT is refreshed after a transient Noise connection failure");
   assert.equal(noiseConnectCalls, 2);
   assert.deepEqual(usedCATs, ["cat-1", "cat-2"]);
