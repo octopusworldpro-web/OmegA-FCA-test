@@ -520,3 +520,12 @@ Workflow run [46045981492](https://github.com/octopusworldpro-web/OmegA-FCA-test
 - Latest source/test implementation is committed; documentation now describes the native Messenger media event shape (`event.media`) and native `downloadDirectMedia` / `downloadGroupMedia` helpers.
 - `get_commit_combined_status` and `fetch_commit_workflow_runs` returned no status/workflow run for the latest branch head. The earlier green CI run `46044369909` validated the older source commit `58ebf84fae915d0375a330217b00393826586b58`; it is not a green result for the current native-media implementation. Intermediate run `46046902565` failed before the follow-up fixes were committed.
 - Current Step 4 source implementation is substantially complete offline, but Step 4 is **not Verified complete**: latest-head CI and authorized live Messenger media acceptance are still missing. No Step 4 live-test waiver is recorded.
+
+
+## 2026-11-28 — CI red fixed; current-head CI green
+
+- CI failure on prior head `c5ff6dd218c9970d8ba83ba8b9eecd3a4d9ad94d` was a TypeScript declaration-build error: Node `Buffer<ArrayBufferLike>` was not accepted as Fetch `BodyInit`. The media uploader now copies the exact encrypted bytes into a standalone `ArrayBuffer` before fetch; no plaintext or protocol behavior changed.
+- The next full test run exposed a stale test-fixture assumption: the fake device-directory handler ignored its configured two-device list. Updated the fixture to return both configured peer devices, preserving the production multi-device fanout implementation.
+- Fix commit: `8a5873a11e56e6f79510fdbf7a7badc824eb95c2`; test-fixture commit / current head: `fef6c931e35178aa27c450974cc177066c4257a7`.
+- GitHub Actions [run 46050273016](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46050273016) passed: dependency/security audit, build and full tests, TypeScript check, lint, package dry run.
+- Step 4 remains **In progress** pending authorized live Messenger media interoperability and recovery acceptance. A green offline CI run alone does not prove live Messenger CDN/device compatibility.
