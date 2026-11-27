@@ -26,6 +26,11 @@ const fca = require("../dist/index.js");
     const tampered = Buffer.from(encrypted.uploadBytes);
     tampered[0] ^= 1;
     assert.throws(() => fca.decryptMessengerMedia(tampered, encrypted.fields), /SHA-256 mismatch|HMAC mismatch/);
+    const tamperedMac = Buffer.from(encrypted.uploadBytes);
+    tamperedMac[tamperedMac.length - 1] ^= 1;
+    const crypto = require("node:crypto");
+    const forgedDigestOnly = { ...encrypted.fields, fileEncSHA256: crypto.createHash("sha256").update(tamperedMac).digest() };
+    assert.throws(() => fca.decryptMessengerMedia(tamperedMac, forgedDigestOnly), /HMAC mismatch/);
   }
 
   const empty = fca.encryptMessengerMedia(Buffer.alloc(0), "document");
