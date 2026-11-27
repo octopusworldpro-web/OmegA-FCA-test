@@ -13,7 +13,9 @@
 - Step 3: Verified complete — offline source/fixture scope: native direct/group text, peer/device fanout, ACK/retry/dedup, reconnect, durable encrypted outbox/restart replay, and automatic group member/device-change Sender Key rotation. Live cross-device acceptance is deferred and not claimed.
 - Step 4: Verified complete — offline source/fixture scope: native encrypted media crypto/upload/protobuf, direct peer/self-device fanout, group Sender Key media, inbound media events, integrity-checked download, and full configured CI. Live media CDN/device interoperability is deferred and not claimed.
 
-A Step is complete only after its code, tests, required integration, and acceptance evidence are present. Unit tests, mocks, helper modules, and CI success do not by themselves prove Messenger interoperability.
+For the offline scope stated above, a Step is complete when its code, integration, deterministic fixtures, and configured CI evidence are present. Live Messenger acceptance is a separate interoperability gate: its status must remain explicitly deferred/unverified unless tested against authorized real devices. Unit tests, mocks, helper modules, and CI success do not by themselves prove live Messenger interoperability.
+
+**Current disposition supersedes historical progress notes below wherever they show Steps 3 or 4 as in progress.**
 
 **Step 4 current implementation supersedes earlier historical progress entries below that describe FCA `uploadAttachment` / `sendMessage` ciphertext relay. Current E2EE media uses the authenticated Messenger `media_conn` upload path and native media protobufs; ordinary non-E2EE FCA attachments remain unchanged.**
 
