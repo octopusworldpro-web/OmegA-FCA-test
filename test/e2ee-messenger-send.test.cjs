@@ -58,6 +58,7 @@ class FakeSocket {
     }
     throw new Error("unexpected IQ namespace " + node.attrs.xmlns);
   }
+  emit(node) { for (const fn of [...this.nodes]) fn(node); }
   close() { for (const fn of [...this.closes]) fn(new Error("closed")); }
 }
 const socket = new FakeSocket();
