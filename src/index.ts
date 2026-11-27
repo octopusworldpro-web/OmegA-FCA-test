@@ -166,3 +166,5 @@ export { initializeE2EEForLogin, type E2EELoginOptions, type E2EELoginResult } f
 export { buildFacebookPreKeyUpload, publishFacebookPreKeys, type FacebookE2EESendIQ } from "./domains/e2ee/prekey-publisher";
 
 export { verifyMessengerNoiseCertificateChain, MESSENGER_NOISE_ROOT_PUBLIC_KEY } from "./domains/e2ee/noise-certificate";
+
+export { fetchFacebookCryptoAuthToken, FACEBOOK_CAT_GRAPHQL_DOC_ID, type FacebookCATRequestOptions } from "./domains/e2ee/messenger-cat";

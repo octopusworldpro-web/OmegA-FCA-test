@@ -24,7 +24,8 @@ export interface FcaOptions {
     /** Facebook ICDC registration parameters; omitted means local-only E2EE bootstrap. */
     facebook?: {
       appId: string;
-      fbCat: string;
+      /** Optional CAT override; normally fetched from the authenticated FCA session. */
+      fbCat?: string;
       deviceId?: string;
       force?: boolean;
       /** Supply only an already-authenticated Messenger Noise IQ transport; ordinary MQTT JSON is not compatible. */

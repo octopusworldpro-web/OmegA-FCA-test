@@ -1022,7 +1022,15 @@ function loginHelper(
           String(userID),
           globalOptions.e2ee,
           {},
-          { cookies: cookieHeaderFromJar(jar), userAgent: globalOptions.userAgent }
+          {
+            cookies: cookieHeaderFromJar(jar),
+            userAgent: globalOptions.userAgent,
+            fbDtsg,
+            requestCAT: async (form) => {
+              const response = await post("https://www.facebook.com/api/graphql/", jar, form, globalOptions, ctxMain);
+              return response?.data ?? response?.body ?? response;
+            }
+          }
         );
         api.e2ee = {
           status: e2eeResult.status,

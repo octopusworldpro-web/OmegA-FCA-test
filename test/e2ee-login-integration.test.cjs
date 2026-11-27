@@ -32,17 +32,21 @@ const { initializeE2EEForLogin } = require("../dist/index.js");
   assert.equal(runtimeOptions.localDeviceId, 123);
 
   let registrationOptions;
+  let catFetchCount = 0;
   const registered = await initializeE2EEForLogin("123456789", {
     enabled: true,
-    facebook: { appId: "test-app", fbCat: "www", sendIQ: async (_stanza, id) => ({ tag: "iq", attrs: { id, type: "result" } }) }
+    facebook: { appId: "test-app", sendIQ: async (_stanza, id) => ({ tag: "iq", attrs: { id, type: "result" } }) }
   }, {
     bootstrap: async () => ({ storagePath: "/tmp/account.signal", encryptionKey: Buffer.alloc(32, 7), localDeviceId: 123, signal: { marker: true } }),
     runtime: async () => runtime,
-    registerDevice: async (options) => { registrationOptions = options; return { deviceId: "device-1", waDeviceId: 42, registrationId: 456, signedPreKeyId: 9, icdcSequence: 8 }; }
-  }, { cookies: "c_user=123456789; xs=session", userAgent: "test-agent" });
+    registerDevice: async (options) => { registrationOptions = options; return { deviceId: "device-1", waDeviceId: 42, registrationId: 456, signedPreKeyId: 9, icdcSequence: 8 }; },
+    fetchCAT: async (options) => { catFetchCount++; assert.equal(options.fbid, "123456789"); assert.equal(options.fbDtsg, "dtsg"); return "cat-from-fixture"; }
+  }, { cookies: "c_user=123456789; xs=session", userAgent: "test-agent", fbDtsg: "dtsg" });
   assert.equal(registered.status, "ready");
   assert.equal(registered.deviceRegistration.waDeviceId, 42);
   assert.equal(registered.preKeyPublication.uploaded, 1);
+  assert.equal(catFetchCount, 1);
+  assert.equal(registrationOptions.fbCat, "cat-from-fixture");
   assert.equal(registrationOptions.fbid, "123456789");
   assert.equal(registrationOptions.cookies, "c_user=123456789; xs=session");
   assert.equal(registrationOptions.userAgent, "test-agent");

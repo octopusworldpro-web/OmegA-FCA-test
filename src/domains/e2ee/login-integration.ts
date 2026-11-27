@@ -2,11 +2,12 @@ import { createE2EEBootstrap, type E2EEBootstrapOptions } from "./bootstrap";
 import { createSignalE2EERuntime, type SignalE2EERuntime } from "./runtime";
 import { registerFacebookE2EEDevice, type FacebookE2EERegistrationResult } from "./device-registration";
 import { publishFacebookPreKeys, type FacebookE2EESendIQ } from "./prekey-publisher";
+import { fetchFacebookCryptoAuthToken } from "./messenger-cat";
 
 export interface E2EELoginOptions extends E2EEBootstrapOptions {
   enabled?: boolean;
   signedPreKeyId?: number;
-  facebook?: { appId: string; fbCat: string; deviceId?: string; force?: boolean; sendIQ?: FacebookE2EESendIQ };
+  facebook?: { appId: string; fbCat?: string; deviceId?: string; force?: boolean; sendIQ?: FacebookE2EESendIQ };
 }
 export type E2EELoginResult =
   | { status: "disabled"; runtime: null }
@@ -16,10 +17,13 @@ export interface E2EELoginFactories {
   bootstrap?: typeof createE2EEBootstrap;
   runtime?: typeof createSignalE2EERuntime;
   registerDevice?: typeof registerFacebookE2EEDevice;
+  fetchCAT?: typeof fetchFacebookCryptoAuthToken;
 }
 export interface E2EELoginSession {
   cookies?: string;
   userAgent?: string;
+  fbDtsg?: string;
+  requestCAT?: (form: Record<string, string>) => Promise<unknown>;
 }
 
 /** Initialize the local Signal runtime only after FCA has authenticated the account. */
@@ -56,9 +60,16 @@ export async function initializeE2EEForLogin(
       if (!session.cookies?.trim() || !session.userAgent?.trim()) {
         throw new Error("Facebook ICDC registration requires the authenticated cookie header and user agent");
       }
+      const fbCat = options.facebook.fbCat || await (factories.fetchCAT || fetchFacebookCryptoAuthToken)({
+        fbid: accountId,
+        fbDtsg: session.fbDtsg,
+        cookies: session.cookies,
+        userAgent: session.userAgent,
+        request: session.requestCAT
+      });
       deviceRegistration = await registerDevice({
         fbid: accountId,
-        fbCat: options.facebook.fbCat,
+        fbCat,
         appId: options.facebook.appId,
         cookies: session.cookies,
         userAgent: session.userAgent,
