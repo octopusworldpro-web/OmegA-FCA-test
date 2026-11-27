@@ -154,7 +154,8 @@ function decodeMessengerMediaApplication(messageApp: Buffer): MessengerMediaFiel
   if (!kind || !wrapper) return undefined;
   const mediaSubProtocol = fieldBytes(readProto(wrapper), 1);
   const mediaPayload = mediaSubProtocol ? fieldBytes(readProto(mediaSubProtocol), 1) : undefined;
-  const mediaIntegral = mediaPayload ? fieldBytes(readProto(mediaPayload), 1) : undefined;
+  const mediaPayloadFields = mediaPayload ? readProto(mediaPayload) : undefined;
+  const mediaIntegral = mediaPayloadFields ? fieldBytes(mediaPayloadFields, 1) : undefined;
   const common = mediaIntegral ? fieldBytes(readProto(mediaIntegral), 1) : undefined;
   if (!common) return undefined;
   const commonFields = readProto(common);
@@ -170,10 +171,20 @@ function decodeMessengerMediaApplication(messageApp: Buffer): MessengerMediaFiel
     throw new Error("Decrypted Messenger media message is missing required media fields");
   }
   const timestamp = integralFields.get(5)?.[0]?.value;
+  const dimensions = mediaPayloadFields ? fieldBytes(mediaPayloadFields, 2) : undefined;
+  const dimensionFields = dimensions ? readProto(dimensions) : new Map<number, ProtoField[]>();
+  const wrapperFields = readProto(wrapper);
+  const captionBytes = fieldBytes(wrapperFields, 2);
+  const caption = captionBytes ? fieldString(readProto(captionBytes), 1) : undefined;
   return {
     kind, mediaKey, fileSHA256, fileEncSHA256, directPath, mimeType,
     fileLength: Number(fileLength), mediaKeyTimestamp: typeof timestamp === "bigint" ? Number(timestamp) : 0,
-    objectId: fieldString(ancillaryFields, 4)
+    objectId: fieldString(ancillaryFields, 4), caption,
+    fileName: kind === "document" ? fieldString(wrapperFields, 2) : undefined,
+    width: kind === "image" ? Number(dimensionFields.get(2)?.[0]?.value) || undefined : kind === "video" ? Number(dimensionFields.get(5)?.[0]?.value) || undefined : undefined,
+    height: kind === "image" ? Number(dimensionFields.get(1)?.[0]?.value) || undefined : kind === "video" ? Number(dimensionFields.get(4)?.[0]?.value) || undefined : undefined,
+    seconds: kind === "video" || kind === "audio" ? Number(dimensionFields.get(1)?.[0]?.value) || undefined : undefined,
+    ptt: kind === "audio" ? Boolean(wrapperFields.get(2)?.[0]?.value) : undefined
   };
 }
 function inferMessengerMediaType(metadata: { fileName?: string; contentType?: string }): MessengerMediaType {
