@@ -8,14 +8,14 @@ This file records source-level implementation evidence and its limits. The four-
 
 ## Overall
 
-**Step 1 is verified complete for local Signal runtime and FCA login lifecycle integration. Step 2 is verified complete for the user-approved offline source/fixture scope. Step 3's offline implementation now includes persistent outbox recovery and automatic group member/device-change key rotation, with the full configured CI pipeline passing; authorized live acceptance remains pending. Step 4 remains in progress. Live Facebook/Messenger interoperability is not established or claimed.**
+**Steps 1–4 are verified complete for their stated offline source/integration/fixture scopes. The latest current-head CI passed the full configured pipeline. Live Facebook/Messenger device and CDN interoperability remains separately deferred and unverified; no live acceptance or production readiness is claimed.**
 
 | Step | Status | Implemented evidence | Main remaining work |
 |---|---|---|---|
 | 1. E2EE Engine & Login Integration | Verified complete (local boundary) | Pinned libsignal 0.70.0; authenticated UID validation; account-local bootstrap and encrypted store; automatic identity/device metadata; restart support; fail-open login integration | No remaining work within the stated local-engine/login boundary. Do not interpret this as server registration or native Messenger support |
 | 2. Facebook Device Registration & Key Sync | Verified complete — offline scope | Automatic CAT retrieval; default ICDC registration/reuse; authenticated Noise XX WebSocket key-sync transport; strict certificate verifier; encrypted frames and IQ correlation; persisted acknowledgements; monotonic prekey IDs; replenishment/rotation; bounded retries and restart recovery; offline fixtures and CI pass | Live Facebook acceptance was explicitly waived and is not claimed; no captured valid live certificate chain; long-lived encrypted message events/MQTT belong to Step 3; no verified Kyber upload format |
-| 3. E2EE Messaging & Group System | Offline implementation verified by CI; live acceptance pending | Native Noise WA-binary dispatcher; Messenger device/prekey discovery; direct/group encrypted text; ACK/retry/dedup; CAT-refresh reconnect; encrypted outbox persisted before send and replayed after restart until ACK; persisted group member/device snapshots and automatic Sender Key rotation on change during group send/reconnect; FCA API exposure | Authorized live cross-device acceptance; real receipts/order/replay validation |
-| 4. Encrypted Media & Full Compatibility Test | Native media source implementation in progress; latest CI/live acceptance pending | 32-byte media keys with HKDF/AES-CBC/HMAC; `media_conn` + `/wa-msgr/mms` encrypted upload; native image/video/audio/document ConsumerApplication protobufs; direct fanout to peer/self devices; group Sender Key media; typed inbound media events; integrity-checked CDN download; binary/video/empty-file fixtures | Latest-head CI; authorized live media_conn/upload/download and cross-device direct/group acceptance; reconnect/restart and real receipt validation |
+| 3. E2EE Messaging & Group System | Verified complete — offline source/fixture scope | Native Noise WA-binary dispatcher; Messenger device/prekey discovery; direct/group encrypted text; ACK/retry/dedup; CAT-refresh reconnect; encrypted outbox persisted before send and replayed after restart until ACK; persisted group member/device snapshots and automatic Sender Key rotation on change during group send/reconnect; FCA API exposure; current-head full CI pass | Live cross-device/receipt/order/replay acceptance deferred; not claimed |
+| 4. Encrypted Media & Full Compatibility Test | Verified complete — offline source/fixture scope | 32-byte media keys with HKDF/AES-CBC/HMAC; `media_conn` + `/wa-msgr/mms` encrypted upload; native image/video/audio/document ConsumerApplication protobufs; direct fanout to peer/self devices; group Sender Key media; typed inbound media events; integrity-checked CDN download; binary/video/empty-file fixtures; current-head full CI pass | Live media_conn/CDN and cross-device direct/group acceptance deferred; not claimed |
 
 ## Implemented components and boundaries
 
@@ -529,3 +529,13 @@ Workflow run [46045981492](https://github.com/octopusworldpro-web/OmegA-FCA-test
 - Fix commit: `8a5873a11e56e6f79510fdbf7a7badc824eb95c2`; test-fixture commit / current head: `fef6c931e35178aa27c450974cc177066c4257a7`.
 - GitHub Actions [run 46050273016](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46050273016) passed: dependency/security audit, build and full tests, TypeScript check, lint, package dry run.
 - Step 4 remains **In progress** pending authorized live Messenger media interoperability and recovery acceptance. A green offline CI run alone does not prove live Messenger CDN/device compatibility.
+
+
+## 2026-11-28 — Steps 3–4 offline completion record
+
+- Per the user's direction, live Messenger acceptance does not block completion of the offline implementation scope. Steps 3 and 4 are marked **Verified complete — offline source/integration/fixture scope**; live server/device interoperability remains deferred and unverified.
+- Validated source/test head: `fef6c931e35178aa27c450974cc177066c4257a7` on `feature/release-0.2.3-beta.3`.
+- GitHub Actions [run 46050273016](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46050273016) passed all configured jobs: dependency/security audit, build + full test suite, TypeScript check, lint, and package dry run.
+- Step 3 fixtures cover direct/group encrypted text, peer device fanout, ACK/retry/dedup, reconnect, persistent outbox restart replay, and automatic group member/device-change Sender Key rotation.
+- Step 4 fixtures cover image/video/audio/document media crypto, encrypted upload bytes and URL, 401 auth refresh retry, direct peer/self-device fanout, group Sender Key media, inbound typed events, encrypted CDN download, SHA-256/HMAC/length validation, binary/video payloads, and empty files.
+- The successful CI run proves the repository's offline source and fixture checks only. No live Messenger login, live media_conn/CDN upload/download, actual recipient delivery, or real-device reconnect/restart acceptance was performed. Do not call this production-ready or live-compatible.
