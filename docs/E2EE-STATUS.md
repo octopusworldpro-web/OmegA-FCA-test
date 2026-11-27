@@ -13,7 +13,7 @@ This file records source-level implementation evidence and its limits. The four-
 | Step | Status | Implemented evidence | Main remaining work |
 |---|---|---|---|
 | 1. E2EE Engine & Login Integration | Verified complete (local boundary) | Pinned libsignal 0.70.0; authenticated UID validation; account-local bootstrap and encrypted store; automatic identity/device metadata; restart support; fail-open login integration | No remaining work within the stated local-engine/login boundary. Do not interpret this as server registration or native Messenger support |
-| 2. Facebook Device Registration & Key Sync | In progress — transport/acceptance blocked | Conditional ICDC registration; encrypted persistent EC-prekey publication acknowledgements; duplicate-upload suppression; signed-prekey-only upload; matching IQ-result validation; focused source tests | No default authenticated Messenger Noise XX transport with certificate-chain validation; no live ICDC/IQ acceptance; CAT auto-retrieval/login wiring and verified server-aware replenishment/rotation remain open; no verified Kyber upload format |
+| 2. Facebook Device Registration & Key Sync | In progress — transport/acceptance blocked | Conditional ICDC registration; encrypted persistent EC-prekey publication acknowledgements; duplicate-upload suppression; signed-prekey-only upload; matching IQ-result validation; focused source tests | No default authenticated Messenger Noise XX transport with certificate-chain validation; CAT auto-retrieval/login wiring and deterministic server-aware replenishment/rotation tests remain open; live ICDC/IQ acceptance is optional and not a Step 2 gate; no verified Kyber upload format |
 | 3. E2EE Messaging & Group System | In progress | Signal direct-message primitives; injected peer/bundle interfaces; Sender Key/SKDM persistence/retry; application-level group envelope orchestration | Native peer discovery/bundle exchange and direct/group Messenger MQTT wire integration; real compatible-device tests |
 | 4. Encrypted Media & Full Compatibility Test | In progress | Direct/group media crypto helpers and application-level group-media orchestration | Native Messenger media upload/download, real media interoperability, EryXen comparison, authorized real-account acceptance |
 
@@ -311,3 +311,11 @@ GitHub Actions runs [45990589918](https://github.com/octopusworldpro-web/OmegA-F
 - Direct/group encrypted message integration with the existing MQTT send/receive pipeline and native encrypted media upload/download remain outstanding.
 
 **Status:** Step 2 **In progress**; Step 3 **In progress**; Step 4 **In progress**. This update records source groundwork and passing CI only. It does not claim a complete Noise transport, live Messenger interoperability, or completion of any of Steps 2–4.
+
+
+## 2026-11-27 — Step 2 acceptance policy update
+
+- Per the user's explicit direction, a live Facebook account test is not required to complete Step 2.
+- Step 2 must instead include the full source integration plus deterministic, versioned protocol fixtures and a simulated Messenger server covering CAT, ICDC, Noise XX, certificate validation, encrypted framing, IQ acknowledgements, prekey lifecycle, retry/reconnect, and restart recovery.
+- A successful fixture suite and CI run prove the implemented offline protocol contract only. They do not prove that Facebook currently accepts the unofficial wire format. Live interoperability remains an optional, separately reported check.
+- Step 2 is still **In progress**; this policy/documentation change alone does not complete it.

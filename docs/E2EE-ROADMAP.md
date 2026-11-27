@@ -6,10 +6,10 @@
 
 ## Overall status
 
-**Step 1 is verified complete for the local Signal engine and FCA login lifecycle boundary. Steps 2–4 remain in progress. No live Facebook/Messenger interoperability or production readiness is claimed.**
+**Step 1 is verified complete for the local Signal engine and FCA login lifecycle boundary. Steps 2–4 remain in progress. Step 2 source-level completion does not require a live Facebook account; live interoperability is reported separately and is not a release gate for Step 2. No live Facebook/Messenger interoperability or production readiness is claimed.**
 
 - Step 1: Verified complete — local engine and fail-open FCA login lifecycle
-- Step 2: In progress — ICDC and prekey helpers are wired conditionally; live server acceptance and default Noise transport are not verified
+- Step 2: In progress — ICDC and prekey helpers exist; authenticated Noise/CAT/login integration and deterministic protocol acceptance suite remain
 - Step 3: In progress — local Signal direct/group primitives exist; native Messenger MQTT wire integration is not established
 - Step 4: In progress — local media crypto helpers exist; native media transport and real-device acceptance remain
 
@@ -57,16 +57,21 @@ A Step is complete only after its code, tests, required integration, and accepta
 - Local Kyber/PQ key generation and encrypted persistence are implemented when libsignal KEM support is present. No verified Messenger Kyber upload field/stanza is implemented.
 
 **Still required**
-- Validate ICDC fetch/register request fields, response behavior, idempotency, and persisted device identity against an authorized live Facebook account. Current mocked tests prove request construction and local handling only.
-- Supply and verify a real authenticated Messenger Noise IQ transport; then verify signed and one-time prekey publication against the live service.
-- Verify replenishment, rotation, retries, and recovery against the actual server behavior.
+- Implement the authenticated Messenger Noise XX transport with strict certificate-chain verification, encrypted WebSocket framing, request correlation, and IQ response parsing; integrate it into the normal opt-in FCA login path.
+- Acquire and refresh CAT from the authenticated FCA session; feed the CAT, account ID, and persisted device ID into the Messenger client payload and ICDC flow without requiring callers to paste CAT manually.
+- Add deterministic, versioned protocol fixtures for ICDC request/response, CAT GraphQL response, Noise handshake messages, positive and negative certificate chains, encrypted frames, IQ acknowledgements, and malformed/replay cases. Fixtures must be traceable to the unofficial reference/protocol evidence and clearly labelled as synthetic where applicable.
+- Implement persisted server-acknowledgement tracking, one-time-prekey consumption, threshold-based replenishment, signed-prekey rotation, bounded retry/backoff, reconnect, and restart recovery. Verify these behaviors with deterministic server simulators and store-restart tests.
 - Do not claim Kyber publication. The current documented Messenger device-registration format describes Curve25519 identity, signed prekey, and one-time prekeys, not a Kyber upload field. Keep Kyber local-only unless a current authoritative protocol or observed authorized server contract proves otherwise.
 
 **Acceptance**
-- ICDC registration is accepted by Facebook using the existing authenticated session.
-- Device identity and registration metadata survive restart and remain account-isolated.
-- Signed/one-time prekeys are acknowledged by the real Messenger Noise IQ endpoint in the target format.
-- Rotation/replenishment and restart recovery are verified against the target protocol.
+- The standard opt-in FCA login path automatically acquires CAT, initializes the authenticated Messenger Noise transport, registers/reuses the ICDC device, and publishes pending keys without requiring an externally injected `sendIQ` callback.
+- Device identity, Noise static key, CAT cache metadata, registration metadata, and key-publication ledger survive restart and remain account-isolated; secrets are never logged.
+- Deterministic fixture tests complete the Noise XX state machine, certificate verification, encrypted frame counters, IQ correlation/acknowledgement, ICDC/CAT parsing, and negative/malformed-input cases.
+- Prekey acknowledgement, consumption, replenishment, signed-prekey rotation, bounded retries, reconnect, and restart recovery pass deterministic server-simulator tests.
+- Existing FCA login, MQTT, callbacks, commands, ordinary messaging, and E2EE-disabled behavior remain backward-compatible and fail-open.
+- Build, full test suite, typecheck, lint, and package dry run pass on the exact Step 2 commit.
+
+**Explicitly not required for Step 2 completion:** signing into a live Facebook account or performing a live server acceptance test. Live interoperability may be recorded later as an optional confidence check; it must never be fabricated or represented as having passed.
 
 ## Step 3 — E2EE Messaging & Group System
 
@@ -248,3 +253,11 @@ This directive governs the remaining implementation work for Steps 2–4. It sup
 **Important scope boundary:** this is groundwork, not a completed Noise transport. The certificate verifier currently has malformed-input/rejection tests but no captured Messenger certificate-chain positive vector or authorized live endpoint validation. It has not yet been wired into a Noise XX handshake, framed encrypted socket, IQ request/response adapter, or the normal FCA login path. The persisted Noise static key is not yet used by an authenticated transport.
 
 **Step disposition:** Step 2 remains **In progress — NOT complete**. Step 3 and Step 4 remain **In progress**. No live Messenger interoperability or server acceptance is claimed.
+
+
+### 2026-11-27 — User-approved Step 2 offline completion path
+
+- User explicitly directed that Step 2 be completed unofficially and that a live Facebook account test is not required.
+- Step 2 acceptance is therefore source-and-fixture based: implement the complete authenticated Noise/CAT/ICDC/prekey path and verify it with deterministic protocol fixtures and a server simulator. Live Facebook acceptance is optional evidence only, not a Step 2 gate.
+- Required security boundaries remain unchanged: strict certificate validation, no private/ephemeral key logging, no guessed Kyber upload, no mock presented as a live server, E2EE opt-in/fail-open, and preservation of ordinary FCA behavior.
+- Step 2 remains **In progress** until the source integration and automated acceptance suite are actually implemented and pass. This documentation update does not mark it complete.
