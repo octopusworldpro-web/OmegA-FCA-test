@@ -609,6 +609,30 @@ export class MessengerE2EEService extends EventEmitter {
     await this.options.socket.sendFrame(marshal(encodeNode("receipt", attrs, children)));
   }
 
+  private dispatchApplicationText(
+    text: string,
+    context: { id: string; threadId: string; senderJid: string; sender: SignalPeerAddress; timestampMs: number },
+    group: boolean
+  ): void {
+    let parsed: unknown;
+    try { parsed = JSON.parse(text); } catch { parsed = undefined; }
+    if (parsed && typeof parsed === "object") {
+      const envelope = parsed as { kind?: unknown; version?: unknown };
+      if (envelope.version === 1 && envelope.kind === "direct_media" && !group) {
+        this.emit("direct_media", { ...context, envelope: parsed });
+        return;
+      }
+      if (envelope.version === 1 && envelope.kind === "group_media" && group) {
+        this.emit("group_media", { ...context, groupId: context.threadId, envelope: parsed });
+        return;
+      }
+    }
+    this.emit("message", {
+      id: context.id, threadId: context.threadId, senderJid: context.senderJid,
+      senderId: context.sender.name, text, timestampMs: context.timestampMs
+    } satisfies MessengerE2EEMessageEvent);
+  }
+
   private async handleNode(node: Node): Promise<void> {
     if (node.tag === "ack") {
       const id = String(node.attrs.id || "");
@@ -675,14 +699,12 @@ export class MessengerE2EEService extends EventEmitter {
       if (participantPayload.messageApp) {
         const text = decodeText(participantPayload.messageApp);
         if (text !== undefined) {
-          this.emit("message", {
+          this.dispatchApplicationText(text, {
             id: String(node.attrs.id || ""),
             threadId: participantPayload.destinationJid || from,
-            senderJid,
-            senderId: sender.name,
-            text,
+            senderJid, sender,
             timestampMs: Number(node.attrs.t || Date.now()) * 1000
-          } satisfies MessengerE2EEMessageEvent);
+          }, false);
           participantProcessed = true;
         }
       }
@@ -715,11 +737,10 @@ export class MessengerE2EEService extends EventEmitter {
     if (decoded.messageApp) {
       const text = decodeText(decoded.messageApp);
       if (text !== undefined) {
-        const event: MessengerE2EEMessageEvent = {
-          id: String(node.attrs.id || ""), threadId: from, senderJid,
-          senderId: sender.name, text, timestampMs: Number(node.attrs.t || Date.now()) * 1000
-        };
-        this.emit("message", event);
+        this.dispatchApplicationText(text, {
+          id: String(node.attrs.id || ""), threadId: from, senderJid, sender,
+          timestampMs: Number(node.attrs.t || Date.now()) * 1000
+        }, mainEnc.attrs.type === "skmsg");
       }
     }
     const ackAttrs: Record<string, string> = { class: "message", id: String(node.attrs.id || ""), to: from };
