@@ -155,10 +155,18 @@ export async function registerFacebookE2EEDevice(
   }
 
   const identities: Buffer[] = fetched.device_identities.map((value) => {
-    if (typeof value !== "string" || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) {
+    if (typeof value !== "string" || !/^[A-Za-z0-9+/_-]+={0,2}$/.test(value)) {
       throw new Error("Facebook returned a malformed ICDC identity");
     }
-    return Buffer.from(value, "base64");
+    // Facebook may serialize the 32-byte ICDC identity as padded base64 or
+    // unpadded base64url. Normalize only the alphabet/padding; never accept
+    // malformed or non-32-byte public keys.
+    const normalized = value.replace(/-/g, "+").replace(/_/g, "/").replace(/=+$/, "");
+    const decoded = Buffer.from(normalized, "base64");
+    if (decoded.length !== 32 || decoded.toString("base64").replace(/=+$/, "") !== normalized) {
+      throw new Error("Facebook returned an invalid ICDC identity key");
+    }
+    return decoded;
   });
   let signingIndex = identities.findIndex((value) => value.equals(identityPublic));
   let sequence = Number(fetched.icdc_seq);
