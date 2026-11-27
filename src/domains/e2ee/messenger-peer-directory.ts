@@ -56,8 +56,13 @@ function requiredText(value: unknown, label: string): string {
 
 /** Native Messenger ICDC device-directory and encrypt-IQ bundle adapter. */
 export class MessengerPeerDirectory {
-  constructor(private readonly socket: MessengerNoiseSocket, private readonly timeoutMs = 12000) {
+  constructor(private socket: MessengerNoiseSocket, private readonly timeoutMs = 12000) {
     if (!socket || typeof socket.sendIQ !== "function") throw new TypeError("Authenticated Messenger Noise socket is required");
+  }
+
+  setSocket(socket: MessengerNoiseSocket): void {
+    if (!socket || typeof socket.sendIQ !== "function") throw new TypeError("Authenticated Messenger Noise socket is required");
+    this.socket = socket;
   }
 
   private async iq(to: string, xmlns: string, payload: Buffer[]): Promise<Node> {
