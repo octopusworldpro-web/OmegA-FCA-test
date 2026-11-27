@@ -6,9 +6,9 @@ import type { SignalE2EERuntime } from "./runtime";
 import { MessengerPeerDirectory, createMessengerSignalPeerManager } from "./messenger-peer-directory";
 import { createSignalGroupKeyManager } from "./group-key-manager";
 import type { SignalPeerAddress } from "./direct-messages";
-import { createSignalEncryptedDirectMediaMessaging, type EncryptedDirectMediaEnvelope } from "./direct-media-messaging";
+import { createSignalEncryptedDirectMediaMessaging } from "./direct-media-messaging";
 import { createSignalEncryptedGroupMedia } from "./encrypted-group-media";
-import { createSignalEncryptedGroupMediaMessaging, type EncryptedGroupMediaMessageEnvelope } from "./group-media-messaging";
+import { createSignalEncryptedGroupMediaMessaging } from "./group-media-messaging";
 import {
   encryptMessengerMedia, decryptMessengerMedia, fetchMessengerMediaUploadConfig, uploadMessengerMedia,
   buildMessengerMediaApplication, type MessengerMediaFields, type MessengerMediaType
