@@ -85,7 +85,7 @@ export function decryptMessengerMedia(uploadBytesInput: Uint8Array, fields: Pick
 }
 
 function toUploadToken(hash: Buffer): string {
-  return hash.toString("base64").replace(/\\+/g, "-").replace(/\\//g, "_");
+  return hash.toString("base64").replace(/\+/g, "-").replace(/\//g, "_");
 }
 function child(node: Node | undefined, tag: string): Node | undefined {
   if (!node) return undefined;
