@@ -1,6 +1,6 @@
 import { createE2EEBootstrap, type E2EEBootstrapOptions } from "./bootstrap";
 import { createSignalE2EERuntime, type SignalE2EERuntime } from "./runtime";
-import { registerFacebookE2EEDevice, type FacebookE2EERegistrationResult } from "./device-registration";
+import { FACEBOOK_E2EE_APP_ID, registerFacebookE2EEDevice, type FacebookE2EERegistrationResult } from "./device-registration";
 import { publishFacebookPreKeys, type FacebookE2EESendIQ } from "./prekey-publisher";
 import { fetchFacebookCryptoAuthToken } from "./messenger-cat";
 import { connectMessengerNoiseSocket, type MessengerNoiseSocket } from "./messenger-noise-socket";
