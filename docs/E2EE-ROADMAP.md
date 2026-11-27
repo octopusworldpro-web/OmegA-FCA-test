@@ -176,3 +176,12 @@ A user-authorized implementation attempt rechecked the current ICDC, prekey publ
 - No authorized live Facebook account test was run. No server acceptance is claimed.
 
 **Step 2 remains In progress — NOT complete.** The publication acknowledgement/retry behavior is implemented, but the integrated authenticated Noise transport and the remaining automatic synchronization lifecycle are still required for Step 2 acceptance.
+
+
+### 2026-11-27 — Follow-up transport review
+
+Public Messenger reference repositories were checked for the missing CAT/ICDC/Noise/prekey lifecycle. The MIT reference confirms useful request constants and IQ structure but does not verify the server certificate chain in its Noise implementation. The AGPL-3.0 reference has a `verifyCertChain()` placeholder/TODO and debug logging of ephemeral private-key material. It is not safe to transplant as a production transport unchanged.
+
+No certificate-validation bypass or guessed server acceptance has been introduced. The authenticated Noise XX transport, automatic CAT-to-ICDC login wiring, live IQ ACK, server prekey-count query/replenishment, signed-prekey rotation/retirement, and authorized live-account acceptance test remain open.
+
+**Step 2 status remains In progress — NOT complete.**
