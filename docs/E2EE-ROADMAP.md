@@ -196,3 +196,14 @@ No certificate-validation bypass or guessed server acceptance has been introduce
 - The earlier status statement that publication acknowledgement persistence was absent is superseded by the implementation checkpoint above; current source includes that local persistence and duplicate-upload suppression.
 
 **Disposition: Step 2 remains In progress — NOT complete.** The remaining authenticated transport and live-server acceptance requirements are mandatory acceptance criteria. No guessed protocol, certificate-validation bypass, or fabricated server success was added. See [E2EE-STATUS.md](E2EE-STATUS.md) for the detailed audit.
+
+
+### 2026-11-27 — Step 2 source implementation follow-up
+
+- Serialized Messenger prekey publication per account key-store instance so concurrent login/recovery attempts cannot upload the same pending batch simultaneously.
+- Tightened acknowledgement persistence: only EC prekey IDs actually included in the IQ are marked published. Pending store IDs absent from the current runtime bundle remain pending.
+- Added regression coverage for concurrent publication and partial runtime bundles.
+- Final source CI [45980647560](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45980647560) passed build/tests, TypeScript check, lint, and package dry run.
+- These improvements close local publication concurrency/acknowledgement correctness gaps only. Authenticated Messenger Noise XX transport with verified certificate chain, automatic FCA/CAT/ICDC wiring, server-aware replenishment and rotation, and authorized live-account acceptance remain required.
+
+**Disposition unchanged: Step 2 is In progress, not complete.** See [E2EE-STATUS.md](E2EE-STATUS.md) for implementation evidence and exact blockers.
