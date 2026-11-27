@@ -17,7 +17,7 @@ const DOUBLE_BYTE_TOKENS = new Map<string, string>([
 ]);
 
 interface BinaryNode { tag: string; attrs: Record<string, string>; content?: unknown; }
-interface PendingRead { length: number; resolve: (value: Buffer) => void; reject: (error: Error) => void; }
+interface PendingRead { length: number; resolve: (value: Buffer) => void; reject: (error: Error) => void; timer?: ReturnType<typeof setTimeout>; }
 
 function withTimeout<T>(promise: Promise<T>, milliseconds: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -44,11 +44,20 @@ class WebSocketByteTransport implements MessengerNoiseRawTransport {
     if (this.ws.readyState !== WebSocket.OPEN) throw new Error("Messenger Noise WebSocket is not open");
     await new Promise<void>((resolve, reject) => this.ws.send(data, { binary: true }, (error) => error ? reject(error) : resolve()));
   }
-  read(length: number): Promise<Buffer> {
+  read(length: number, timeoutMs?: number): Promise<Buffer> {
     if (!Number.isSafeInteger(length) || length < 1 || length > 0xffffff) return Promise.reject(new RangeError("Invalid raw Messenger Noise read length"));
+    if (timeoutMs !== undefined && (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1)) return Promise.reject(new RangeError("Invalid raw read timeout"));
     if (this.closedError) return Promise.reject(this.closedError);
     if (this.buffered >= length) return Promise.resolve(this.take(length));
-    return new Promise<Buffer>((resolve, reject) => this.readers.push({ length, resolve, reject }));
+    return new Promise<Buffer>((resolve, reject) => {
+      const reader: PendingRead = { length, resolve, reject };
+      if (timeoutMs !== undefined) reader.timer = setTimeout(() => {
+        const index = this.readers.indexOf(reader);
+        if (index >= 0) this.readers.splice(index, 1);
+        reject(new Error("Messenger Noise raw read timed out"));
+      }, timeoutMs);
+      this.readers.push(reader);
+    });
   }
   private take(length: number): Buffer {
     const out = Buffer.allocUnsafe(length);
@@ -67,13 +76,14 @@ class WebSocketByteTransport implements MessengerNoiseRawTransport {
   private flush(): void {
     while (this.readers.length && this.buffered >= this.readers[0].length) {
       const reader = this.readers.shift()!;
+      if (reader.timer) clearTimeout(reader.timer);
       reader.resolve(this.take(reader.length));
     }
   }
   private fail(error: Error): void {
     if (this.closedError) return;
     this.closedError = error;
-    for (const reader of this.readers.splice(0)) reader.reject(error);
+    for (const reader of this.readers.splice(0)) { if (reader.timer) clearTimeout(reader.timer); reader.reject(error); }
   }
 }
 
@@ -275,11 +285,11 @@ export class MessengerNoiseSocket {
     if (!this.isConnected()) throw this.closedError || new Error("Messenger Noise socket is disconnected");
     await this.raw.send(this.cipher.encryptFrame(payload));
   }
-  async readFrame(timeoutMs = 15000): Promise<Buffer> {
-    const header = await withTimeout(this.raw.read(3), timeoutMs, "Messenger Noise frame header");
+  async readFrame(timeoutMs?: number): Promise<Buffer> {
+    const header = await this.raw.read(3, timeoutMs);
     const length = header.readUIntBE(0, 3);
     if (length < 16 || length > 0xffffff) throw new Error("Invalid Messenger Noise encrypted frame length");
-    const encrypted = await withTimeout(this.raw.read(length), timeoutMs, "Messenger Noise frame payload");
+    const encrypted = await this.raw.read(length, timeoutMs);
     return this.cipher.decryptFrame(encrypted);
   }
   async waitForSuccess(timeoutMs = 15000): Promise<void> {
