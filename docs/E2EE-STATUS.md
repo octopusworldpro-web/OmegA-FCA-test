@@ -270,3 +270,31 @@ This entry records actual source changes after the prior audit; it does not chan
 - CI for final source commit [45980647560](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45980647560) completed successfully: build/tests, TypeScript check, lint, and package dry run all passed.
 
 **Step 2 remains IN PROGRESS — NOT VERIFIED COMPLETE.** These are real local publication correctness improvements, not a substitute for the missing authenticated Messenger Noise transport, default FCA login wiring, server-aware prekey lifecycle, or authorized live Facebook acceptance. Those protocol requirements remain open; no transport or server behavior was fabricated.
+
+
+## 2026-11-27 — Noise identity and certificate groundwork update
+
+**Branch:** `feature/release-0.2.3-beta.3`  
+**Source head recorded for this update:** `aac205379522b8335ffc81f7db07c864da124fda`
+
+### Changes recorded
+
+- Added a separate persistent X25519 key pair for the Messenger Noise static identity in `src/domains/e2ee/signal-key-store.ts`. It is stored in the existing encrypted account-scoped store and remains backward-compatible with older store payloads.
+- Updated `src/domains/e2ee/runtime.ts` to provision that Noise key pair once and reuse it after restart. It is not reused as the Signal identity key.
+- Added store/runtime tests for 32-byte key validation, separation from the Signal identity, and persistence across restart.
+- Added `src/domains/e2ee/noise-certificate.ts` with strict protobuf parsing and certificate checks: root signature, intermediate signature, leaf signature, issuer serial, validity window, and leaf public-key match to the server static key.
+- Exported the certificate verifier and added negative-path tests to the package test command.
+
+### CI evidence
+
+GitHub Actions runs [45990589918](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45990589918) and [45990583250](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45990583250), both for source head `aac205379522b8335ffc81f7db07c864da124fda`, completed successfully. The jobs passed dependency/security audit, build and tests, TypeScript check, lint, and package dry run.
+
+### Not yet implemented / verified
+
+- The certificate verifier is not yet called by a Noise XX handshake and does not yet have a captured valid Messenger certificate-chain test vector or live endpoint verification.
+- The persisted Noise static key is not yet connected to an authenticated Noise socket.
+- Messenger Noise framing, encrypted transport, IQ send/response correlation, and normal FCA login wiring are still missing.
+- No CAT/ICDC automatic login flow, live device registration, or real server prekey acknowledgement was established by these commits.
+- Direct/group encrypted message integration with the existing MQTT send/receive pipeline and native encrypted media upload/download remain outstanding.
+
+**Status:** Step 2 **In progress**; Step 3 **In progress**; Step 4 **In progress**. This update records source groundwork and passing CI only. It does not claim a complete Noise transport, live Messenger interoperability, or completion of any of Steps 2–4.
