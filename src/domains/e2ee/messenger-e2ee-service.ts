@@ -321,7 +321,7 @@ export class MessengerE2EEService extends EventEmitter {
       encodeNode("trace", {}, [encodeNode("request_id", {}, Buffer.from(randomUUID().replace(/-/g, ""), "hex"))]),
       encodeNode("enc", { v: "3", type: "skmsg" }, Buffer.from(encrypted.body, "base64"))
     ]));
-    await this.options.socket.sendFrame(stanza);
+    await this.sendStanzaWithAck(stanza, id);
     return id;
   }
 
