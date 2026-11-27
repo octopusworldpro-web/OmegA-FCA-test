@@ -174,7 +174,7 @@ export class MessengerE2EEService extends EventEmitter {
           .filter((d) => !(d.name === localSender.name && d.deviceId === localSender.deviceId));
       },
       sendDistribution: async (recipient, distribution) => {
-        await this.peers.preparePeer(recipient.name);
+        await this.peers.ensureSession(recipient);
         const transport = makeTransport(undefined, { groupId: distribution.groupId, bytes: Buffer.from(distribution.body, "base64") });
         const encrypted = await options.runtime.directMessages.encrypt(recipient, transport);
         await this.sendDirectCiphertext(recipient, encrypted.type, Buffer.from(encrypted.body, "base64"));
@@ -225,8 +225,10 @@ export class MessengerE2EEService extends EventEmitter {
     if (typeof text !== "string" || !text.length) throw new TypeError("E2EE text must be non-empty");
     if (!/^\d+$/.test(peerId)) throw new TypeError("Messenger peer ID must be numeric");
     const peerDevices = await this.peers.preparePeer(peerId);
-    await this.peers.preparePeer(this.local.name);
     const ownDevices = await this.directory.listDevices(this.local.name);
+    for (const device of ownDevices) {
+      if (device.deviceId !== this.local.deviceId) await this.peers.ensureSession(device);
+    }
     const all = [...new Map([...peerDevices, ...ownDevices].map((d) => [`${d.name}.${d.deviceId}`, d])).values()]
       .filter((d) => !(d.name === this.local.name && d.deviceId === this.local.deviceId));
     if (!all.length) throw new Error("No remote Messenger E2EE devices were discovered");
@@ -236,7 +238,7 @@ export class MessengerE2EEService extends EventEmitter {
     for (const device of all) {
       try {
         if (device.name === this.local.name && !this.options.runtime.store.loadSession(device)) continue;
-        if (!this.options.runtime.store.loadSession(device)) await this.peers.preparePeer(device.name);
+        if (!this.options.runtime.store.loadSession(device)) await this.peers.ensureSession(device);
         const encrypted = await this.options.runtime.directMessages.encrypt(device, transport);
         const typeName = encrypted.type === (this.options.signal as any)?.CiphertextMessageType?.PreKey ? "pkmsg" : "msg";
         participantNodes.push(encodeNode("to", { jid: `${device.name}.${device.deviceId}@msgr` }, [
