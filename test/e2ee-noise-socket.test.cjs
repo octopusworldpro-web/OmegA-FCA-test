@@ -7,7 +7,7 @@ assert.equal(typeof fca.decodeMessengerBinaryNode, "function");
 
 const nested = fca.decodeMessengerBinaryNode(Buffer.from([0, 248, 2, 25, 248, 1, 76]));
 assert.deepEqual(nested, { tag: "iq", attrs: {}, content: [{ tag: "success", attrs: {} }] });
-const deeplyNested = fca.decodeMessengerBinaryNode(Buffer.from([0, 248, 2, 25, 248, 1, 248, 1, 76]));
+const deeplyNested = fca.decodeMessengerBinaryNode(Buffer.from([0, 248, 2, 25, 248, 1, 248, 2, 25, 248, 1, 76]));
 assert.deepEqual(deeplyNested.content[0].content, [{ tag: "success", attrs: {} }]);
 const success = fca.decodeMessengerBinaryNode(Buffer.from([0, 248, 1, 76]));
 assert.equal(success.tag, "success");
