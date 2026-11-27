@@ -148,21 +148,26 @@ await api.e2ee.syncGroupMembership("GROUP_JID@g.us");
 - EryXen protocol comparison.
 - Reconnect, restart, multi-device, and authorized real-account interoperability tests.
 
-**Implemented groundwork**
-- Direct and group media cryptographic helpers using a fresh 64-byte attachment key, AES-256-CBC encryption, and truncated HMAC-SHA256 authentication; the attachment key is wrapped in the recipient's Signal session or group Sender Key.
-- Direct-media envelope orchestration now binds the wrapped key and encrypted metadata to the exact selected Signal recipient device. Group-media envelope orchestration sends its descriptor through the native group Signal text path.
-- FCA login exposes opt-in `api.e2ee.sendDirectMedia` and `api.e2ee.sendGroupMedia`; both upload ciphertext only through the existing `api.uploadAttachment` path, then attach the returned pre-uploaded IDs to the target thread using the unchanged legacy `api.sendMessage` attachment tuple path. The Signal-encrypted envelope carries the attachment message reference and key metadata. `api.e2ee.downloadDirectMedia` and `downloadGroupMedia` resolve the attachment through `api.getMessage`, enforce HTTPS Facebook CDN host allowlists, and download bytes before verifying ciphertext digest, MAC, dimensions, and expected peer/group context.
-- Added direct media upload/download/decrypt fixtures and included them in the full package test command. Existing group-media tests continue to cover ciphertext-only upload, receive/decrypt, and sender/group validation.
+**Implemented source scope**
+
+- `src/domains/e2ee/messenger-media.ts` implements 32-byte media keys, type-specific HKDF-SHA256 expansion, AES-256-CBC, 10-byte truncated HMAC-SHA256 over IV + ciphertext, plaintext/ciphertext SHA-256, bounded size checks, and constant-time HMAC verification.
+- Authenticated Messenger Noise `media_conn` IQ obtains upload host/auth. Encrypted media uploads to `/wa-msgr/mms/{image|video|ptt|document}/{fileEncSHA256}`; a single HTTP 401 triggers media_conn refresh and one retry. Upload host allowlisting and 30-second timeout are enforced.
+- Native `ConsumerApplication` media protobufs are built for image, video, audio/voice, and document. `mediaKey`, `fileSHA256`, `fileEncSHA256`, `directPath`, timestamp, MIME type, and optional media metadata are carried inside Signal encryption.
+- Direct media is uploaded once, then fanned out through Signal to every discovered peer device and the sender's other devices. Group media uses the existing Sender Key encrypted group transport with the same native media application payload.
+- Incoming native media protobufs are decoded to typed `direct_media` / `group_media` events with sender/thread context and media metadata. `downloadMessengerMedia` resolves the HTTPS CDN path and verifies encrypted digest, HMAC, plaintext length, and plaintext digest before returning bytes.
+- FCA login exposes native `api.e2ee.sendDirectMedia`, `sendGroupMedia`, `downloadDirectMedia`, and `downloadGroupMedia`. The ordinary non-E2EE FCA `uploadAttachment` / `sendMessage` path remains unchanged and is not used for E2EE media.
+- Offline fixtures cover all four media types, a 256 KiB video payload, zero-byte files, ciphertext/HMAC tampering, media upload URL and response parsing, 401 refresh retry, direct multi-device fanout, group Sender Key send, native inbound media event parsing, and download/decrypt.
 
 **Still required**
-- Direct-media send now discovers every peer device and independently wraps the media key in each device's Signal session. Delivery continues when one device fails; successful device deliveries are returned, while partial failures emit `direct_media_partial_delivery` and per-device `e2ee_error`. Each device currently receives its own encrypted upload (correct but not bandwidth-optimal). Source commit: `d43411fc03451daab0c5553f87682ead064b9bc6`.
-- E2EE media now uses the Messenger `media_conn` IQ, encrypted-media CDN upload (`/wa-msgr/mms/{type}/{fileEncSHA256}`), and native `ConsumerApplication` media payloads carrying `mediaKey`, `fileSHA256`, `fileEncSHA256`, `directPath`, MIME type, and media metadata inside Signal encryption. Incoming native image/video/audio/document payloads are decoded into typed `direct_media` / `group_media` events. Ordinary non-E2EE FCA attachment behavior remains unchanged.
-- Verify direct and group media interoperability with compatible Facebook E2EE devices.
-- Complete the EryXen protocol/reference comparison and document observed differences; do not copy unverified assumptions.
-- Run authorized real-account tests for fresh login, reconnect, restart, multiple devices, and recovery.
-- Verify receipts and attachment lifecycle where supported by the target protocol.
+
+- Current-head CI must pass build, full test suite, TypeScript check, lint, and package dry run. The last recorded CI attempt failed on an earlier commit due a malformed HTTPS regex and duplicate legacy group-media method; both were corrected in later source commits, but those fixes do not yet have a verified green CI run.
+- Authorized real Messenger tests must verify `media_conn`, upload/download host behavior, and actual image/video/audio/document delivery between compatible devices.
+- Verify direct/group media receipts, multi-device receive, reconnect, process restart, and recovery on an authorized account.
+- Complete live protocol comparison against observed Messenger media responses. Meta's published E2EE whitepaper establishes the 32-byte media-key/HKDF design; the FME implementation is an unofficial reference for concrete type labels and upload shape, not proof of server acceptance.
+- EryXen comparison is complete for the ordinary FCA attachment lifecycle only. The reviewed EryXen files do not establish native E2EE media behavior.
 
 **Acceptance**
+
 - Encrypted media is sent and received across authorized compatible devices.
 - EryXen comparison is documented with evidence.
 - Real-account interoperability evidence is recorded separately from mock/unit tests.
