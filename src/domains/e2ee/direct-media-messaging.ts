@@ -1,4 +1,5 @@
-import type { SignalPeerAddress, SignalDirectMessageDeps } from "./direct-messages";
+import type { SignalPeerAddress } from "./direct-messages";
+import type { SignalMediaCrypto } from "./encrypted-media";
 import {
   encryptAndUploadSignalMedia,
   downloadAndDecryptSignalMedia,
@@ -14,7 +15,7 @@ export interface EncryptedDirectMediaEnvelope {
 }
 
 export interface SignalDirectMediaMessagingDeps {
-  signal: SignalDirectMessageDeps;
+  signal: SignalMediaCrypto;
   sendEnvelope(peerId: string, remote: SignalPeerAddress, envelope: EncryptedDirectMediaEnvelope): Promise<void>;
 }
 
