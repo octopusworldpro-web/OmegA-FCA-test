@@ -354,3 +354,28 @@ GitHub Actions runs [45990589918](https://github.com/octopusworldpro-web/OmegA-F
 - No guessed MQTT envelope, device-discovery endpoint, bundle schema, stanza token table, or plaintext fallback was added. Ordinary FCA messaging and fail-open behavior remain unchanged.
 - No Step 3 source code was changed in this audit. No new tests or CI were run for Step 3.
 - Step 3 remains **In progress — NOT verified complete**. The remaining work is a complete Messenger binary-node/event dispatcher, verified peer/device and bundle discovery/parsing, native direct-message stanza send/receive/decrypt, native SKDM delivery and group ciphertext flow, retry/reconnect/replay handling, and deterministic protocol fixtures. CI/local tests must validate the resulting source; live interoperability must be reported separately.
+
+
+### 2026-11-27 — Step 3 transport dispatcher implementation update
+
+**Branch:** `feature/release-0.2.3-beta.3`  
+**Source commits:** `beae39e69b0c158ef668ec147aa09d57e05d1177`, `7f7a992baea3f761960822f8de22bad66857d37c`, `1970eb95fc65bb354f18ec8c155697336cc814d6`, `cd0c51053255363dd1e9955c4ca04e1e82488d96`
+
+**Implemented**
+- Replaced the one-level binary-node child parser with a recursive node parser, retaining nested child structure and rejecting duplicate attributes/trailing bytes.
+- Replaced the serialized IQ read loop with one long-lived Noise frame dispatcher. IQ requests are correlated by ID; unrelated incoming IQ, message, presence, receipt, and notification nodes are emitted instead of being consumed and discarded.
+- Added `onNode`, `onceNode`, and `onClose` listener APIs, pending-IQ timeout/error handling, duplicate in-flight ID rejection, and close-time rejection of pending requests.
+- Preserved nodes received between the Noise handshake and dispatcher startup so login-time events are not silently lost.
+- Added recursive binary-node fixtures, including multiple nesting levels.
+
+**Verification**
+- GitHub Actions run [46035934055](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46035934055) was triggered for source/test changes. Its result must be checked before treating this update as CI-verified.
+- No live Messenger server, cross-device account, or native encrypted-message round-trip was tested.
+
+**Remaining Step 3 acceptance work**
+- The dispatcher now exposes native incoming nodes, but the repository still has no verified current Messenger peer/device-directory and PreKeyBundle request/response adapter.
+- Native direct-message `msg`/`pkmsg` encode/send and receive/decrypt lifecycle is not yet connected to the socket.
+- Native SKDM distribution, group `skmsg` send/receive/decrypt, group membership/device-change key rotation integration, and receipt/retry/replay recovery are not yet wired to Messenger's native stanza contract.
+- No captured, versioned Messenger protocol fixtures establish those remaining wire contracts. No guessed endpoints, token mappings, or plaintext fallback were introduced.
+
+**Step 3 status: IN PROGRESS — NOT COMPLETE.** This update is a real transport-layer implementation, not a claim that native direct and group E2EE messaging is complete. Ordinary FCA messaging remains unchanged.
