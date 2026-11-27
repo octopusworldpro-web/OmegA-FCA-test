@@ -463,3 +463,15 @@ Reviewed EryXen FCA `akashxback/fca-eryxenx` main and compared its `src/api/mess
 - A failed device does not stop attempts to remaining devices. Partial delivery is surfaced through `direct_media_partial_delivery`; individual errors emit `e2ee_error`; all-device failure rejects with `AggregateError`.
 - Roadmap update commit: `c8c0a787c818e60240678f0177e669196bad7363`.
 - Verification boundary: no CI status was available for the source commit during this update and no runtime tests were executed in this session. Native media stanza protocol fixtures, full video/file lifecycle coverage, EryXen evidence comparison, and authorized live Messenger media acceptance are still outstanding. Step 4 remains **In progress**; no interoperability claim is made.
+
+
+## 2026-11-27 — Step 4 inbound media and file lifecycle update
+
+- Added typed inbound media event dispatch in `MessengerE2EEService`: decrypted version-1 direct/group media envelopes emit `direct_media` / `group_media` with sender and thread/group context; normal text remains on `message`.
+- Expanded native Messenger service fixtures to test direct media fanout to two discovered peer devices and inbound direct/group media event delivery.
+- Expanded direct-media tests with a 256 KiB binary video-like payload and zero-byte file round-trip, metadata preservation, ciphertext-only upload, and existing integrity/peer validation checks.
+- Source/test commits: `6bc34f5c3899ef4849d3e59f48ca8a35ac0c778a`, `ab42a9e59116fee240555e5fce142a35c510b779`, `d4c226b52e0eeb29a7c462af9d460723d3b6f98e`, `ff5f8014d9999b8a779ea03dc6cb5f1da3da47da`.
+- Roadmap update commit: `9b9451d4300d474de2905768da7e3e8fdf65f698`.
+- Workflow run [46045981492](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46045981492) covered an earlier fanout commit and was still running when checked; it does not verify the later event-dispatch or expanded test commits. No latest-head green CI claim is made.
+- EryXen compatibility comparison is limited to the established legacy attachment upload / pre-uploaded ID send / getMessage URL-resolution lifecycle. OmegA encrypts bytes before this upload and sends key/descriptor only inside Signal encryption. Native Meta media-stanza compatibility and authorized live-device acceptance remain unverified.
+- Step 4 remains **In progress**. Outstanding acceptance: CI for the latest source/test head; authoritative/captured Messenger media-wire evidence; and authorized real-device tests covering direct/group media, receipts, reconnect, restart, and multi-device delivery.
