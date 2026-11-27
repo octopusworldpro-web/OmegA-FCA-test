@@ -231,3 +231,20 @@ This directive governs the remaining implementation work for Steps 2–4. It sup
 - “Live interoperability verified” means an authorized Facebook/Messenger account and compatible peer/device have actually completed the relevant exchange.
 - Report these states separately. Steps 2–4 must not be left as helper-only work: complete the source-level implementation and tests first, then report any live-only verification independently.
 - Do not mark any live acceptance criterion as passed without real evidence. Conversely, do not defer source implementation merely because live acceptance has not yet been run.
+
+
+### 2026-11-27 — Messenger Noise identity and certificate-verification groundwork
+
+**Source commits on `feature/release-0.2.3-beta.3`:**
+- `a275a2ac59ae12a6b19a154de58517e736ede8fd`: added a separate Messenger Noise X25519 key pair to the encrypted Signal key store; runtime provisions it once and reuses it across restarts. It is deliberately distinct from the Signal identity key.
+- Added restart/length validation coverage in `test/signal-key-store.test.cjs` and `test/e2ee-runtime.test.cjs`.
+- `49f54379e978035bdab0bbd2886690fb31ab1e5b`: added `src/domains/e2ee/noise-certificate.ts`, implementing protobuf certificate-chain parsing, root/intermediate/leaf signature checks, validity-window checks, issuer-serial checks, and binding of the leaf certificate key to the Noise server static key.
+- `1766f25df00370f879b5334d3fd297f15ff8d917`: added negative-path certificate rejection tests.
+- `962fbb611cd75248e5ec18d108ee53b0865ccc0b`: exported the certificate verifier from the package entry point.
+- `aac205379522b8335ffc81f7db07c864da124fda`: added the certificate test to the package test script.
+
+**Verification:** GitHub Actions runs [45990589918](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45990589918) and [45990583250](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45990583250) for `aac205379522b8335ffc81f7db07c864da124fda` completed successfully. Both report success for dependency/security audit, build and tests, TypeScript check, lint, and package dry run.
+
+**Important scope boundary:** this is groundwork, not a completed Noise transport. The certificate verifier currently has malformed-input/rejection tests but no captured Messenger certificate-chain positive vector or authorized live endpoint validation. It has not yet been wired into a Noise XX handshake, framed encrypted socket, IQ request/response adapter, or the normal FCA login path. The persisted Noise static key is not yet used by an authenticated transport.
+
+**Step disposition:** Step 2 remains **In progress — NOT complete**. Step 3 and Step 4 remain **In progress**. No live Messenger interoperability or server acceptance is claimed.
