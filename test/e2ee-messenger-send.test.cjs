@@ -84,7 +84,7 @@ const runtime = {
   groups: {
     createDistribution: async () => ({ groupId: "123-456@g.us", sender: { name: "123456789", deviceId: 42 }, body: Buffer.from("skdm").toString("base64") }),
     processDistribution: async () => {},
-    encrypt: async (groupId, sender, plaintext) => ({ groupId, sender, body: Buffer.from("group-cipher").toString("base64") }),
+    encrypt: async (groupId, sender) => ({ groupId, sender, body: Buffer.from("group-cipher").toString("base64") }),
     decrypt: async () => incomingTransport
   }
 };
