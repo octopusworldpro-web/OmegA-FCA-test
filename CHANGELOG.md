@@ -31,7 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Validation notes
 
-- The preceding branch head passed the configured CI pipeline; the exact beta.5 release commit must pass the expanded Node.js 20/22 matrix before tagging or publishing.
+- GitHub Actions run [46051824966](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46051824966) passed on beta.5 candidate commit `805ee04cac0dd51f3bd57dc402fee997348c9615`: dependency/security audit, build and full tests, TypeScript check, lint, and package dry run on Node.js 20 and 22.
 - Live Facebook/Messenger device, message, and media-CDN interoperability remains deferred and unverified. This beta does not claim production readiness.
 
 ## [0.2.3-beta.4] - 2026-11-26

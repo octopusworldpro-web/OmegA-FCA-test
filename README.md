@@ -255,7 +255,7 @@ The test suite contains synthetic checks and an optional live-login test that is
 | Area | Status |
 |:--|:--:|
 | Core source integration | Implemented; live acceptance pending |
-| Build & automated validation | CI validation required for this beta.5 commit (Node 20/22) |
+| Build & automated validation | CI passed on Node 20 and 22 for beta.5 candidate |
 | FCA API compatibility | In progress |
 | OmegA-integrating bot integration | Pending acceptance tests |
 | Authorized Facebook live login | Not yet verified |

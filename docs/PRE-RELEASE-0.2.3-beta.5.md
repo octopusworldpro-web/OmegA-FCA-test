@@ -14,9 +14,9 @@
 - [x] Record beta.5 changes and the beta.3/beta.4 release history in `CHANGELOG.md`.
 - [x] Update the E2EE status/roadmap version references and documentation index.
 - [x] Configure CI to run the full validation pipeline on Node.js 20 and 22.
-- [ ] GitHub Actions passes on the exact beta.5 commit for both Node.js versions.
-- [ ] Confirm dependency/security audit, build, full tests, typecheck, lint, and `npm pack --dry-run` are green.
-- [ ] Review the final npm tarball contents and confirm no credentials, cookies, local state, or private configuration are included.
+- [x] GitHub Actions passed on beta.5 candidate commit `805ee04cac0dd51f3bd57dc402fee997348c9615` for both Node.js versions (run [46051824966](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46051824966)).
+- [x] Dependency/security audit, build, full tests, TypeScript check, lint, and `npm pack --dry-run` passed on Node.js 20 and 22.
+- [x] Reviewed the package allowlist: only `dist/`, `docs/`, `README.md`, `test/`, `LICENSE`, `NOTICE`, and `fca-config.example.json` are included; no credentials, cookies, local state, or private configuration are selected.
 - [ ] Confirm package metadata, license, NOTICE, README, and published files are correct.
 
 ## Interoperability boundary
