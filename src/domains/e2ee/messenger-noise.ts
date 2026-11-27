@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, hkdfSync } from "node:cry
 import { deriveOmegAX25519, generateOmegAX25519KeyPair } from "./native-crypto";
 import { verifyMessengerNoiseCertificateChain } from "./noise-certificate";
 
-const NOISE_PATTERN = Buffer.from("Noise_XX_25519_AESGCM_SHA256\\0\\0\\0\\0");
+const NOISE_PATTERN = Buffer.from("Noise_XX_25519_AESGCM_SHA256\0\0\0\0");
 const WA_HEADER = Buffer.from([0x57, 0x41, 0x06, 0x03]);
 const DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
 
@@ -166,7 +166,7 @@ export class MessengerNoiseHandshakeState {
 }
 
 export function buildMessengerClientPayload(options: { fbid: string; deviceId: number; fbCat: string; userAgent?: string }): Buffer {
-  if (!/^\\d+$/.test(String(options.fbid || ""))) throw new TypeError("Messenger account ID must be numeric");
+  if (!/^\d+$/.test(String(options.fbid || ""))) throw new TypeError("Messenger account ID must be numeric");
   if (!Number.isSafeInteger(options.deviceId) || options.deviceId < 0) throw new TypeError("Messenger device ID must be a non-negative safe integer");
   if (typeof options.fbCat !== "string" || !options.fbCat) throw new TypeError("Messenger CAT is required");
   const appVersion = Buffer.concat([fieldVarint(1, 301), fieldVarint(2, 0), fieldVarint(3, 2)]);
@@ -236,17 +236,7 @@ export async function performMessengerNoiseXXHandshake(
   }
   const staticPrivate = Buffer.from(options.staticPrivateKey);
   if (staticPrivate.length !== 32) throw new TypeError("Messenger Noise static private key must be 32 bytes");
-  const staticPair = generateOmegAX25519KeyPair();
-  // Derive the persisted static public key from the supplied private key, not a fresh keypair.
-  const staticPublic = (() => {
-    const probe = generateOmegAX25519KeyPair();
-    void probe;
-    // X25519 public derivation is performed by the key store/runtime and passed separately by callers.
-    return Buffer.alloc(0);
-  })();
-  void staticPair;
-  void staticPublic;
-  if (!/^\\d+$/.test(String(options.fbid || ""))) throw new TypeError("Messenger account ID must be numeric");
+  if (!/^\d+$/.test(String(options.fbid || ""))) throw new TypeError("Messenger account ID must be numeric");
   const clientPayload = buildMessengerClientPayload({
     fbid: options.fbid,
     deviceId: options.deviceId,
