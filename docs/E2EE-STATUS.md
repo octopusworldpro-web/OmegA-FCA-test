@@ -512,3 +512,11 @@ Workflow run [46045981492](https://github.com/octopusworldpro-web/OmegA-FCA-test
 - Failed historical run [46046902565](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46046902565) was for earlier source/test merge commit `b4c73e55857768a4bccab9a66d37719ed8bb30a3`; its build failed on the then-present direct-path regex syntax and duplicate group-media method. Those exact issues were corrected in subsequent source commits. This run does not validate the current branch head.
 - Latest native media source/test commits include `be70d80b849afa02d1a23a84cac381d4ac064e37`, `d40fd6fd01a1f75642aabefd74bb0d1482f30da3`, `fa84aa5d501623fb2c7eb890b377aba5e152af49`, `63a0c45c4207d0a6b231d5ef54d8b4f3fc1785ea`, `78bbce96aa5a9dda8b4661a33d3f4b508c632520`, and `a7ff4525fe6bb4e7a07ea29bfe585f004805f064`.
 - No CI run/status is currently associated with the latest branch head in the available GitHub Actions results. Do not claim a green result for these later commits. Step 4 remains **In progress** until current-head build/test/typecheck/lint/package checks pass and authorized live Messenger media interoperability is accepted.
+
+
+## 2026-11-27 — Latest branch-head checkpoint
+
+- Current PR #8 head at this checkpoint: `26aa8f7397af0d89872fa6f9bb03c650e76a455e` on `feature/release-0.2.3-beta.3`.
+- Latest source/test implementation is committed; documentation now describes the native Messenger media event shape (`event.media`) and native `downloadDirectMedia` / `downloadGroupMedia` helpers.
+- `get_commit_combined_status` and `fetch_commit_workflow_runs` returned no status/workflow run for the latest branch head. The earlier green CI run `46044369909` validated the older source commit `58ebf84fae915d0375a330217b00393826586b58`; it is not a green result for the current native-media implementation. Intermediate run `46046902565` failed before the follow-up fixes were committed.
+- Current Step 4 source implementation is substantially complete offline, but Step 4 is **not Verified complete**: latest-head CI and authorized live Messenger media acceptance are still missing. No Step 4 live-test waiver is recorded.
