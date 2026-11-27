@@ -6,11 +6,11 @@
 
 ## Overall status
 
-**Step 1 is verified complete for the local Signal engine and FCA login lifecycle boundary. Step 2 is verified complete for the user-approved offline source/fixture scope. Steps 3–4 remain in progress. No live Facebook/Messenger interoperability or production readiness is claimed.**
+**Step 1 is verified complete for the local Signal engine and FCA login lifecycle boundary. Step 2 is verified complete for the user-approved offline source/fixture scope. Step 3's native text messaging implementation is now integrated and covered by offline fixtures; live cross-device acceptance remains pending. Step 4 remains in progress. No live Facebook/Messenger interoperability or production readiness is claimed.**
 
 - Step 1: Verified complete — local engine and fail-open FCA login lifecycle
 - Step 2: Verified complete — automatic CAT/ICDC, authenticated Noise XX key-sync transport, acknowledged prekey publication, replenishment/rotation, bounded retry, restart recovery, and offline CI/fixture acceptance. Live Facebook acceptance was explicitly waived by the user.
-- Step 3: In progress — local Signal direct/group primitives exist; native Messenger MQTT wire integration is not established
+- Step 3: Implementation complete for the offline native text-messaging scope; overall acceptance remains in progress pending authorized live cross-device testing
 - Step 4: In progress — local media crypto helpers exist; native media transport and real-device acceptance remain
 
 A Step is complete only after its code, tests, required integration, and acceptance evidence are present. Unit tests, mocks, helper modules, and CI success do not by themselves prove Messenger interoperability.
@@ -81,22 +81,26 @@ A Step is complete only after its code, tests, required integration, and accepta
 ## Step 3 — E2EE Messaging & Group System
 
 **Scope**
-- Messenger MQTT encrypted send/receive and decrypt integration.
+- Native Messenger E2EE Noise WebSocket encrypted send/receive and decrypt integration (separate from FCA's ordinary MQTT JSON event channel).
 - Direct-message encryption and peer/device bundle exchange.
 - Group Sender Keys/SKDM, encrypted group messaging, membership/device changes, and key rotation.
 - Preserve ordinary non-E2EE message/event handling.
 
-**Implemented groundwork**
-- Signal direct-message primitives using libsignal, with peer/device discovery and bundle parsing supplied through injected interfaces.
-- Group Sender Key/SKDM state persistence and restart-aware delivery/retry logic.
-- Application-level encrypted group-message orchestration over an injected authenticated transport.
-- Local tests cover selected persistence, retry, envelope-validation, and decryption contracts.
+**Implemented — offline source scope**
+- Full WA-binary decoder/encoder integration with recursive nodes and binary payload preservation; Noise socket dispatches unsolicited message/receipt nodes and correlates IQ replies without dropping unrelated events.
+- Native Messenger device-directory and encrypt-IQ PreKeyBundle discovery, including conversion to libsignal's native PreKeyBundle and per-device session establishment.
+- Direct text fanout to remote and own devices, including self-device DSM; incoming `msg`/`pkmsg` participant payloads are decrypted and decoded.
+- Group Sender Key/SKDM distribution over encrypted direct sessions, group `skmsg` send/receive/decrypt, and an explicit membership-sync/key-rotation API.
+- Server stanza acknowledgements, bounded retry receipts, inbound duplicate suppression, Noise reconnect with CAT refresh, and in-memory replay of the same pending encrypted stanza after reconnect.
+- FCA login exposes `api.e2ee.sendDirectText()`, `api.e2ee.sendGroupText()`, `api.e2ee.syncGroupMembership()`, and the `api.e2ee.messenger` event emitter when `e2ee.facebook` is configured.
+- Offline fixtures cover recursive WA-binary parsing, binary ciphertext/JID round-trips, peer/device and PreKeyBundle parsing, and reconnect/outbox replay.
 
-**Still required**
-- Implement and verify Messenger peer/device discovery and native bundle exchange.
-- Connect direct-message encryption/decryption to the actual Messenger MQTT envelope and event lifecycle.
-- Establish native Messenger wire-format compatibility for direct and group encrypted messages.
-- Verify cross-device send/receive, reconnect, duplicate/out-of-order delivery, replay protection, and recovery with authorized test devices.
+**Still required for verified completion**
+- Authorized live-account tests with compatible devices for direct and group send/receive; no live server acceptance is claimed.
+- Automatic group membership/device-change notification wiring. The current service exposes `syncGroupMembership(groupJid)` for explicit rotation.
+- Persistent outbox replay across process restart; current encrypted-stanza replay is in-memory across socket reconnects.
+- Verify receipts, out-of-order delivery, and replay/recovery behavior on real Messenger devices.
+- Media payloads and upload/download transport remain Step 4 scope.
 
 **Acceptance**
 - A real authorized test account exchanges encrypted direct messages with a compatible peer.
@@ -330,3 +334,17 @@ This directive governs the remaining implementation work for Steps 2–4. It sup
 - Incoming Messenger nodes are now retained until a consumer subscribes, including nodes received before the caller gets the connected socket. A bounded 10,000-node backlog stops the socket with an explicit error rather than silently dropping unconsumed events.
 - CI for this source head: [run 46036056104](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46036056104) — pending at the time this note was written.
 - This follow-up closes the early-subscriber event-loss window; it does not implement the remaining native direct/group message codecs and lifecycle. Step 3 remains **IN PROGRESS — NOT COMPLETE**.
+
+
+### 2026-11-27 — Step 3 native text messaging implementation
+
+**Branch:** `feature/release-0.2.3-beta.3`  
+**Source head at implementation freeze:** `2cf46b80ea15982167b060046e860f8443c251ee`
+
+- Added an attributed AGPL-compatible Messenger WA-binary codec from the public HerokeyVN/FB-Messenger-E2EE protocol reference; source headers preserve the upstream project attribution and license provenance.
+- Connected the authenticated Noise socket's full binary-node event dispatcher to the native peer directory, PreKeyBundle parser, libsignal sessions, direct text fanout/receive, group Sender Key/SKDM distribution, and group text encryption/decryption.
+- Integrated the service into the existing opt-in FCA login lifecycle. Native transport requires `e2ee.facebook` to be configured (an empty object uses the default app ID and automatic CAT retrieval); omitting it intentionally retains local-only E2EE bootstrap.
+- Exposed direct/group send, group membership key rotation, and inbound message events through `api.e2ee`. Ordinary FCA/MQTT messaging behavior remains unchanged.
+- Added bounded retry receipts, duplicate suppression, server-acknowledged outbound stanza tracking, CAT-refresh reconnect, and in-memory replay of the original ciphertext/stanza after socket reconnect.
+- Validation: offline build/test suite passed on the preceding source snapshot [CI run 46038030879](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46038030879). The newer reconnect and parser hardening changes at source head `2cf46b80ea15982167b060046e860f8443c251ee` still require their own CI result before this record can be treated as current validation.
+- **Status:** source implementation complete for direct/group text in the offline scope; Step 3 remains **In progress** until authorized live cross-device acceptance and the remaining items above are verified.
