@@ -39,7 +39,7 @@ const fca = require("../dist/index.js");
   try {
     const encrypted = fca.encryptMessengerMedia(Buffer.from("upload fixture"), "image");
     const result = await fca.uploadMessengerMedia({ host: "rupload.facebook.com", auth: "test-auth", fetchedAtMs: Date.now() }, encrypted, "image");
-    assert.match(requestedUrl, /^https:\\/\\/rupload\\.facebook\\.com\\/wa-msgr\\/mms\\/image\\//);
+    assert.match(requestedUrl, /^https:\/\/rupload\.facebook\.com\/wa-msgr\/mms\/image\//);
     assert.match(requestedUrl, /auth=test-auth/);
     assert.deepEqual(uploadedBytes, encrypted.uploadBytes);
     assert.equal(result.directPath, "/v/t59.2708-21/fixture");
