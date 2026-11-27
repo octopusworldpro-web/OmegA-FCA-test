@@ -144,7 +144,7 @@ export class MessengerPeerDirectory {
 export function createMessengerSignalPeerManager(runtime: SignalE2EERuntime, socket: MessengerNoiseSocket, signal: unknown) {
   if (!runtime?.store || !runtime?.directMessages) throw new TypeError("Initialized Signal runtime is required");
   const directory = new MessengerPeerDirectory(socket);
-  return createSignalPeerManager({
+  const manager = createSignalPeerManager({
     store: runtime.store,
     directMessages: runtime.directMessages,
     listDevices: (peerName) => directory.listDevices(peerName),
@@ -155,4 +155,5 @@ export function createMessengerSignalPeerManager(runtime: SignalE2EERuntime, soc
       return buildMessengerSignalPreKeyBundle(signal, raw);
     }
   });
+  return { ...manager, directory };
 }
