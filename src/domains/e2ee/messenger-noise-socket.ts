@@ -225,6 +225,7 @@ export class MessengerNoiseSocket {
   private readonly events = new EventEmitter();
   private readonly pendingIQ = new Map<string, { resolve: (node: BinaryNode) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
   private dispatchTask: Promise<void> | null = null;
+  private readonly bufferedNodes: BinaryNode[] = [];
   private closedError: Error | null = null;
   private constructor(
     private readonly ws: WebSocket,
@@ -286,7 +287,7 @@ export class MessengerNoiseSocket {
       const node = decodeMessengerBinaryNode(await this.readFrame(Math.max(1, deadline - Date.now())));
       if (node.tag === "success") return;
       if (node.tag === "failure") throw new Error(`Messenger E2EE login rejected: ${node.attrs.reason || node.attrs.type || "unknown reason"}`);
-      this.events.emit("pre-ready-node", node);
+      this.bufferedNodes.push(node);
     }
     throw new Error("Messenger E2EE login success acknowledgement timed out");
   }
