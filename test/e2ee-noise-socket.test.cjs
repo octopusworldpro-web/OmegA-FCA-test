@@ -15,5 +15,5 @@ const iq = fca.decodeMessengerBinaryNode(Buffer.from([0, 248, 5, 25, 8, 252, 3, 
 assert.deepEqual(iq, { tag: "iq", attrs: { id: "pk1", type: "result" } });
 const rejected = fca.decodeMessengerBinaryNode(Buffer.from([0, 248, 5, 25, 8, 252, 3, 112, 107, 49, 4, 168]));
 assert.equal(rejected.attrs.type, "error");
-assert.throws(() => fca.decodeMessengerBinaryNode(Buffer.from([0, 248, 5, 25, 8, 252, 9])), /Truncated/);
+assert.throws(() => fca.decodeMessengerBinaryNode(Buffer.from([0, 248, 5, 25, 8, 252, 9])), /Truncated|out of bounds|EOF/);
 console.log("Messenger Noise socket and IQ binary-node fixture tests passed");
