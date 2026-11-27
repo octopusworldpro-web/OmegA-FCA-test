@@ -27,7 +27,7 @@ function textTransport(text) {
 }
 const incomingTransport = textTransport("decrypted inbound");
 class FakeSocket {
-  constructor() { this.nodes = new Set(); this.closes = new Set(); this.frames = []; }
+  constructor() { this.nodes = new Set(); this.closes = new Set(); this.frames = []; this.remoteDeviceId = 17; }
   onNode(fn) { this.nodes.add(fn); return () => this.nodes.delete(fn); }
   onClose(fn) { this.closes.add(fn); return () => this.closes.delete(fn); }
   async sendFrame(frame) {
@@ -46,7 +46,7 @@ class FakeSocket {
       return { tag: "iq", attrs: { id, type: "result" }, content: [{
         tag: "users", attrs: {}, content: [{
           tag: "user", attrs: { jid: `${user}.0@msgr` }, content: [{
-            tag: "devices", attrs: {}, content: [{ tag: "device", attrs: { id: user === "123456789" ? "43" : "17" } }]
+            tag: "devices", attrs: {}, content: [{ tag: "device", attrs: { id: user === "123456789" ? "43" : String(this.remoteDeviceId) } }]
           }]
         }]
       }] };
@@ -63,6 +63,7 @@ class FakeSocket {
 }
 const socket = new FakeSocket();
 const delivered = ["987654321.17", "123456789.43"];
+const groupMemberships = new Map();
 const runtime = {
   registrationId: 7,
   identityKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 1)]).toString("base64"),
@@ -74,7 +75,10 @@ const runtime = {
     getSenderKeyDistributionRecipients: () => delivered,
     markSenderKeyDistributionDelivered: async () => {},
     clearSenderKeyDistribution: async () => {},
-    removeSenderKey: async () => {}
+    removeSenderKey: async () => {},
+    getGroupMembershipSnapshot: (groupId) => groupMemberships.get(groupId),
+    setGroupMembershipSnapshot: async (groupId, members) => groupMemberships.set(groupId, [...members]),
+    listGroupMembershipSnapshots: () => [...groupMemberships].map(([groupId, members]) => ({ groupId, members }))
   },
   directMessages: {
     establishSession: async () => {},
@@ -101,12 +105,19 @@ const runtime = {
   assert.equal(direct.content[0].content.length, 2);
   assert.equal(direct.content[0].content[0].content[0].attrs.type, "msg");
 
+  let membershipChanges = 0;
+  service.on("group_membership_changed", () => membershipChanges++);
   const groupId = await service.sendGroupText("123-456@g.us", "hello group");
   assert.ok(groupId);
+  assert.deepEqual(groupMemberships.get("123-456@g.us"), ["123456789.43", "987654321.17"]);
   const group = socket.frames.map((frame) => fca.decodeMessengerNode(frame)).find((node) => node.tag === "message" && node.attrs.id === groupId);
   assert.equal(group.attrs.to, "123-456@g.us");
   assert.equal(group.content.find((child) => child.tag === "enc").attrs.type, "skmsg");
   assert.match(group.attrs.phash, /^2:/);
+  socket.remoteDeviceId = 18;
+  await service.sendGroupText("123-456@g.us", "after member device change");
+  assert.equal(membershipChanges, 1, "device-directory changes automatically rotate the group Sender Key");
+  assert.deepEqual(groupMemberships.get("123-456@g.us"), ["123456789.43", "987654321.18"]);
 
   const received = [];
   service.on("message", (message) => received.push(message));
