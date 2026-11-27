@@ -475,3 +475,19 @@ Reviewed EryXen FCA `akashxback/fca-eryxenx` main and compared its `src/api/mess
 - Workflow run [46045981492](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46045981492) covered an earlier fanout commit and was still running when checked; it does not verify the later event-dispatch or expanded test commits. No latest-head green CI claim is made.
 - EryXen compatibility comparison is limited to the established legacy attachment upload / pre-uploaded ID send / getMessage URL-resolution lifecycle. OmegA encrypts bytes before this upload and sends key/descriptor only inside Signal encryption. Native Meta media-stanza compatibility and authorized live-device acceptance remain unverified.
 - Step 4 remains **In progress**. Outstanding acceptance: CI for the latest source/test head; authoritative/captured Messenger media-wire evidence; and authorized real-device tests covering direct/group media, receipts, reconnect, restart, and multi-device delivery.
+
+
+## 2026-11-27 — EryXen attachment compatibility evidence
+
+Reference repository reviewed: `akashxback/fca-eryxenx` on `main`.
+
+- `src/api/messaging/uploadAttachment.js` (blob `22b58d210c8c5cd3a50366a20b741f0eb754811b`): existing Messenger attachment upload implementation and returned attachment references.
+- `src/api/messaging/sendMessage.js` (blob `6725ecd2d6a8964031466ee9396cde97a4072ca5`): normal MQTT message send path accepts attachment references and sends the attachment-bearing message.
+- `src/api/messaging/getMessage.js` (blob `d8dc59414adb44032f39150c952d8028f0f2b3f3`): message/attachment formatting from Messenger message data.
+- `src/api/messaging/resolvePhotoUrl.js` (blob `afb58618e1b4920b33499917b1653214d34a4e37`): Mercury photo URL resolution.
+
+Compatibility conclusion: OmegA preserves the established FCA attachment lifecycle and adds encryption before upload; the decryption key/descriptor is sent through the Signal-encrypted Messenger application envelope. The reviewed EryXen files establish ordinary attachment compatibility only; they do not establish a native Messenger E2EE media stanza format. No protocol claim beyond this source evidence is made.
+
+## 2026-11-27 — CI run cancellation note
+
+Workflow run [46045981492](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46045981492) for source commit `d4c226b52e0eeb29a7c462af9d460723d3b6f98e` ended with conclusion `cancelled`: dependency/security audit passed, but the build/test step was cancelled and TypeScript/lint/package checks were skipped. Later source/test commits `ff5f8014d9999b8a779ea03dc6cb5f1da3da47da` and `6bc34f5c3899ef4849d3e59f48ca8a35ac0c778a` therefore have no verified green CI result in this record. Do not treat the earlier green run for commit `58ebf84fae915d0375a330217b00393826586b58` as validation for these newer changes.
