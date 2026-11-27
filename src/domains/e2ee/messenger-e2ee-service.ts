@@ -519,7 +519,7 @@ export class MessengerE2EEService extends EventEmitter {
     const kind = inferMessengerMediaType(metadata);
     const encrypted = encryptMessengerMedia(media, kind);
     const config = await fetchMessengerMediaUploadConfig(this.options.socket);
-    const uploaded = await uploadMessengerMedia(config, encrypted, kind);
+    const uploaded = await uploadMessengerMedia(config, encrypted, kind, () => fetchMessengerMediaUploadConfig(this.options.socket));
     const fields: MessengerMediaFields = {
       ...encrypted.fields, directPath: uploaded.directPath,
       mimeType: metadata.contentType || (kind === "image" ? "image/jpeg" : kind === "video" ? "video/mp4" : kind === "audio" ? "audio/ogg" : "application/octet-stream"),
@@ -571,7 +571,7 @@ export class MessengerE2EEService extends EventEmitter {
     const kind = inferMessengerMediaType(metadata);
     const encryptedMedia = encryptMessengerMedia(media, kind);
     const config = await fetchMessengerMediaUploadConfig(this.options.socket);
-    const uploaded = await uploadMessengerMedia(config, encryptedMedia, kind);
+    const uploaded = await uploadMessengerMedia(config, encryptedMedia, kind, () => fetchMessengerMediaUploadConfig(this.options.socket));
     const fields: MessengerMediaFields = {
       ...encryptedMedia.fields, directPath: uploaded.directPath,
       mimeType: metadata.contentType || (kind === "image" ? "image/jpeg" : kind === "video" ? "video/mp4" : kind === "audio" ? "audio/ogg" : "application/octet-stream"),
