@@ -454,3 +454,12 @@ Reviewed EryXen FCA `akashxback/fca-eryxenx` main and compared its `src/api/mess
 - Source commit: `58ebf84fae915d0375a330217b00393826586b58`.
 - [GitHub Actions run 46044369909](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46044369909) passed dependency/security audit, build and full test suite, TypeScript check, lint, and package dry run.
 - This verifies the implemented offline media helpers and source integration. It does not establish live Messenger E2EE media interoperability.
+
+
+## 2026-11-27 — Step 4 direct-media fanout update
+
+- Source commit: `d43411fc03451daab0c5553f87682ead064b9bc6`.
+- `MessengerE2EEService.sendDirectMedia` now iterates over all devices returned by the peer directory rather than selecting only the first device. Each device gets its own Signal-wrapped key/envelope and its own ciphertext upload.
+- A failed device does not stop attempts to remaining devices. Partial delivery is surfaced through `direct_media_partial_delivery`; individual errors emit `e2ee_error`; all-device failure rejects with `AggregateError`.
+- Roadmap update commit: `c8c0a787c818e60240678f0177e669196bad7363`.
+- Verification boundary: no CI status was available for the source commit during this update and no runtime tests were executed in this session. Native media stanza protocol fixtures, full video/file lifecycle coverage, EryXen evidence comparison, and authorized live Messenger media acceptance are still outstanding. Step 4 remains **In progress**; no interoperability claim is made.
