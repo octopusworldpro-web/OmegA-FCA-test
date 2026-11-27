@@ -4,6 +4,7 @@ import { FACEBOOK_E2EE_APP_ID, registerFacebookE2EEDevice, type FacebookE2EERegi
 import { publishFacebookPreKeys, type FacebookE2EESendIQ } from "./prekey-publisher";
 import { fetchFacebookCryptoAuthToken } from "./messenger-cat";
 import { connectMessengerNoiseSocket, type MessengerNoiseSocket } from "./messenger-noise-socket";
+import { MessengerE2EEService } from "./messenger-e2ee-service";
 
 export interface E2EELoginOptions extends E2EEBootstrapOptions {
   enabled?: boolean;
@@ -12,7 +13,7 @@ export interface E2EELoginOptions extends E2EEBootstrapOptions {
 }
 export type E2EELoginResult =
   | { status: "disabled"; runtime: null }
-  | { status: "ready"; runtime: SignalE2EERuntime; deviceRegistration?: FacebookE2EERegistrationResult; preKeyPublication?: { id: string; uploaded: number }; noiseSocket?: MessengerNoiseSocket }
+  | { status: "ready"; runtime: SignalE2EERuntime; deviceRegistration?: FacebookE2EERegistrationResult; preKeyPublication?: { id: string; uploaded: number }; noiseSocket?: MessengerNoiseSocket; messenger?: MessengerE2EEService }
   | { status: "failed"; runtime: null; error: string };
 export interface E2EELoginFactories {
   bootstrap?: typeof createE2EEBootstrap;
@@ -39,6 +40,7 @@ export async function initializeE2EEForLogin(
   if (!options?.enabled) return { status: "disabled", runtime: null };
   let initializedRuntime: SignalE2EERuntime | null = null;
   let noiseSocket: MessengerNoiseSocket | null = null;
+  let messenger: MessengerE2EEService | null = null;
   try {
     const bootstrapFactory = factories.bootstrap || createE2EEBootstrap;
     const runtimeFactory = factories.runtime || createSignalE2EERuntime;
@@ -85,6 +87,7 @@ export async function initializeE2EEForLogin(
         deviceId: options.facebook.deviceId,
         force: options.facebook.force
       });
+      runtime.setLocalDeviceId(deviceRegistration.waDeviceId);
       if (options.facebook.sendIQ) {
         preKeyPublication = await publishFacebookPreKeys(runtime, options.facebook.sendIQ);
       } else {
@@ -114,10 +117,20 @@ export async function initializeE2EEForLogin(
         noiseSocket = connectedNoiseSocket;
         preKeyPublication = await publishFacebookPreKeys(runtime, connectedNoiseSocket.sendIQ.bind(connectedNoiseSocket));
       }
+      if (noiseSocket && deviceRegistration) {
+        messenger = new MessengerE2EEService({
+          accountId,
+          localDeviceId: deviceRegistration.waDeviceId,
+          runtime,
+          socket: noiseSocket,
+          signal: bootstrap.signal
+        });
+      }
     }
-    return { status: "ready", runtime, deviceRegistration, preKeyPublication, noiseSocket: noiseSocket || undefined };
+    return { status: "ready", runtime, deviceRegistration, preKeyPublication, noiseSocket: noiseSocket || undefined, messenger: messenger || undefined };
   } catch (error) {
-    if (noiseSocket) noiseSocket.close();
+    if (messenger) messenger.close();
+    else if (noiseSocket) noiseSocket.close();
     if (initializedRuntime) await initializedRuntime.close().catch(() => undefined);
     return {
       status: "failed",
