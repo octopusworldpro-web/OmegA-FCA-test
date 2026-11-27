@@ -185,3 +185,14 @@ Public Messenger reference repositories were checked for the missing CAT/ICDC/No
 No certificate-validation bypass or guessed server acceptance has been introduced. The authenticated Noise XX transport, automatic CAT-to-ICDC login wiring, live IQ ACK, server prekey-count query/replenishment, signed-prekey rotation/retirement, and authorized live-account acceptance test remain open.
 
 **Step 2 status remains In progress — NOT complete.**
+
+
+### 2026-11-27 — Step 2 target completion audit (latest)
+
+- Reconciled the roadmap against the current source after the acknowledgement implementation. The encrypted key store now persists EC one-time-prekey publication acknowledgements and the current signed-prekey acknowledgement. The publisher uploads only unacknowledged EC prekeys, supports signed-prekey-only upload, and persists state only after a matching `iq type=result` response.
+- The current branch head before this documentation report, `8882fcc32f27436bd7b8875b42232f5f647a48df`, has successful CI run [45978434688](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45978434688). This is code-pipeline validation, not live Messenger acceptance.
+- The normal FCA login path still does not create an authenticated Messenger Noise XX transport or provide a real `sendIQ` adapter. The available public Noise references reviewed here are not safe drop-in production implementations because certificate-chain verification is missing/incomplete and/or sensitive ephemeral material is logged.
+- Automatic CAT retrieval/default ICDC login wiring, live-verified ICDC request/response behavior, server-side prekey-count/replenishment, signed-prekey rotation/retirement, and authorized live-account registration/publication acceptance remain outstanding.
+- The earlier status statement that publication acknowledgement persistence was absent is superseded by the implementation checkpoint above; current source includes that local persistence and duplicate-upload suppression.
+
+**Disposition: Step 2 remains In progress — NOT complete.** The remaining authenticated transport and live-server acceptance requirements are mandatory acceptance criteria. No guessed protocol, certificate-validation bypass, or fabricated server success was added. See [E2EE-STATUS.md](E2EE-STATUS.md) for the detailed audit.
