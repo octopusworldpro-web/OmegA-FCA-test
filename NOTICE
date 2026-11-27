@@ -1,0 +1,34 @@
+OmegA-FCA licensing and third-party notices
+
+Project license
+--------------
+OmegA-FCA is distributed under the GNU Affero General Public License,
+version 3 or (at your option) any later version. See LICENSE.
+
+Existing upstream FCA source
+----------------------------
+OmegA-FCA includes source derived from the Dongdev FCA project, version 4.0.2.
+The original Apache-2.0 license and applicable upstream copyright notices are
+retained for that component. The upstream source attribution is Dongdev.
+
+License boundaries
+------------------
+The project-level AGPL-3.0-or-later license does not remove or replace
+third-party component notices or grant rights beyond the terms of their
+respective licenses. Each vendored or bundled component must retain its own
+copyright, license, and required notices. In particular, any separately
+licensed E2EE engine or native media component must be accompanied by its
+upstream source and notices before it is incorporated or distributed.
+
+OmegA-FCA-specific modifications and integration work are maintained by the
+OmegA-FCA maintainers. See LICENSE for the complete project license terms.
+
+Signal protocol engine
+----------------------
+OmegA-FCA depends on @signalapp/libsignal-client version 0.70.0, Copyright
+Signal Messenger, LLC. This component is licensed under AGPL-3.0-only; its
+license terms apply to that component. Source: https://github.com/signalapp/libsignal
+
+Signal states that libsignal is intended for use by Signal clients and that
+use outside Signal is unsupported; its APIs and implementations may change.
+OmegA-FCA's integration is independent and is not endorsed by Signal.

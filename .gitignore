@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+
+# Secrets & local config
+a.js
+fca-config.json
+.env
+.env.*
+!.env.example
+Fca_Database/
+*.sqlite
+*.db
+
+# Build output
+dist/
+
+# Session / credentials (never commit)
+account.txt
+**/account.txt
+appstate.json
+**/appstate.json
+appState.json
+**/appState.json
+cookie.txt
+cookies.txt
+cookie.json
+cookies.json
+*.pem
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Pack / cache
+*.tgz
+.eslintcache
+
+# IDE / local
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
