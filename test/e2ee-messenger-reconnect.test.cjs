@@ -54,6 +54,7 @@ const runtime = {
   await service.ready;
   const payload = Buffer.from([0, 1, 2, 255]);
   const pending = service.sendStanzaWithAck(payload, "retry-fixture", 10000);
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(first.frames.some((frame) => frame.equals(payload)), true);
   first.close();
   await new Promise((resolve) => setTimeout(resolve, 1300));
