@@ -331,3 +331,26 @@ GitHub Actions runs [45990589918](https://github.com/octopusworldpro-web/OmegA-F
 - Deterministic tests cover CAT, ICDC, synthetic Noise XX handshake, frame cipher direction, IQ result parsing, prekey lifecycle, CAT refresh/retry, and restart behavior. Certificate negative/malformed inputs are covered; the successful handshake fixture uses an injected verifier seam because no captured valid live Messenger certificate chain is available.
 - No live Facebook login, ICDC server acceptance, or real-server IQ acknowledgement was run. This was explicitly waived by the user and is not claimed.
 - Step 2 is **Verified complete — offline scope**. Step 3 remains responsible for long-lived incoming encrypted-message events and MQTT envelope integration; Step 4 remains responsible for native encrypted media transport. Kyber publication is not implemented or claimed.
+
+
+### 2026-11-27 — Step 3 native transport integration audit
+
+**Reviewed branch head:** `a3eb5f5c600a0879745d688f8d5a05e1aea451ea`  
+**Scope:** Step 3 — E2EE Messaging & Group System. This is a source/protocol audit entry; it does not mark Step 3 complete.
+
+**Source findings**
+- `direct-messages.ts` implements libsignal session establishment, encryption, and decryption, but requires a caller-supplied native PreKeyBundle and per-device identity.
+- `peer-manager.ts` is transport-neutral: device discovery, bundle retrieval, and bundle parsing are injected dependencies. No verified Messenger device-directory or bundle-fetch adapter is connected to the authenticated FCA session.
+- `group-key-manager.ts`, `sender-keys.ts`, and `group-messaging.ts` implement local Sender Key/SKDM state and encrypted-envelope orchestration, but the send/distribution functions are injected authenticated transports, not native Messenger stanza publishers.
+- `connect-mqtt.ts` and `domains/realtime/parse-delta.ts` currently process the ordinary MQTT JSON/delta event path. They do not decode Messenger E2EE Noise binary stanzas or decrypt native `msg`/`pkmsg`/`skmsg` payloads.
+- `messenger-noise-socket.ts` currently reads frames synchronously for login success and serialized IQ requests. Its IQ loop can consume and discard non-matching incoming stanzas; there is no long-lived event dispatcher/queue for encrypted message, receipt, retry, and notification nodes. Its current binary-node decoder is not a complete recursive Messenger WA-binary decoder.
+- Therefore, neither direct messages nor group messages are connected end-to-end to the live Messenger receive/send lifecycle. Existing local tests validate injected adapters and local cryptographic/state behavior only.
+
+**Protocol/reference review**
+- Meta's [Messenger E2EE technical overview](https://engineering.fb.com/wp-content/uploads/2023/12/MessengerEnd-to-endEncryptionOverview_12-6-2023.pdf) documents pairwise Signal sessions and Sender Keys for group fanout, including SKDM distribution and key reset on membership/device changes. It does not provide a complete current unofficial client implementation of the native Messenger socket/event and bundle-discovery wire contract.
+- The public [HerokeyVN/FB-Messenger-E2EE](https://github.com/HerokeyVN/FB-Messenger-E2EE) source provides useful protocol research for Noise stanzas, encrypted message parsing, and event mapping. It is AGPL-3.0; its implementation is not treated as proof of server compatibility. Previously reviewed certificate-verification placeholders and other security-sensitive code must not be transplanted as-is. No captured live-server fixture or authorized cross-device acceptance evidence is present in this repository.
+
+**Implementation decision**
+- No guessed MQTT envelope, device-discovery endpoint, bundle schema, stanza token table, or plaintext fallback was added. Ordinary FCA messaging and fail-open behavior remain unchanged.
+- No Step 3 source code was changed in this audit. No new tests or CI were run for Step 3.
+- Step 3 remains **In progress — NOT verified complete**. The remaining work is a complete Messenger binary-node/event dispatcher, verified peer/device and bundle discovery/parsing, native direct-message stanza send/receive/decrypt, native SKDM delivery and group ciphertext flow, retry/reconnect/replay handling, and deterministic protocol fixtures. CI/local tests must validate the resulting source; live interoperability must be reported separately.
