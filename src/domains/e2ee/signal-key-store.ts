@@ -36,6 +36,8 @@ interface SignalStoreState {
   version: 1;
   accountId: string;
   identityKeyPair?: SignalKeyPairRecord;
+  /** Separate long-lived X25519 static key for the Messenger Noise channel. */
+  noiseKeyPair?: SignalKeyPairRecord;
   registrationId?: number;
   signedPreKeys: Record<string, SignalSignedPreKeyRecord>;
   oneTimePreKeys: Record<string, SignalKeyPairRecord>;
@@ -156,6 +158,8 @@ export interface SignalKeyStore {
   getDeviceRecord(): SignalDeviceRecord | undefined;
   setIdentityKeyPair(record: SignalKeyPairRecord): Promise<void>;
   getIdentityKeyPair(): SignalKeyPairRecord | undefined;
+  setNoiseKeyPair(record: SignalKeyPairRecord): Promise<void>;
+  getNoiseKeyPair(): SignalKeyPairRecord | undefined;
   setRegistrationId(id: number): Promise<void>;
   getRegistrationId(): number | undefined;
   storeSignedPreKey(record: SignalSignedPreKeyRecord): Promise<void>;
@@ -271,6 +275,15 @@ export async function createSignalKeyStore(options: SignalStoreOptions): Promise
       };
     }),
     getIdentityKeyPair: () => snapshot().identityKeyPair,
+    setNoiseKeyPair: (record) => mutate((draft) => {
+      const publicKey = requireBytes(record?.publicKey, "noise.publicKey");
+      const privateKey = requireBytes(record?.privateKey, "noise.privateKey");
+      if (Buffer.from(publicKey, "base64").length !== 32 || Buffer.from(privateKey, "base64").length !== 32) {
+        throw new TypeError("Messenger Noise key pair must contain 32-byte X25519 keys");
+      }
+      draft.noiseKeyPair = { publicKey, privateKey };
+    }),
+    getNoiseKeyPair: () => snapshot().noiseKeyPair,
     setRegistrationId: (id) => mutate((draft) => { draft.registrationId = requireId(id, "registrationId"); }),
     getRegistrationId: () => snapshot().registrationId,
     storeSignedPreKey: (record) => mutate((draft) => {
