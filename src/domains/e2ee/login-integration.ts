@@ -3,6 +3,7 @@ import { createSignalE2EERuntime, type SignalE2EERuntime } from "./runtime";
 import { registerFacebookE2EEDevice, type FacebookE2EERegistrationResult } from "./device-registration";
 import { publishFacebookPreKeys, type FacebookE2EESendIQ } from "./prekey-publisher";
 import { fetchFacebookCryptoAuthToken } from "./messenger-cat";
+import { connectMessengerNoiseSocket, type MessengerNoiseSocket } from "./messenger-noise-socket";
 
 export interface E2EELoginOptions extends E2EEBootstrapOptions {
   enabled?: boolean;
@@ -11,7 +12,7 @@ export interface E2EELoginOptions extends E2EEBootstrapOptions {
 }
 export type E2EELoginResult =
   | { status: "disabled"; runtime: null }
-  | { status: "ready"; runtime: SignalE2EERuntime; deviceRegistration?: FacebookE2EERegistrationResult; preKeyPublication?: { id: string; uploaded: number } }
+  | { status: "ready"; runtime: SignalE2EERuntime; deviceRegistration?: FacebookE2EERegistrationResult; preKeyPublication?: { id: string; uploaded: number }; noiseSocket?: MessengerNoiseSocket }
   | { status: "failed"; runtime: null; error: string };
 export interface E2EELoginFactories {
   bootstrap?: typeof createE2EEBootstrap;
@@ -35,6 +36,7 @@ export async function initializeE2EEForLogin(
 ): Promise<E2EELoginResult> {
   if (!options?.enabled) return { status: "disabled", runtime: null };
   let initializedRuntime: SignalE2EERuntime | null = null;
+  let noiseSocket: MessengerNoiseSocket | null = null;
   try {
     const bootstrapFactory = factories.bootstrap || createE2EEBootstrap;
     const runtimeFactory = factories.runtime || createSignalE2EERuntime;
@@ -79,12 +81,23 @@ export async function initializeE2EEForLogin(
         deviceId: options.facebook.deviceId,
         force: options.facebook.force
       });
-      if (options.facebook.sendIQ) {
-        preKeyPublication = await publishFacebookPreKeys(runtime, options.facebook.sendIQ);
-      }
+      const persistedNoiseKey = runtime.store.getNoiseKeyPair();
+      if (!persistedNoiseKey) throw new Error("Persisted Messenger Noise identity is missing");
+      noiseSocket = await connectMessengerNoiseSocket({
+        staticPrivateKey: Buffer.from(persistedNoiseKey.privateKey, "base64"),
+        fbid: accountId,
+        deviceId: deviceRegistration.waDeviceId,
+        fbCat,
+        userAgent: session.userAgent
+      });
+      preKeyPublication = await publishFacebookPreKeys(
+        runtime,
+        options.facebook.sendIQ || noiseSocket.sendIQ.bind(noiseSocket)
+      );
     }
-    return { status: "ready", runtime, deviceRegistration, preKeyPublication };
+    return { status: "ready", runtime, deviceRegistration, preKeyPublication, noiseSocket };
   } catch (error) {
+    if (noiseSocket) noiseSocket.close();
     if (initializedRuntime) await initializedRuntime.close().catch(() => undefined);
     return {
       status: "failed",
