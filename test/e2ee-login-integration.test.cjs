@@ -17,6 +17,8 @@ const { initializeE2EEForLogin, FACEBOOK_E2EE_APP_ID } = require("../dist/index.
       markPreKeysPublished: async () => {},
       markSignedPreKeyPublished: async () => {}
     }, registrationId: 456,
+    localDeviceId: 123,
+    setLocalDeviceId(deviceId) { this.localDeviceId = deviceId; },
     identityKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 1)]).toString("base64"),
     signedPreKey: { keyId: 9, publicKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 2)]).toString("base64"), signature: Buffer.alloc(64, 3).toString("base64") },
     preKeys: [{ keyId: 1, publicKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 4)]).toString("base64") }],
@@ -50,6 +52,7 @@ const { initializeE2EEForLogin, FACEBOOK_E2EE_APP_ID } = require("../dist/index.
   }, { cookies: "c_user=123456789; xs=session", userAgent: "test-agent", fbDtsg: "dtsg" });
   assert.equal(registered.status, "ready");
   assert.equal(registered.deviceRegistration.waDeviceId, 42);
+  assert.equal(runtime.localDeviceId, 42, "runtime Signal address follows Messenger-assigned device ID");
   assert.equal(registered.preKeyPublication.uploaded, 1);
   assert.equal(catFetchCount, 1);
   assert.equal(registrationOptions.fbCat, "cat-from-fixture");
