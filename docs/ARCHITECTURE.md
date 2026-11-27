@@ -1,6 +1,7 @@
 # Architecture
 
-**Checked baseline:** `@nirzon-islam/omega-fca@0.2.3-beta.3`, branch `feature/release-0.2.3-beta.3`.
+**Checked package:** `@nirzon-islam/omega-fca@0.2.3-beta.3`  
+**Checked branch:** `feature/release-0.2.3-beta.3`
 
 ## Runtime path
 
@@ -19,15 +20,24 @@
 
 The humanizer source default is **disabled** (`enabled: false`). A bot integration must explicitly enable it and supply appropriate command-detection options. It is not automatically active merely because the package is installed.
 
-## E2EE boundary
+## E2EE architecture and integration boundary
 
-The current E2EE source is an opt-in set of components. The FCA login path can initialize the pinned libsignal runtime and account-scoped local key store after authenticated UID validation; initialization is fail-open for ordinary FCA login. Local direct-message primitives and peer/bundle interfaces exist, but they are not yet connected to Facebook peer discovery or Messenger MQTT encrypted envelopes.
+E2EE is opt-in and has distinct local-engine, Facebook registration, prekey publication, messaging, and media layers.
 
-`device-registration.ts` implements an ICDC registration helper, but the current login lifecycle does not yet invoke it. The four-step status and acceptance criteria are maintained only in [E2EE-ROADMAP.md](E2EE-ROADMAP.md) and [E2EE-STATUS.md](E2EE-STATUS.md).
+- **Local engine:** `src/domains/e2ee/bootstrap.ts` provisions account-scoped storage metadata and loads the pinned libsignal package. `runtime.ts` creates/reuses local Signal identity and prekey material; `signal-key-store.ts` persists encrypted Signal state.
+- **FCA login hook:** `src/core/login-helper.impl.ts` calls `initializeE2EEForLogin` only after authenticated UID validation and normal FCA/MQTT setup. It passes the current cookie header and user agent. E2EE errors are fail-open and do not fail ordinary FCA login.
+- **ICDC registration:** when `e2ee.facebook.appId` and `e2ee.facebook.fbCat` are configured, `login-integration.ts` calls the ICDC registration helper using the authenticated session. This is conditional helper invocation; mocked tests do not prove that Facebook accepts the request.
+- **Prekey publication:** when `e2ee.facebook.sendIQ` is supplied, the login integration calls the WA-binary prekey publisher. That callback must use an already-authenticated Messenger Noise IQ socket. The FCA login helper does not construct this transport, and the ordinary MQTT JSON client is not compatible.
+- **Messaging:** direct Signal primitives and group Sender Key/SKDM orchestration exist behind transport-neutral/injected interfaces. They are not yet connected to native Messenger peer discovery, bundle exchange, or MQTT encrypted envelopes.
+- **Media:** local direct/group media crypto helpers and application-level orchestration exist. Native Facebook media upload/download integration is not established.
 
-## Tests
+The runtime can create local Kyber/PQ material when libsignal KEM support exists. No verified Messenger Kyber upload format is implemented; local generation must not be described as server publication.
 
-The repository's test scripts are local Node.js tests. E2EE tests use controlled dependencies/mocks; they verify local contracts, serialization, and helper behavior. They do not constitute a live Facebook or Messenger acceptance test.
+The canonical scope, status, and acceptance criteria are maintained in [E2EE-ROADMAP.md](E2EE-ROADMAP.md) and [E2EE-STATUS.md](E2EE-STATUS.md). The former auto-integration plan is retired.
+
+## Tests and validation
+
+The repository's tests are local Node.js tests. E2EE tests use controlled dependencies and mocks where applicable; they verify local contracts, serialization, persistence, and helper behavior. In particular, a mocked ICDC fetch or simulated IQ acknowledgement does not constitute a live Facebook/Messenger acceptance test.
 
 Run:
 
@@ -38,4 +48,4 @@ npm run lint
 npm run typecheck
 ```
 
-The exact commands available are defined in the root `package.json`. CI status must be checked independently for the commit being reviewed.
+The exact commands are defined in the root `package.json`. CI status must be checked independently for the exact commit under review. A successful build, test suite, or CI run does not prove native Messenger E2EE interoperability.

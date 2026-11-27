@@ -2,18 +2,18 @@
 
 **Version:** `0.2.3-beta.3`  
 **Branch:** `feature/release-0.2.3-beta.3`  
-**Authority:** This is the single source of truth for E2EE scope and progress. Work is grouped into exactly four Steps. Older E2EE task lists and previous multi-step checklists are superseded and must not be used for progress reporting.
+**Authority:** This is the single source of truth for E2EE scope, acceptance criteria, and progress. The plan contains exactly four Steps. Older E2EE task lists and previous multi-step checklists are superseded.
 
 ## Overall status
 
-**Step 1 is verified complete at the local engine and FCA login-integration boundary. Steps 2–4 remain in progress; native Messenger interoperability is not production-verified.**
+**Step 1 is verified complete for the local Signal engine and FCA login lifecycle boundary. Steps 2–4 remain in progress. No live Facebook/Messenger interoperability or production readiness is claimed.**
 
-- Step 1: Verified complete
-- Step 2: In progress
-- Step 3: In progress
-- Step 4: In progress
+- Step 1: Verified complete — local engine and fail-open FCA login lifecycle
+- Step 2: In progress — ICDC and prekey helpers are wired conditionally; live server acceptance and default Noise transport are not verified
+- Step 3: In progress — local Signal direct/group primitives exist; native Messenger MQTT wire integration is not established
+- Step 4: In progress — local media crypto helpers exist; native media transport and real-device acceptance remain
 
-A Step is complete only after its code, tests, required integration, and acceptance evidence are present. Unit tests, mocks, helper modules, and a passing CI run do not by themselves prove Messenger interoperability.
+A Step is complete only after its code, tests, required integration, and acceptance evidence are present. Unit tests, mocks, helper modules, and CI success do not by themselves prove Messenger interoperability.
 
 ## Step 1 — E2EE Engine & Login Integration
 
@@ -24,51 +24,49 @@ A Step is complete only after its code, tests, required integration, and accepta
 - Fail-open behavior: E2EE initialization failure must not break ordinary FCA login, MQTT, humanizer, or regular messaging.
 - Preserve the existing FCA login API and configuration.
 
-**Implemented and verified in the current branch**
-- Pinned `@signalapp/libsignal-client` `0.70.0` loads automatically.
-- Authenticated FCA UID is passed to the opt-in bootstrap only after existing session identity validation.
-- Local Signal runtime initializes within the login lifecycle; initialization errors do not break ordinary FCA login.
-- Identity, signed prekey, one-time EC prekeys, and Kyber prekey material are persisted in the account-scoped store and survive process restart with the real libsignal package.
-- Account storage paths, generated local encryption keys, and device IDs are automatically persisted per account with restrictive local file/directory permissions. No new E2EE environment variable or separate key setup is required.
-- No password, 2FA, AppState, or cookies are passed into the E2EE bootstrap.
+**Implemented in the current source**
+- `@signalapp/libsignal-client` is pinned to `0.70.0` and loaded by the E2EE bootstrap unless an explicit compatible module override is supplied.
+- After authenticated UID validation and ordinary FCA/MQTT setup, `login-helper.impl.ts` calls `initializeE2EEForLogin` with that UID, the E2EE options, and the active cookie header/user agent.
+- E2EE is opt-in. With `e2ee.enabled` absent/false, the E2EE lifecycle returns disabled.
+- Local Signal runtime creates/reuses the identity, registration ID, signed prekey, one-time EC prekeys, and Kyber prekeys when the selected libsignal module exposes KEM generation.
+- Account-specific storage directory, encryption key, and local device ID are provisioned automatically. The local store persists encrypted Signal state and supports restart reuse.
+- E2EE initialization errors are caught and exposed as `api.e2ee.status === "failed"`; ordinary FCA login continues (fail-open).
+- The E2EE login integration and real-libsignal runtime have repository tests. These verify local behavior, not Facebook acceptance.
 
-**Local storage security note**
-- The automatically generated store key is persisted in the account's local `identity.json` file so restarts work without manual configuration. File/directory permissions are restricted where supported, but this is not equivalent to protecting the key from someone who can read the same account's local files.
+**Storage security boundary**
+- The automatically generated store key is persisted in the account's local `identity.json` to support restart without manual key setup. File/directory permissions are restricted where supported. This does not protect the key from someone who can read the same account's local files.
 
-**Boundary**
-- This completes the local engine and FCA login integration in Step 1. Facebook ICDC registration and server key publication remain Step 2; Messenger MQTT encrypted wire compatibility remains Step 3. No live Facebook-account interoperability is claimed.
-
-**Acceptance**
-- Existing AppState/Cookie login works unchanged.
-- No password, 2FA, AppState, or cookie is sent to an external E2EE credential service.
-- The selected Signal engine loads automatically and a persistent account runtime is initialized without extra key configuration.
-- E2EE failure is fail-open for ordinary FCA behavior.
-- Lifecycle and restart tests pass.
+**Acceptance boundary**
+- Step 1 covers local runtime creation and FCA login lifecycle integration only. It does not mean Facebook device registration, server key publication, native MQTT encryption, or end-to-end interoperability is complete.
 
 ## Step 2 — Facebook Device Registration & Key Sync
 
 **Scope**
 - Facebook ICDC device registration.
 - Persistent identity key and Facebook E2EE device ID/registration metadata.
-- Signed PreKey, One-time PreKey, and protocol-supported Kyber/PQ PreKey publishing and synchronization.
+- Signed PreKey and One-time PreKey publishing and synchronization using the protocol-supported Messenger transport.
 - Safe prekey replenishment, rotation, retry, and atomic one-time-key consumption.
+- Keep Kyber/PQ material local unless an authoritative current Messenger protocol specifies a supported server format.
 
 **Implemented groundwork**
-- Facebook ICDC registration helper in `src/domains/e2ee/device-registration.ts`.
-- Encrypted key-store persistence and device metadata support.
-- Public identity-bundle metadata exposure.
-- Persistent EC/PQ prekey bundle groundwork and atomic Kyber-prekey consumption safeguards.
+- `device-registration.ts` implements ICDC fetch/register requests and validates the returned registration response before persisting device metadata.
+- The authenticated FCA login lifecycle invokes this helper when `e2ee.facebook.appId` and `e2ee.facebook.fbCat` are configured. It supplies the authenticated cookie header and user agent; callers must not copy cookies into E2EE configuration.
+- Registration is idempotent against an existing persisted device record unless forced.
+- `prekey-publisher.ts` builds a WA-binary `encrypt` IQ containing the Signal identity, signed prekey, and one-time Curve25519 prekeys. It requires a caller-supplied authenticated Messenger Noise `sendIQ` adapter and only reports success after a matching `iq type=result` acknowledgement.
+- The login integration invokes publication only when `e2ee.facebook.sendIQ` is supplied. The FCA login helper does not construct or inject a Noise IQ socket adapter. The ordinary FCA MQTT JSON transport is not a compatible substitute.
+- Local Kyber/PQ key generation and encrypted persistence are implemented when libsignal KEM support is present. No verified Messenger Kyber upload field/stanza is implemented.
 
 **Still required**
-- The ICDC helper is not yet invoked by the authenticated login lifecycle.
-- Verify the actual Facebook registration request fields, server response, and public key-bundle publishing using the existing authenticated session. Do not guess `fb_cat`, `app_id`, or response formats.
-- Verify the real protocol-matched PQ/Kyber provider and key formats; mock KEM tests are not production KEM evidence.
-- Verify key rotation, replenishment, and restart recovery against the selected protocol.
+- Validate ICDC fetch/register request fields, response behavior, idempotency, and persisted device identity against an authorized live Facebook account. Current mocked tests prove request construction and local handling only.
+- Supply and verify a real authenticated Messenger Noise IQ transport; then verify signed and one-time prekey publication against the live service.
+- Verify replenishment, rotation, retries, and recovery against the actual server behavior.
+- Do not claim Kyber publication. The current documented Messenger device-registration format describes Curve25519 identity, signed prekey, and one-time prekeys, not a Kyber upload field. Keep Kyber local-only unless a current authoritative protocol or observed authorized server contract proves otherwise.
 
 **Acceptance**
-- ICDC registration and key publishing succeed against Facebook using the existing authenticated session.
-- Device identity and key state survive restart and remain account-isolated.
-- Published key formats and one-time key consumption are verified against the target protocol.
+- ICDC registration is accepted by Facebook using the existing authenticated session.
+- Device identity and registration metadata survive restart and remain account-isolated.
+- Signed/one-time prekeys are acknowledged by the real Messenger Noise IQ endpoint in the target format.
+- Rotation/replenishment and restart recovery are verified against the target protocol.
 
 ## Step 3 — E2EE Messaging & Group System
 
@@ -80,14 +78,14 @@ A Step is complete only after its code, tests, required integration, and accepta
 
 **Implemented groundwork**
 - Signal direct-message primitives using libsignal, with peer/device discovery and bundle parsing supplied through injected interfaces.
-- Group Sender Key/SKDM delivery persistence and restart-aware retry logic.
+- Group Sender Key/SKDM state persistence and restart-aware delivery/retry logic.
 - Application-level encrypted group-message orchestration over an injected authenticated transport.
-- Tests for persistence/retry, envelope validation, and decryption.
+- Local tests cover selected persistence, retry, envelope-validation, and decryption contracts.
 
 **Still required**
 - Implement and verify Messenger peer/device discovery and native bundle exchange.
-- Integrate direct-message encryption/decryption with the real Messenger MQTT envelope and event lifecycle.
-- Establish Messenger wire-format compatibility for direct and group encrypted messages.
+- Connect direct-message encryption/decryption to the actual Messenger MQTT envelope and event lifecycle.
+- Establish native Messenger wire-format compatibility for direct and group encrypted messages.
 - Verify cross-device send/receive, reconnect, duplicate/out-of-order delivery, replay protection, and recovery with authorized test devices.
 
 **Acceptance**
@@ -107,32 +105,32 @@ A Step is complete only after its code, tests, required integration, and accepta
 **Implemented groundwork**
 - Direct and group media cryptographic helpers.
 - Group-media application-level transport orchestration.
-- Tests covering ciphertext upload, envelope handling, receive/decrypt, and group/sender validation.
+- Local tests for selected ciphertext upload/envelope/receive/decrypt and group/sender validation paths.
 
 **Still required**
-- Integrate and verify the actual Messenger media upload/download transport for supported image, video, and file attachments.
+- Integrate and verify actual Messenger media upload/download transport for supported image, video, and file attachments.
 - Verify direct and group media interoperability with compatible Facebook E2EE devices.
-- Complete the EryXen protocol/reference comparison and record any differences.
+- Complete the EryXen protocol/reference comparison and document observed differences; do not copy unverified assumptions.
 - Run authorized real-account tests for fresh login, reconnect, restart, multiple devices, and recovery.
 - Verify receipts and attachment lifecycle where supported by the target protocol.
 
 **Acceptance**
 - Encrypted media is sent and received across authorized compatible devices.
-- EryXen comparison is documented without copying unverified assumptions.
+- EryXen comparison is documented with evidence.
 - Real-account interoperability evidence is recorded separately from mock/unit tests.
 - Full build, tests, typecheck, lint, and package validation pass.
 
 ## Verification record
 
-Code baseline covered by the recorded CI run: `55d02c7044938e68db9de87aee319831f68c8950`
+The previously recorded CI run [45860381188](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45860381188) covered baseline commit `55d02c7044938e68db9de87aee319831f68c8950` and reported success. This is historical repository-check evidence only; it is not evidence for the current branch head or for live Messenger interoperability.
 
-Latest checked CI run: [45860381188](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45860381188) — **success**.
-
-CI success verifies repository checks only. It does not prove native Messenger E2EE transport or real-account interoperability.
+A documentation-only commit does not rerun or certify the source test suite. Check CI for the exact commit under review before using it as current validation evidence.
 
 ## Reporting rules
 
 - Report progress only against these four Steps.
 - Use **Implemented**, **In progress**, **Blocked**, and **Verified complete** precisely.
 - Do not mark a Step complete based only on helper code, mocked tests, or CI.
-- Do not reintroduce superseded Labyrinth backup/restore, key-transparency, alias-parity, or other older audit-list items into this four-Step E2EE plan unless the user explicitly changes the scope.
+- Distinguish “login lifecycle invokes a configured helper” from “Facebook accepted the request”.
+- Distinguish “publisher can encode/send through an injected adapter” from “a live Messenger Noise transport is integrated”.
+- Do not reintroduce superseded Labyrinth backup/restore, key-transparency, alias-parity, or other older audit-list items into this four-Step plan unless the user explicitly changes the scope.
