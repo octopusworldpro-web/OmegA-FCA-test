@@ -54,6 +54,10 @@ interface SignalStoreState {
   nextPreKeyId?: number;
   publishedSignedPreKeyId?: number;
   signedPreKeyPublishedAt?: number;
+  /** Encrypted-at-rest native Messenger stanzas awaiting server acknowledgement. */
+  pendingMessengerMessages?: Record<string, { stanza: string; createdAt: number }>;
+  /** Last observed group member/device set, used to rotate Sender Keys on change. */
+  groupMemberships?: Record<string, string[]>;
 }
 
 interface EncryptedEnvelope {
@@ -199,6 +203,12 @@ export interface SignalKeyStore {
   saveIdentity(address: SignalSessionAddress, identityKey: string): Promise<boolean>;
   deleteIdentity(address: SignalSessionAddress): Promise<void>;
   flush(): Promise<void>;
+  getGroupMembershipSnapshot(groupId: string): string[] | undefined;
+  listGroupMembershipSnapshots(): Array<{ groupId: string; members: string[] }>;
+  setGroupMembershipSnapshot(groupId: string, members: string[]): Promise<void>;
+  enqueuePendingMessengerMessage(id: string, stanza: string): Promise<void>;
+  listPendingMessengerMessages(): Array<{ id: string; stanza: string; createdAt: number }>;
+  removePendingMessengerMessage(id: string): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -438,6 +448,24 @@ export async function createSignalKeyStore(options: SignalStoreOptions): Promise
     clearSenderKeyDistribution: (address, groupId) => mutate((draft) => {
       delete draft.senderKeyDistributions?.[`${addressKey(address)}|${requireText(groupId, "groupId")}`];
     }),
+    getGroupMembershipSnapshot: (groupId) => snapshot().groupMemberships?.[requireText(groupId, "groupId")],
+    listGroupMembershipSnapshots: () => Object.entries(snapshot().groupMemberships || {}).map(([groupId, members]) => ({ groupId, members: [...members] })),
+    setGroupMembershipSnapshot: (groupId, members) => mutate((draft) => {
+      const key = requireText(groupId, "groupId");
+      if (!Array.isArray(members) || members.some((member) => typeof member !== "string" || !member.trim())) throw new TypeError("group membership snapshot must be an array of non-empty strings");
+      draft.groupMemberships ||= {};
+      draft.groupMemberships[key] = [...new Set(members.map((member) => member.trim()))].sort();
+    }),
+    enqueuePendingMessengerMessage: (id, stanza) => mutate((draft) => {
+      const key = requireText(id, "message id");
+      const encoded = requireBytes(stanza, "pending Messenger stanza");
+      draft.pendingMessengerMessages ||= {};
+      const existing = draft.pendingMessengerMessages[key];
+      if (existing && existing.stanza !== encoded) throw new Error(`Pending Messenger message ID collision: ${key}`);
+      draft.pendingMessengerMessages[key] = existing || { stanza: encoded, createdAt: Date.now() };
+    }),
+    listPendingMessengerMessages: () => Object.entries(snapshot().pendingMessengerMessages || {}).map(([id, item]) => ({ id, stanza: item.stanza, createdAt: item.createdAt })).sort((a, b) => a.createdAt - b.createdAt),
+    removePendingMessengerMessage: (id) => mutate((draft) => { delete draft.pendingMessengerMessages?.[requireText(id, "message id")]; }),
     storeSession: (address, serializedRecord) => mutate((draft) => {
       draft.sessions[addressKey(address)] = requireBytes(serializedRecord, "session record");
     }),
