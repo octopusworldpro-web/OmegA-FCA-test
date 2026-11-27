@@ -1032,47 +1032,6 @@ function loginHelper(
             }
           }
         );
-        const uploadEncryptedMediaToThread = async (
-          threadId: string,
-          ciphertext: Buffer,
-          uploadMetadata: { fileName: string; contentType: string }
-        ) => {
-          const uploaded = await api.uploadAttachment({
-            buffer: Buffer.from(ciphertext),
-            filename: uploadMetadata.fileName,
-            contentType: uploadMetadata.contentType
-          });
-          if (!Array.isArray(uploaded) || uploaded.length === 0) throw new Error("FCA attachment upload returned no attachment IDs");
-          const attachmentPairs = uploaded.flatMap((item: Loose) => {
-            const key = ["file_id", "image_id", "video_id", "audio_id", "gif_id", "fbid", "id"].find((candidate) => item?.[candidate] !== undefined);
-            return key ? [[key, String(item[key])]] : [];
-          });
-          if (!attachmentPairs.length) throw new Error("FCA attachment upload returned no usable attachment references");
-          const sentAttachment = await api.sendMessage({ attachment: attachmentPairs }, threadId);
-          if (!sentAttachment?.messageID) throw new Error("FCA did not confirm the encrypted attachment message ID");
-          return { threadId, messageId: String(sentAttachment.messageID), attachments: uploaded };
-        };
-        const downloadEncryptedMediaFromThread = async (uploadRef: Loose): Promise<Buffer> => {
-          if (!uploadRef || typeof uploadRef.threadId !== "string" || typeof uploadRef.messageId !== "string") {
-            throw new TypeError("Encrypted media upload reference is missing its FCA thread/message IDs");
-          }
-          const message = await api.getMessage(uploadRef.threadId, uploadRef.messageId);
-          const attachment = Array.isArray(message?.attachments)
-            ? message.attachments.find((item: Loose) => typeof item?.url === "string" && item.url)
-            : undefined;
-          if (!attachment?.url) throw new Error("FCA message lookup did not return an encrypted attachment URL");
-          const mediaUrl = new URL(String(attachment.url));
-          const allowedHost = ["fbcdn.net", "fbsbx.com", "facebook.com"].some((domain) =>
-            mediaUrl.hostname === domain || mediaUrl.hostname.endsWith("." + domain)
-          );
-          if (mediaUrl.protocol !== "https:" || !allowedHost) throw new Error("Refusing an untrusted encrypted attachment URL");
-          const response = await axios.get(mediaUrl.toString(), {
-            responseType: "arraybuffer", timeout: 30000, maxContentLength: 100 * 1024 * 1024,
-            headers: { "User-Agent": globalOptions.userAgent || "Mozilla/5.0" }
-          });
-          if (response.status < 200 || response.status >= 300) throw new Error(`Encrypted attachment download failed with HTTP ${response.status}`);
-          return Buffer.from(response.data);
-        };
         api.e2ee = {
           status: e2eeResult.status,
           runtime: e2eeResult.runtime,
