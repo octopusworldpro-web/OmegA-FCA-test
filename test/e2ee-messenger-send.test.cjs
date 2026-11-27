@@ -106,6 +106,31 @@ const runtime = {
   assert.equal(group.attrs.to, "123-456@g.us");
   assert.equal(group.content.find((child) => child.tag === "enc").attrs.type, "skmsg");
   assert.match(group.attrs.phash, /^2:/);
+
+  const received = [];
+  service.on("message", (message) => received.push(message));
+  socket.emit({
+    tag: "message",
+    attrs: { from: "987654321.17@msgr", id: "incoming-direct", t: "1700000000" },
+    content: [{
+      tag: "participants", attrs: {}, content: [{
+        tag: "to", attrs: { jid: "123456789.42@msgr" }, content: [{
+          tag: "enc", attrs: { type: "msg" }, content: Buffer.from("direct-cipher")
+        }]
+      }]
+    }]
+  });
+  socket.emit({
+    tag: "message",
+    attrs: { from: "123-456@g.us", participant: "987654321.17@msgr", id: "incoming-group", t: "1700000001" },
+    content: [{ tag: "enc", attrs: { type: "skmsg" }, content: Buffer.from("group-cipher") }]
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(received.length, 2);
+  assert.equal(received[0].threadId, "987654321.17@msgr");
+  assert.equal(received[0].text, "decrypted inbound");
+  assert.equal(received[1].threadId, "123-456@g.us");
+  assert.equal(received[1].senderId, "987654321");
   service.close();
-  console.log("Messenger direct and group text send fixtures passed");
+  console.log("Messenger direct/group send and receive fixtures passed");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
