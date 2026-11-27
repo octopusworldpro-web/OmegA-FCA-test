@@ -53,5 +53,33 @@ const runtime = {
   );
   const signedOnly = buildFacebookPreKeyUpload({ ...runtime, preKeys: [] }, "pk-signed-only");
   assert.ok(signedOnly.includes(Buffer.from("skey")), "signed-prekey rotation can be published without re-uploading old one-time keys");
+
+  // Concurrent login/recovery attempts must serialize for one account store.
+  const acknowledged = new Set();
+  let signedAcknowledged = false;
+  const partialRuntime = {
+    ...runtime,
+    preKeys: [runtime.preKeys[0]],
+    store: {
+      listUnpublishedPreKeyIds: () => [1, 2].filter((id) => !acknowledged.has(id)),
+      markPreKeysPublished: async (ids) => ids.forEach((id) => acknowledged.add(id)),
+      isSignedPreKeyPublished: () => signedAcknowledged,
+      markSignedPreKeyPublished: async () => { signedAcknowledged = true; }
+    }
+  };
+  let sends = 0;
+  const send = async (_payload, id) => {
+    sends += 1;
+    await Promise.resolve();
+    return { tag: "iq", attrs: { id, type: "result" } };
+  };
+  const [firstConcurrent, secondConcurrent] = await Promise.all([
+    publishFacebookPreKeys(partialRuntime, send),
+    publishFacebookPreKeys(partialRuntime, send)
+  ]);
+  assert.equal(sends, 1, "concurrent publication must not send duplicate IQs");
+  assert.equal(firstConcurrent.uploaded + secondConcurrent.uploaded, 1);
+  assert.deepEqual([...acknowledged], [1], "only the key actually included in the IQ is acknowledged");
+  assert.deepEqual(partialRuntime.store.listUnpublishedPreKeyIds(), [2], "a pending key absent from the runtime bundle must remain pending");
   console.log("Messenger WA-binary prekey upload construction and IQ acknowledgement tests passed");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
