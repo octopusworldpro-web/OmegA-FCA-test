@@ -96,7 +96,7 @@ export async function initializeE2EEForLogin(
         preKeyPublication = await publishFacebookPreKeys(runtime, noiseSocket.sendIQ.bind(noiseSocket));
       }
     }
-    return { status: "ready", runtime, deviceRegistration, preKeyPublication, noiseSocket };
+    return { status: "ready", runtime, deviceRegistration, preKeyPublication, noiseSocket: noiseSocket || undefined };
   } catch (error) {
     if (noiseSocket) noiseSocket.close();
     if (initializedRuntime) await initializedRuntime.close().catch(() => undefined);
