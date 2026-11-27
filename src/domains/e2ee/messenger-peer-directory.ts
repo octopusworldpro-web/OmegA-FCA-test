@@ -35,8 +35,9 @@ function keyId(node: Node | undefined, label: string): number {
 }
 function rawPublicKey(node: Node | undefined, label: string): Buffer {
   const value = bytes(node, label);
-  if (value.length !== 32) throw new Error(`Messenger ${label} must be 32 bytes`);
-  return Buffer.concat([Buffer.from([0x05]), value]);
+  if (value.length === 33 && value[0] === 0x05) return value;
+  if (value.length === 32) return Buffer.concat([Buffer.from([0x05]), value]);
+  throw new Error(`Messenger ${label} must be a 32-byte key or 33-byte Signal-encoded key`);
 }
 function parseMessengerJid(jid: string): { user: string; deviceId: number } {
   const [local = "", server = ""] = jid.split("@");
