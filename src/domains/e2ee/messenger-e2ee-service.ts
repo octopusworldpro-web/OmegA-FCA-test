@@ -602,7 +602,7 @@ export class MessengerE2EEService extends EventEmitter {
   async downloadMessengerMedia(fields: MessengerMediaFields): Promise<Buffer> {
     await this.ready;
     const config = await fetchMessengerMediaUploadConfig(this.options.socket);
-    const url = /^https:\\/\\//i.test(fields.directPath)
+    const url = /^https:\/\//i.test(fields.directPath)
       ? new URL(fields.directPath)
       : new URL(fields.directPath.startsWith("/") ? fields.directPath : `/${fields.directPath}`, `https://${config.host}`);
     const host = url.hostname.toLowerCase();
