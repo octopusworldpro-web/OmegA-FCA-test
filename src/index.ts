@@ -172,3 +172,9 @@ export { fetchFacebookCryptoAuthToken, FACEBOOK_CAT_GRAPHQL_DOC_ID, type Faceboo
 export { performMessengerNoiseXXHandshake, buildMessengerClientPayload, MessengerNoiseFrameCipher, MessengerNoiseHandshakeState, type MessengerNoiseRawTransport, type MessengerNoiseHandshakeOptions, type MessengerNoiseHandshakeResult } from "./domains/e2ee/messenger-noise";
 
 export { connectMessengerNoiseSocket, MessengerNoiseSocket, decodeMessengerBinaryNode, type MessengerNoiseSocketOptions } from "./domains/e2ee/messenger-noise-socket";
+
+export { buildMessengerSignalPreKeyBundle } from "./domains/e2ee/libsignal-adapter";
+export { MessengerPeerDirectory, createMessengerSignalPeerManager, type MessengerRawPreKeyBundle } from "./domains/e2ee/messenger-peer-directory";
+export { MessengerE2EEService, type MessengerE2EEServiceOptions, type MessengerE2EEMessageEvent } from "./domains/e2ee/messenger-e2ee-service";
+export { encodeNode as encodeMessengerNode, marshal as marshalMessengerNode } from "./domains/e2ee/messenger-binary/encoder";
+export { unmarshal as decodeMessengerNode } from "./domains/e2ee/messenger-binary/decoder";
