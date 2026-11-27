@@ -3,7 +3,7 @@ import { performMessengerNoiseXXHandshake, type MessengerNoiseFrameCipher, type 
 
 const DEFAULT_ENDPOINT = "wss://web-chat-e2ee.facebook.com/ws/chat";
 const SINGLE_TOKENS = new Map<number, string>([
-  [4, "type"], [6, "from"], [8, "id"], [17, "to"], [20, "result"],
+  [0, ""], [4, "type"], [6, "from"], [8, "id"], [17, "to"], [20, "result"],
   [22, "xmlns"], [25, "iq"], [29, "enc"], [30, "urn:xmpp:whatsapp:push"],
   [31, "presence"], [43, "urn:xmpp:ping"], [48, "unavailable"], [52, "composing"],
   [76, "success"], [86, "ping"], [92, "set"], [98, "list"], [203, "encrypt"]
@@ -87,6 +87,36 @@ function readString(data: Buffer, cursor: { offset: number }): string {
   if (token < 236) {
     const value = SINGLE_TOKENS.get(token);
     if (value === undefined) throw new Error(`Unsupported Messenger binary token ${token}`);
+    return value;
+  }
+  if (token === 250) {
+    const user = readString(data, cursor);
+    const server = readString(data, cursor);
+    return user && server ? `${user}@${server}` : (user || server);
+  }
+  if (token === 251) {
+    if (cursor.offset >= data.length) throw new Error("Truncated Messenger hex8 length");
+    const length = data[cursor.offset++];
+    if (cursor.offset + length > data.length) throw new Error("Truncated Messenger hex8 value");
+    const value = data.subarray(cursor.offset, cursor.offset + length).toString("hex");
+    cursor.offset += length;
+    return value;
+  }
+  if (token === 255) {
+    if (cursor.offset >= data.length) throw new Error("Truncated Messenger nibble8 length");
+    const length = data[cursor.offset++];
+    const byteLength = Math.ceil(length / 2);
+    if (cursor.offset + byteLength > data.length) throw new Error("Truncated Messenger nibble8 value");
+    const alphabet = "0123456789-.";
+    let value = "";
+    for (let i = 0; i < byteLength; i++) {
+      const byte = data[cursor.offset++];
+      for (const nibble of [byte >> 4, byte & 15]) {
+        if (value.length >= length) break;
+        if (nibble >= alphabet.length) throw new Error("Invalid Messenger nibble8 digit");
+        value += alphabet[nibble];
+      }
+    }
     return value;
   }
   if (token === 252) {
@@ -192,17 +222,19 @@ export class MessengerNoiseSocket {
   static async connect(options: MessengerNoiseSocketOptions): Promise<MessengerNoiseSocket> {
     const endpoint = options.endpoint || DEFAULT_ENDPOINT;
     const userAgent = options.userAgent || "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
-    const ws = new WebSocket(endpoint, {
+    const socketUrl = new URL(endpoint);
+    if (!socketUrl.searchParams.has("cid")) socketUrl.searchParams.set("cid", `client-${Date.now()}`);
+    const ws = new WebSocket(socketUrl.toString(), {
       headers: { Origin: "https://www.facebook.com", "User-Agent": userAgent },
       handshakeTimeout: options.timeoutMs || 15000,
       perMessageDeflate: false
     });
     const raw = new WebSocketByteTransport(ws);
-    await withTimeout(new Promise<void>((resolve, reject) => {
-      ws.once("open", resolve);
-      ws.once("error", reject);
-    }), options.timeoutMs || 15000, "Messenger Noise WebSocket open");
     try {
+      await withTimeout(new Promise<void>((resolve, reject) => {
+        ws.once("open", resolve);
+        ws.once("error", reject);
+      }), options.timeoutMs || 15000, "Messenger Noise WebSocket open");
       const handshake = await withTimeout(performMessengerNoiseXXHandshake({
         transport: raw,
         staticPrivateKey: options.staticPrivateKey,
