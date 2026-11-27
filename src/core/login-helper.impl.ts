@@ -1025,7 +1025,7 @@ function loginHelper(
           {
             cookies: cookieHeaderFromJar(jar),
             userAgent: globalOptions.userAgent,
-            fbDtsg,
+            fbDtsg: fb_dtsg,
             requestCAT: async (form) => {
               const response = await post("https://www.facebook.com/api/graphql/", jar, form, globalOptions, ctxMain);
               return response?.data ?? response?.body ?? response;
