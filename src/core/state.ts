@@ -22,7 +22,14 @@ export interface FcaOptions {
     localDeviceId?: number;
     signedPreKeyId?: number;
     /** Facebook ICDC registration parameters; omitted means local-only E2EE bootstrap. */
-    facebook?: { appId: string; fbCat: string; deviceId?: string; force?: boolean };
+    facebook?: {
+      appId: string;
+      fbCat: string;
+      deviceId?: string;
+      force?: boolean;
+      /** Supply only an already-authenticated Messenger Noise IQ transport; ordinary MQTT JSON is not compatible. */
+      sendIQ?: (stanza: Buffer, id: string) => Promise<{ tag?: string; attrs?: Record<string, string>; content?: unknown }>;
+    };
     signalModule?: unknown;
   };
 }
