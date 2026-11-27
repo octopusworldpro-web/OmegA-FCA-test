@@ -447,12 +447,28 @@ export class MessengerE2EEService extends EventEmitter {
     media: Uint8Array | Buffer,
     upload: (ciphertext: Buffer, metadata: { fileName: string; contentType: string }) => Promise<unknown>,
     metadata: { fileName?: string; contentType?: string } = {}
-  ): Promise<EncryptedDirectMediaEnvelope> {
+  ): Promise<EncryptedDirectMediaEnvelope[]> {
     await this.ready;
     const devices = await this.peers.preparePeer(peerId);
-    const remote = devices[0];
-    if (!remote) throw new Error("No Messenger E2EE device is available for direct media");
-    return this.directMedia.send(peerId, remote, media, upload, metadata);
+    if (!devices.length) throw new Error("No Messenger E2EE device is available for direct media");
+    const envelopes: EncryptedDirectMediaEnvelope[] = [];
+    const failures: Array<{ device: SignalPeerAddress; error: Error }> = [];
+    // Each device receives a key wrapped in its own Signal session. Keep going
+    // when one device is stale/unreachable so other active devices still receive it.
+    for (const remote of devices) {
+      try {
+        envelopes.push(await this.directMedia.send(peerId, remote, media, upload, metadata));
+      } catch (error) {
+        const normalized = error instanceof Error ? error : new Error(String(error));
+        failures.push({ device: remote, error: normalized });
+        this.emit("e2ee_error", normalized);
+      }
+    }
+    if (!envelopes.length) {
+      throw new AggregateError(failures.map((item) => item.error), "Could not deliver encrypted media to any Messenger peer device");
+    }
+    if (failures.length) this.emit("direct_media_partial_delivery", { peerId, delivered: envelopes.length, failed: failures });
+    return envelopes;
   }
 
   receiveDirectMedia(
