@@ -402,6 +402,14 @@ This directive governs the remaining implementation work for Steps 2–4. It sup
 - Updated the E2EE media upload flow to encrypt bytes first, upload only ciphertext using `api.uploadAttachment`, attach the pre-uploaded ID to the intended thread with the existing `api.sendMessage` tuple form, then send the attachment reference/key descriptor inside the native Signal-encrypted direct/group envelope.
 - Added default receive helpers that use `api.getMessage` to resolve the attachment URL, enforce HTTPS and Facebook CDN host allowlists (`fbcdn.net`, `fbsbx.com`, `facebook.com`), and download ciphertext with a bounded 100 MiB response limit before cryptographic verification/decryption.
 - Direct media currently targets one selected peer device. Group media uses the existing Sender Key engine. Multi-device direct key fanout, live media protocol acceptance, and captured Messenger media fixtures remain open.
-- CI validation for the current source commit is pending; do not treat this batch as verified until the exact-head run passes.
+- GitHub Actions [run 46044369909](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46044369909) passed for source commit `58ebf84fae915d0375a330217b00393826586b58`: dependency/security audit, build and full test suite, TypeScript check, lint, and package dry run.
 
 **Step 4 remains In progress.** The FCA upload/attachment/download path is now connected at source level; this does not claim that Messenger's native E2EE media wire format has been independently verified against live devices.
+
+
+### Step 4 source verification — 2026-11-27
+
+- Final source commit for this batch: `58ebf84fae915d0375a330217b00393826586b58`.
+- GitHub Actions [run 46044369909](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46044369909) completed successfully. Dependency/security audit, build/full tests, TypeScript check, lint, and package dry run all passed.
+- The full test suite includes direct media key wrapping/upload/download integrity coverage and existing group media encryption/messaging coverage.
+- EryXen attachment-path comparison is documented above. This CI pass validates source and fixtures, not live Messenger media interoperability.
