@@ -49,9 +49,13 @@ function list(node: Node | undefined): Node[] { return Array.isArray(node?.conte
 function jidAddress(jid: string): SignalPeerAddress {
   const [local = "", server = ""] = jid.split("@");
   if (server !== "msgr") throw new Error(`Unsupported E2EE sender JID ${jid}`);
-  const m = /^([0-9]+)(?:[.:]([0-9]+))?$/.exec(local);
-  if (!m) throw new Error(`Invalid E2EE sender JID ${jid}`);
-  return { name: m[1]!, deviceId: Number(m[2] || 0) || 1 };
+  const colon = local.indexOf(":");
+  const dot = local.indexOf(".");
+  const userEnd = dot >= 0 ? dot : (colon >= 0 ? colon : local.length);
+  const name = local.slice(0, userEnd);
+  const deviceText = colon >= 0 ? local.slice(colon + 1) : (dot >= 0 ? local.slice(dot + 1) : "0");
+  if (!/^\d+$/.test(name) || !/^\d+$/.test(deviceText)) throw new Error(`Invalid E2EE sender JID ${jid}`);
+  return { name, deviceId: Number(deviceText) || 1 };
 }
 function makeTextApplication(text: string): { messageApp: Buffer; frankingTag: Buffer } {
   const msgText = new ProtoWriter().string(1, text).build();
@@ -66,7 +70,7 @@ function makeTextApplication(text: string): { messageApp: Buffer; frankingTag: B
   const messageApp = new ProtoWriter().bytes(1, appPayload).bytes(2, metadata).build();
   return { messageApp, frankingTag: createHmac("sha256", key).update(messageApp).digest() };
 }
-function makeTransport(messageApp?: Buffer, skdm?: { groupId: string; bytes: Buffer }): Buffer {
+function makeTransport(messageApp?: Buffer, skdm?: { groupId: string; bytes: Buffer }, dsm?: { destinationJid: string; phash: string }): Buffer {
   let payload: Buffer | undefined;
   if (messageApp) {
     const application = new ProtoWriter().bytes(1, messageApp).var(2, 2).build();
@@ -75,7 +79,9 @@ function makeTransport(messageApp?: Buffer, skdm?: { groupId: string; bytes: Buf
   const paddingLength = randomBytes(1)[0]! || 1;
   const padding = randomBytes(paddingLength);
   padding[paddingLength - 1] = paddingLength;
-  const integral = new ProtoWriter().bytes(1, padding).build();
+  let integralWriter = new ProtoWriter().bytes(1, padding);
+  if (dsm) integralWriter = integralWriter.bytes(2, new ProtoWriter().string(1, dsm.destinationJid).string(2, dsm.phash).build());
+  const integral = integralWriter.build();
   let ancillary = new ProtoWriter();
   if (skdm) ancillary = ancillary.bytes(2, new ProtoWriter().string(1, skdm.groupId).bytes(2, skdm.bytes).build());
   const protocol = new ProtoWriter().bytes(1, integral).bytes(2, ancillary.build()).build();
@@ -176,7 +182,8 @@ export class MessengerE2EEService extends EventEmitter {
       },
       sendDistribution: async (recipient, distribution) => {
         await this.peers.ensureSession(recipient);
-        const transport = makeTransport(undefined, { groupId: distribution.groupId, bytes: Buffer.from(distribution.body, "base64") });
+        const transport = makeTransport(undefined, { groupId: distribution.groupId, bytes: Buffer.from(distribution.body, "base64") },
+          recipient.name === this.local.name ? { destinationJid: distribution.groupId, phash: "" } : undefined);
         const encrypted = await options.runtime.directMessages.encrypt(recipient, transport);
         await this.sendDirectCiphertext(recipient, encrypted.type, Buffer.from(encrypted.body, "base64"));
       }
@@ -241,7 +248,10 @@ export class MessengerE2EEService extends EventEmitter {
       try {
         if (device.name === this.local.name && !this.options.runtime.store.loadSession(device)) continue;
         if (!this.options.runtime.store.loadSession(device)) await this.peers.ensureSession(device);
-        const encrypted = await this.options.runtime.directMessages.encrypt(device, transport);
+        const deviceTransport = device.name === this.local.name
+          ? makeTransport(messageApp, undefined, { destinationJid: `${peerId}.0@msgr`, phash: "" })
+          : transport;
+        const encrypted = await this.options.runtime.directMessages.encrypt(device, deviceTransport);
         const typeName = encrypted.type === (this.options.signal as any)?.CiphertextMessageType?.PreKey ? "pkmsg" : "msg";
         participantNodes.push(encodeNode("to", { jid: `${device.name}.${device.deviceId}@msgr` }, [
           encodeNode("enc", { v: "3", type: typeName }, Buffer.from(encrypted.body, "base64"))
