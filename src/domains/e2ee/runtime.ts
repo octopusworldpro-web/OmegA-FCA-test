@@ -33,6 +33,9 @@ export interface SignalE2EERuntime {
   directMessages: ReturnType<typeof createSignalDirectMessages>;
   actions: ReturnType<typeof createSignalE2EEActions>;
   groups: ReturnType<typeof createSignalSenderKeyGroups>;
+  /** Active Messenger Signal device ID (updated to the server-assigned ICDC ID after registration). */
+  localDeviceId: number;
+  setLocalDeviceId(deviceId: number): void;
   /** Stable Signal registration ID persisted for this account. */
   registrationId: number;
   /** Public identity key only; private identity material never leaves the encrypted store. */
@@ -182,8 +185,14 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
       );
     }
 
-    const localAddress = { name: options.accountId.trim(), deviceId: options.localDeviceId };
+    let activeLocalDeviceId = options.localDeviceId;
+    const localAddress = { name: options.accountId.trim(), deviceId: activeLocalDeviceId };
     const directMessages = createSignalDirectMessages(options.signal, store, localAddress);
+    const setLocalDeviceId = (deviceId: number) => {
+      if (!Number.isSafeInteger(deviceId) || deviceId < 1) throw new TypeError("Messenger local device ID must be a positive safe integer");
+      activeLocalDeviceId = deviceId;
+      directMessages.setLocalAddress({ name: options.accountId.trim(), deviceId });
+    };
     const actions = createSignalE2EEActions({
       encrypt: directMessages.encrypt,
       decrypt: directMessages.decrypt
@@ -202,6 +211,8 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
       directMessages,
       actions,
       get groups() { return getGroups(); },
+      get localDeviceId() { return activeLocalDeviceId; },
+      setLocalDeviceId,
       registrationId,
       identityKey,
       get signedPreKey() { return getSignedPreKey(); },
