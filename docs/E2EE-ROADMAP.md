@@ -95,6 +95,18 @@ A Step is complete only after its code, tests, required integration, and accepta
 - FCA login exposes `api.e2ee.sendDirectText()`, `api.e2ee.sendGroupText()`, `api.e2ee.syncGroupMembership()`, and the `api.e2ee.messenger` event emitter when `e2ee.facebook` is configured.
 - Offline fixtures cover recursive WA-binary parsing, binary ciphertext/JID round-trips, peer/device and PreKeyBundle parsing, and reconnect/outbox replay.
 
+**API usage**
+Native Messenger transport is enabled by opting in with `e2ee: { enabled: true, facebook: {} }`. Omitting `facebook` intentionally creates only the local Signal runtime.
+
+```js
+await api.e2ee.sendDirectText("PEER_ID", "Hello");
+await api.e2ee.sendGroupText("GROUP_JID@g.us", "Hello group");
+api.e2ee.messenger.on("message", (message) => {
+  // message: { id, threadId, senderJid, senderId, text, timestampMs }
+});
+await api.e2ee.syncGroupMembership("GROUP_JID@g.us");
+```
+
 **Still required for verified completion**
 - Authorized live-account tests with compatible devices for direct and group send/receive; no live server acceptance is claimed.
 - Automatic group membership/device-change notification wiring. The current service exposes `syncGroupMembership(groupJid)` for explicit rotation.
