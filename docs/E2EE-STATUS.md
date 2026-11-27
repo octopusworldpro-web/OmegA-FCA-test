@@ -502,3 +502,13 @@ Workflow run [46045981492](https://github.com/octopusworldpro-web/OmegA-FCA-test
 - Protocol reference: Meta Messenger E2EE whitepaper (2023-12-06), section 17; FME reference implementation `HerokeyVN/FB-Messenger-E2EE` (`src/e2ee/media/media-crypto.ts` and `src/e2ee/media/media-upload.ts`). FME is an unofficial implementation reference, not proof of live server acceptance.
 - Native media crypto/upload/protobuf and service send/receive fixtures were added. Latest test commit: `3ad4c6a00923cd7c5628881791ddf92a678b102b`.
 - No live media_conn/upload/download or real Messenger recipient acceptance test has been performed. Latest-head CI is still required; Step 4 remains **In progress**.
+
+
+## 2026-11-27 — Native media protocol hardening and CI follow-up
+
+- Added one-time `media_conn` refresh/retry after HTTP 401; upload requests now have a 30-second timeout and `media_conn` hosts are restricted to Facebook/FBCDN/FBSBX/WhatsApp domains.
+- Media decryption validates 32-byte plaintext/ciphertext digests, bounded plaintext length, and uses constant-time HMAC comparison. Tests now include 256 KiB video payloads, empty files, all four media types, tampered ciphertext, independently tampered MAC, native upload URL shape, and 401 refresh retry.
+- Service fixes after the first CI attempt: corrected HTTPS direct-path regex, numeric peer-ID regex, removed duplicate legacy `sendGroupMedia` implementation, and fixed base64url upload token encoding.
+- Failed historical run [46046902565](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46046902565) was for earlier source/test merge commit `b4c73e55857768a4bccab9a66d37719ed8bb30a3`; its build failed on the then-present direct-path regex syntax and duplicate group-media method. Those exact issues were corrected in subsequent source commits. This run does not validate the current branch head.
+- Latest native media source/test commits include `be70d80b849afa02d1a23a84cac381d4ac064e37`, `d40fd6fd01a1f75642aabefd74bb0d1482f30da3`, `fa84aa5d501623fb2c7eb890b377aba5e152af49`, `63a0c45c4207d0a6b231d5ef54d8b4f3fc1785ea`, `78bbce96aa5a9dda8b4661a33d3f4b508c632520`, and `a7ff4525fe6bb4e7a07ea29bfe585f004805f064`.
+- No CI run/status is currently associated with the latest branch head in the available GitHub Actions results. Do not claim a green result for these later commits. Step 4 remains **In progress** until current-head build/test/typecheck/lint/package checks pass and authorized live Messenger media interoperability is accepted.
