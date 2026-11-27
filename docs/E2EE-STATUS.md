@@ -394,9 +394,10 @@ GitHub Actions runs [45990589918](https://github.com/octopusworldpro-web/OmegA-F
 
 ### 2026-11-27 — Step 3 native Messenger messaging implementation record
 
-- Source branch head: `2cf46b80ea15982167b060046e860f8443c251ee`; documentation commits follow this head.
+- Source branch head: `1a5b461ad41be89db50c8c41d9fd2383cbb4559d`; documentation commits follow this head.
 - Implemented and connected native Messenger WA-binary parsing/encoding, IQ/event dispatch, device discovery, PreKeyBundle retrieval/conversion, direct text fanout and receive/decrypt, group Sender Key/SKDM distribution and group text send/receive/decrypt.
 - The authenticated login lifecycle now attaches the service when `e2ee.facebook` is configured. The FCA API exposes `sendDirectText`, `sendGroupText`, `syncGroupMembership`, and the `messenger` event emitter. Ordinary non-E2EE FCA messaging remains unchanged.
 - Added acknowledgement-gated distribution delivery, bounded retry receipts, inbound deduplication, CAT refresh on reconnect, and replay of the same encrypted stanza while the process remains alive.
-- Offline tests added: `e2ee-messenger-binary.test.cjs`, `e2ee-messenger-peer-directory.test.cjs`, and `e2ee-messenger-reconnect.test.cjs`. Earlier source snapshot CI run [46038030879](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46038030879) passed build/tests; the newer source head still requires CI confirmation.
+- Offline tests added: `e2ee-messenger-binary.test.cjs`, `e2ee-messenger-peer-directory.test.cjs`, `e2ee-messenger-reconnect.test.cjs`, and `e2ee-messenger-send.test.cjs` (direct/group send and inbound decrypt event).
+- CI run [46039184482](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46039184482) for source head `1a5b461ad41be89db50c8c41d9fd2383cbb4559d` passed dependency/security audit, build and tests, TypeScript check, lint, and package dry run.
 - **Limitations:** no authorized live Messenger account or cross-device round-trip was available; membership rotation is currently explicitly invoked through `syncGroupMembership`; outbox persistence across process restart and media remain unimplemented (media belongs to Step 4). Step 3 is therefore **not marked Verified complete**.
