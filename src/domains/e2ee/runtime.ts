@@ -23,6 +23,8 @@ export interface SignalRuntimeOptions {
   preKeyCount?: number;
   /** Number of optional post-quantum prekeys to create when supported. Defaults to 1. */
   kyberPreKeyCount?: number;
+  /** Rotate the current signed prekey after this age. Defaults to 30 days. */
+  signedPreKeyRotationMs?: number;
   signal: Dynamic;
 }
 
@@ -40,6 +42,10 @@ export interface SignalE2EERuntime {
   /** Public portions only; private key material remains inside the encrypted store. */
   preKeys: Array<{ keyId: number; publicKey: string }>;
   kyberPreKeys: Array<{ keyId: number; publicKey: string; signature: string }>;
+  /** Refill the local one-time-prekey pool to the requested target count. */
+  replenishPreKeys(targetCount?: number): Promise<Array<{ keyId: number; publicKey: string }>>;
+  /** Rotate the signed prekey when its configured age threshold has elapsed. */
+  rotateSignedPreKeyIfDue(now?: number): Promise<{ keyId: number; publicKey: string; signature: string }>;
   close(): Promise<void>;
 }
 
@@ -70,6 +76,10 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
   }
   if (!Number.isSafeInteger(kyberPreKeyCount) || kyberPreKeyCount < 0 || kyberPreKeyCount > 100) {
     throw new RangeError("E2EE kyberPreKeyCount must be between 0 and 100");
+  }
+  const signedPreKeyRotationMs = options.signedPreKeyRotationMs ?? 30 * 24 * 60 * 60 * 1000;
+  if (!Number.isSafeInteger(signedPreKeyRotationMs) || signedPreKeyRotationMs < 1) {
+    throw new RangeError("E2EE signedPreKeyRotationMs must be a positive safe integer");
   }
 
   const store = await createSignalKeyStore({
@@ -102,32 +112,58 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
     // Reuse the current persisted signed prekey by default. Creating a fresh
     // signed prekey on every process restart would churn device bundles and
     // make previously published bundles stale without any rotation policy.
-    const signedPreKeyId = options.signedPreKeyId ??
+    let currentSignedPreKeyId = options.signedPreKeyId ??
       (existingSignedPreKeyIds.length ? Math.max(...existingSignedPreKeyIds) : 1);
-    if (!store.loadSignedPreKey(signedPreKeyId)) {
-      await createSignalSignedPreKey(options.signal, store, signedPreKeyId);
+    if (!store.loadSignedPreKey(currentSignedPreKeyId)) {
+      await createSignalSignedPreKey(options.signal, store, currentSignedPreKeyId);
     }
-    const persistedSignedPreKey = store.loadSignedPreKey(signedPreKeyId);
-    if (!persistedSignedPreKey) throw new Error("Persisted signed prekey disappeared after initialization");
-    const signedPreKey = {
-      keyId: signedPreKeyId,
-      publicKey: persistedSignedPreKey.publicKey,
-      signature: persistedSignedPreKey.signature
+    const getSignedPreKey = () => {
+      const record = store.loadSignedPreKey(currentSignedPreKeyId);
+      if (!record) throw new Error("Persisted signed prekey disappeared after initialization");
+      return { keyId: currentSignedPreKeyId, publicKey: record.publicKey, signature: record.signature };
     };
+    const initialSignedPreKey = store.loadSignedPreKey(currentSignedPreKeyId);
+    if (!initialSignedPreKey) throw new Error("Persisted signed prekey disappeared after initialization");
+    if (options.signedPreKeyId === undefined &&
+        Date.now() - initialSignedPreKey.createdAt >= signedPreKeyRotationMs) {
+      const nextSignedPreKeyId = Math.max(...store.listSignedPreKeyIds(), 0) + 1;
+      await createSignalSignedPreKey(options.signal, store, nextSignedPreKeyId);
+      currentSignedPreKeyId = nextSignedPreKeyId;
+    }
 
     const existingPreKeyIds = store.listPreKeyIds();
-    const nextPreKeyId = existingPreKeyIds.length ? Math.max(...existingPreKeyIds) + 1 : 1;
     const missingPreKeys = Math.max(0, preKeyCount - existingPreKeyIds.length);
     if (missingPreKeys) {
-      await createSignalPreKeyBatch(options.signal, store, nextPreKeyId, missingPreKeys);
+      const firstPreKeyId = await store.reservePreKeyIds(missingPreKeys);
+      await createSignalPreKeyBatch(options.signal, store, firstPreKeyId, missingPreKeys);
     }
-    // Always expose the complete persisted public bundle. Returning [] on a
-    // warm restart would make callers unable to republish already-stored keys.
-    const preKeys = store.listPreKeyIds().map((keyId) => {
+    const getPreKeys = () => store.listPreKeyIds().map((keyId) => {
       const record = store.loadPreKey(keyId);
       if (!record) throw new Error(`Persisted one-time prekey ${keyId} disappeared`);
       return { keyId, publicKey: record.publicKey };
     });
+    const replenishPreKeys = async (targetCount = preKeyCount) => {
+      if (!Number.isSafeInteger(targetCount) || targetCount < 0 || targetCount > 1000) {
+        throw new RangeError("E2EE prekey target count must be between 0 and 1000");
+      }
+      const currentIds = store.listPreKeyIds();
+      const missing = Math.max(0, targetCount - currentIds.length);
+      if (missing) {
+        const firstPreKeyId = await store.reservePreKeyIds(missing);
+        await createSignalPreKeyBatch(options.signal, store, firstPreKeyId, missing);
+      }
+      return getPreKeys();
+    };
+    const rotateSignedPreKeyIfDue = async (now = Date.now()) => {
+      if (!Number.isSafeInteger(now) || now < 0) throw new TypeError("Signed prekey rotation time must be a non-negative safe integer");
+      const current = store.loadSignedPreKey(currentSignedPreKeyId);
+      if (!current) throw new Error("Current signed prekey is missing from the encrypted store");
+      if (now - current.createdAt < signedPreKeyRotationMs) return getSignedPreKey();
+      const nextId = Math.max(...store.listSignedPreKeyIds(), 0) + 1;
+      await createSignalSignedPreKey(options.signal, store, nextId, now);
+      currentSignedPreKeyId = nextId;
+      return getSignedPreKey();
+    };
 
     let kyberPreKeys: Array<{ keyId: number; publicKey: string; signature: string }> = [];
     if (kyberPreKeyCount > 0 && typeof options.signal.KEMKeyPair?.generate === "function") {
@@ -168,9 +204,11 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
       get groups() { return getGroups(); },
       registrationId,
       identityKey,
-      signedPreKey,
-      preKeys,
+      get signedPreKey() { return getSignedPreKey(); },
+      get preKeys() { return getPreKeys(); },
       kyberPreKeys,
+      replenishPreKeys,
+      rotateSignedPreKeyIfDue,
       close: () => store.close()
     };
   } catch (error) {
