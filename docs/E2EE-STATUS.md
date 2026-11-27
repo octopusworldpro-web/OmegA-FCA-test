@@ -130,3 +130,32 @@ See [E2EE-ROADMAP.md](E2EE-ROADMAP.md) for the only approved four-Step checklist
 - No source-code files were modified by this audit; this update records findings only.
 
 **Conclusion:** Keep Step 1 verified complete at its stated local-engine/login boundary. Keep Steps 2, 3, and 4 in progress. Do not interpret the existing helper modules or test files as proof of live Messenger E2EE interoperability.
+
+
+## 2026-11-27 — Step 2 recheck report
+
+**Reviewed branch head:** `f94a6633934e1303bb06a43915acf531a2adae82`  
+**Source changes in this recheck:** none; documentation report only.
+
+### Findings
+
+- ICDC registration is conditional on explicitly supplied `e2ee.facebook` options. The helper posts to `fb_icdc_fetch` and `fb_register_v2` and validates a particular response shape, but no live Facebook response was observed. Treat endpoint and payload compatibility as unverified.
+- PreKey publication is conditional on a caller-provided authenticated `facebook.sendIQ` adapter. The regular login path passes no such adapter and does not create a Messenger Noise IQ connection.
+- The runtime restores the full stored EC prekey list, and the publisher sends the full list whenever invoked. The key store does not persist which EC prekeys have been acknowledged by the server. Startup replenishment exists only as local count-based generation; no background replenishment or signed-prekey rotation policy is implemented.
+- Kyber key material remains local-only. No server-side Kyber format is established by the checked implementation.
+
+### Verification
+
+- GitHub Actions [run 45963767306](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45963767306) passed on the reviewed branch head. The job passed dependency/security audit, build and tests, TypeScript check, lint, and package dry run.
+- CI success is not live Facebook ICDC acceptance and does not prove Messenger Noise transport or key publication interoperability.
+- No authorized live-account test was run during this recheck.
+
+### Next implementation targets
+
+1. Integrate a real authenticated Messenger Noise IQ transport into the existing login session without routing through ordinary MQTT JSON.
+2. Verify ICDC endpoint fields and response contract against an authorized live account before changing the registration payload.
+3. Add persisted server-acknowledgement/publication state for EC prekeys, and make upload/retry idempotent.
+4. Add a bounded replenishment and signed-prekey rotation/retirement policy, with restart/recovery tests.
+5. Verify each behavior against the real server; keep E2EE failures fail-open for ordinary FCA login.
+
+**Step 2 status: In progress — not complete.**
