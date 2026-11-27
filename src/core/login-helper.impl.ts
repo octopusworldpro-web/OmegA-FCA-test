@@ -1093,29 +1093,25 @@ function loginHelper(
           syncGroupMembership: e2eeResult.status === "ready" && e2eeResult.messenger
             ? e2eeResult.messenger.syncGroupMembership.bind(e2eeResult.messenger)
             : undefined,
-          sendDirectMedia: e2eeResult.status === "ready" && e2eeResult.messenger && typeof api.uploadAttachment === "function"
-            ? (peerId: string, media: Uint8Array | Buffer, metadata: { fileName?: string; contentType?: string } = {}) =>
-                e2eeResult.messenger!.sendDirectMedia(peerId, media, (ciphertext, uploadMetadata) =>
-                  uploadEncryptedMediaToThread(peerId, ciphertext, uploadMetadata), metadata)
+          sendDirectMedia: e2eeResult.status === "ready" && e2eeResult.messenger
+            ? (peerId: string, media: Uint8Array | Buffer, metadata: { fileName?: string; contentType?: string; width?: number; height?: number; seconds?: number; caption?: string; ptt?: boolean } = {}) =>
+                e2eeResult.messenger!.sendDirectMedia(peerId, media, metadata)
             : undefined,
-          sendGroupMedia: e2eeResult.status === "ready" && e2eeResult.messenger && typeof api.uploadAttachment === "function"
-            ? (groupJid: string, media: Uint8Array | Buffer, metadata: { fileName?: string; contentType?: string } = {}) =>
-                e2eeResult.messenger!.sendGroupMedia(groupJid, media, (ciphertext, uploadMetadata) =>
-                  uploadEncryptedMediaToThread(groupJid.replace(/@g\.us$/, ""), ciphertext, uploadMetadata), metadata)
+          sendGroupMedia: e2eeResult.status === "ready" && e2eeResult.messenger
+            ? (groupJid: string, media: Uint8Array | Buffer, metadata: { fileName?: string; contentType?: string; width?: number; height?: number; seconds?: number; caption?: string; ptt?: boolean } = {}) =>
+                e2eeResult.messenger!.sendGroupMedia(groupJid, media, metadata)
             : undefined,
           receiveDirectMedia: e2eeResult.status === "ready" && e2eeResult.messenger
-            ? e2eeResult.messenger.receiveDirectMedia.bind(e2eeResult.messenger)
+            ? e2eeResult.messenger.downloadMessengerMedia.bind(e2eeResult.messenger)
             : undefined,
           receiveGroupMedia: e2eeResult.status === "ready" && e2eeResult.messenger
-            ? e2eeResult.messenger.receiveGroupMedia.bind(e2eeResult.messenger)
+            ? e2eeResult.messenger.downloadMessengerMedia.bind(e2eeResult.messenger)
             : undefined,
           downloadDirectMedia: e2eeResult.status === "ready" && e2eeResult.messenger
-            ? (envelope: unknown, remote: { name: string; deviceId: number }) =>
-                e2eeResult.messenger!.receiveDirectMedia(envelope, remote, (uploadRef) => downloadEncryptedMediaFromThread(uploadRef))
+            ? e2eeResult.messenger.downloadMessengerMedia.bind(e2eeResult.messenger)
             : undefined,
           downloadGroupMedia: e2eeResult.status === "ready" && e2eeResult.messenger
-            ? (envelope: unknown, expected?: { groupId?: string; sender?: { name: string; deviceId: number } }) =>
-                e2eeResult.messenger!.receiveGroupMedia(envelope, (_descriptor, uploadRef) => downloadEncryptedMediaFromThread(uploadRef), expected)
+            ? e2eeResult.messenger.downloadMessengerMedia.bind(e2eeResult.messenger)
             : undefined,
           error: e2eeResult.status === "failed" ? e2eeResult.error : undefined,
           close: async () => {
