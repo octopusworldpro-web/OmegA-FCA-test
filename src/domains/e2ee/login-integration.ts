@@ -65,7 +65,7 @@ export async function initializeE2EEForLogin(
         fbDtsg: session.fbDtsg,
         cookies: session.cookies,
         userAgent: session.userAgent,
-        request: session.requestCAT
+        request: session.requestCAT || (async () => { throw new Error("Authenticated FCA CAT request adapter is unavailable"); })
       });
       deviceRegistration = await registerDevice({
         fbid: accountId,

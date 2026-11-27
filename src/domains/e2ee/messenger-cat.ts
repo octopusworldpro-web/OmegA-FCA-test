@@ -1,6 +1,4 @@
 export const FACEBOOK_CAT_GRAPHQL_DOC_ID = "23999698219677129";
-const CAT_GRAPHQL_URL = "https://www.facebook.com/api/graphql/";
-
 export interface FacebookCATRequestOptions {
   fbid: string;
   fbDtsg?: string;
