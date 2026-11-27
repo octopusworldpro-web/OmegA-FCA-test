@@ -160,7 +160,7 @@ export function buildMessengerMediaApplication(fields: MessengerMediaFields): { 
     if (fields.height !== undefined) mediaAncillary = mediaAncillary.var(1, fields.height);
     mediaTransport = new ProtoWriter().bytes(1, mediaIntegral).bytes(2, mediaAncillary.build()).build();
     contentField = 2; wrapper = new ProtoWriter().bytes(1, new ProtoWriter().bytes(1, mediaTransport).var(2, 1).build());
-    if (fields.caption) wrapper.bytes(2, Buffer.concat([Buffer.from([0x0a]), new ProtoWriter().string(1, fields.caption).build()]));
+    if (fields.caption) wrapper.bytes(2, new ProtoWriter().string(1, fields.caption).build());
   } else if (fields.kind === "video") {
     if (fields.seconds !== undefined) mediaAncillary = mediaAncillary.var(1, fields.seconds);
     mediaAncillary = mediaAncillary.bool(3, false);
