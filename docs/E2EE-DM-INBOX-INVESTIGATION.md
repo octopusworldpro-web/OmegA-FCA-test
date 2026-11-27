@@ -107,7 +107,7 @@ That gap is a strong explanation for “E2EE connected, group bot works, E2EE DM
 
 ## 6. Change boundary / approval
 
-- This branch currently contains only this investigation report; no runtime source code has been changed.
+- This branch currently contains only documentation changes: this investigation report and its entry in the docs index. No runtime source code has been changed.
 - No production Railway variables, session files, E2EE identity files, or database state have been modified.
 - Before implementing a code fix or creating a deployment-triggering commit, present the proposed files/changes and obtain explicit approval.
 - Do not mark live E2EE DM compatibility complete until a real Messenger DM is received, normalized, handled, and replied to successfully.
