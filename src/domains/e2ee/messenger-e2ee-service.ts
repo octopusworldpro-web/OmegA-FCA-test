@@ -72,7 +72,10 @@ function makeTransport(messageApp?: Buffer, skdm?: { groupId: string; bytes: Buf
     const application = new ProtoWriter().bytes(1, messageApp).var(2, 2).build();
     payload = new ProtoWriter().bytes(1, application).var(3, 0).build();
   }
-  const integral = new ProtoWriter().bytes(1, randomBytes(32)).build();
+  const paddingLength = randomBytes(1)[0]! || 1;
+  const padding = randomBytes(paddingLength);
+  padding[paddingLength - 1] = paddingLength;
+  const integral = new ProtoWriter().bytes(1, padding).build();
   let ancillary = new ProtoWriter();
   if (skdm) ancillary = ancillary.bytes(2, new ProtoWriter().string(1, skdm.groupId).bytes(2, skdm.bytes).build());
   const protocol = new ProtoWriter().bytes(1, integral).bytes(2, ancillary.build()).build();
@@ -166,7 +169,9 @@ export class MessengerE2EEService extends EventEmitter {
           const user = jidAddress(jid).name;
           devices.push(...await this.directory.listDevices(user));
         }
-        return devices.filter((d) => !(d.name === localSender.name && d.deviceId === localSender.deviceId));
+        devices.push(...await this.directory.listDevices(localSender.name));
+        return [...new Map(devices.map((device) => [`${device.name}.${device.deviceId}`, device])).values()]
+          .filter((d) => !(d.name === localSender.name && d.deviceId === localSender.deviceId));
       },
       sendDistribution: async (recipient, distribution) => {
         await this.peers.preparePeer(recipient.name);
@@ -179,6 +184,21 @@ export class MessengerE2EEService extends EventEmitter {
       void this.handleNode(node).catch((error) => this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error))));
     });
     options.socket.onClose((error) => this.emit("disconnected", error));
+    void this.startup().catch((error) => this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error))));
+  }
+
+  private async startup(): Promise<void> {
+    await this.options.socket.sendFrame(marshal(encodeNode("presence", { type: "available" })));
+    const sessionId = String((Date.now() + 3 * 24 * 60 * 60 * 1000) % (7 * 24 * 60 * 60 * 1000));
+    await this.options.socket.sendFrame(marshal(encodeNode("ib", {}, [
+      encodeNode("unified_session", { id: sessionId }),
+      encodeNode("offline", {}),
+      encodeNode("dirty", { type: "account_sync" })
+    ])));
+  }
+
+  async syncGroupMembership(groupJid: string): Promise<void> {
+    await this.groupKeys.syncMembership(groupJid, this.local);
   }
 
   private async getGroupParticipants(groupJid: string): Promise<string[]> {
@@ -207,7 +227,8 @@ export class MessengerE2EEService extends EventEmitter {
     const peerDevices = await this.peers.preparePeer(peerId);
     await this.peers.preparePeer(this.local.name);
     const ownDevices = await this.directory.listDevices(this.local.name);
-    const all = [...peerDevices, ...ownDevices].filter((d) => !(d.name === this.local.name && d.deviceId === this.local.deviceId));
+    const all = [...new Map([...peerDevices, ...ownDevices].map((d) => [`${d.name}.${d.deviceId}`, d])).values()]
+      .filter((d) => !(d.name === this.local.name && d.deviceId === this.local.deviceId));
     if (!all.length) throw new Error("No remote Messenger E2EE devices were discovered");
     const { messageApp, frankingTag } = makeTextApplication(text);
     const transport = makeTransport(messageApp);
@@ -262,6 +283,21 @@ export class MessengerE2EEService extends EventEmitter {
 
   private async handleNode(node: Node): Promise<void> {
     if (node.tag === "receipt") { this.emit("receipt", node); return; }
+    if (node.tag === "iq" && node.attrs.xmlns === "urn:xmpp:ping" && node.attrs.type === "get") {
+      await this.options.socket.sendFrame(marshal(encodeNode("iq", {
+        id: String(node.attrs.id || ""), to: String(node.attrs.from || ""), type: "result"
+      })));
+      return;
+    }
+    if (node.tag === "notification" && node.attrs.type === "encrypt") {
+      const count = Number(findNode(node, "count")?.attrs.value);
+      if (Number.isFinite(count) && count < 5) {
+        const { publishFacebookPreKeys } = await import("./prekey-publisher");
+        await publishFacebookPreKeys(this.options.runtime, this.options.socket.sendIQ.bind(this.options.socket));
+      }
+      this.emit("notification", node);
+      return;
+    }
     if (node.tag !== "message") { this.emit("raw", node); return; }
     const senderJid = String(node.attrs.participant || node.attrs.from || "");
     const from = String(node.attrs.from || senderJid);
