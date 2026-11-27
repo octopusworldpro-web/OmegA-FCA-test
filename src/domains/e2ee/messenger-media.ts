@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, createHmac, hkdfSync, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
 import { encodeNode, marshal, type Node } from "./messenger-binary";
 import type { MessengerNoiseSocket } from "./messenger-noise-socket";
 
@@ -70,13 +70,16 @@ export function encryptMessengerMedia(dataInput: Uint8Array, kind: MessengerMedi
 export function decryptMessengerMedia(uploadBytesInput: Uint8Array, fields: Pick<MessengerMediaFields, "kind" | "mediaKey" | "fileSHA256" | "fileEncSHA256" | "fileLength">): Buffer {
   const uploadBytes = Buffer.from(uploadBytesInput);
   if (uploadBytes.length <= MAC_LENGTH || uploadBytes.length > MAX_MEDIA_BYTES + 1024) throw new Error("Messenger encrypted media size is invalid");
+  if (fields.fileSHA256.length !== 32 || fields.fileEncSHA256.length !== 32 || !Number.isSafeInteger(fields.fileLength) || fields.fileLength < 0 || fields.fileLength > MAX_MEDIA_BYTES) {
+    throw new Error("Messenger media descriptor dimensions are invalid");
+  }
   const digest = createHash("sha256").update(uploadBytes).digest();
   if (!digest.equals(fields.fileEncSHA256)) throw new Error("Messenger encrypted media SHA-256 mismatch");
   const ciphertext = uploadBytes.subarray(0, -MAC_LENGTH);
   const actualMac = uploadBytes.subarray(-MAC_LENGTH);
   const { iv, cipherKey, macKey } = deriveKeys(Buffer.from(fields.mediaKey), fields.kind);
   const expectedMac = createHmac("sha256", macKey).update(iv).update(ciphertext).digest().subarray(0, MAC_LENGTH);
-  if (!expectedMac.equals(actualMac)) throw new Error("Messenger encrypted media HMAC mismatch");
+  if (actualMac.length !== expectedMac.length || !timingSafeEqual(expectedMac, actualMac)) throw new Error("Messenger encrypted media HMAC mismatch");
   const decipher = createDecipheriv("aes-256-cbc", cipherKey, iv);
   const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
   if (plaintext.length !== fields.fileLength) throw new Error("Messenger media plaintext length mismatch");
