@@ -257,8 +257,10 @@ export class MessengerE2EEService extends EventEmitter {
 
   private async replaceConnection(socket: MessengerNoiseSocket): Promise<void> {
     if (this.closed) { socket.close(); throw new Error("Messenger E2EE service is closed"); }
+    const previousSocket = this.options.socket;
     this.unsubscribe();
     this.unsubscribeClose();
+    if (previousSocket !== socket) previousSocket.close();
     this.options.socket = socket;
     this.directory.setSocket(socket);
     this.attachSocket(socket);
