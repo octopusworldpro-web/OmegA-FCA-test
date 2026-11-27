@@ -152,13 +152,20 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
       encrypt: directMessages.encrypt,
       decrypt: directMessages.decrypt
     });
-    const groups = createSignalSenderKeyGroups(options.signal, store);
+    // Group Sender Key APIs are optional in some libsignal client builds. Keep
+    // local identity/direct-message bootstrap available and instantiate the
+    // group layer only when a caller actually requests it.
+    let groups: ReturnType<typeof createSignalSenderKeyGroups> | undefined;
+    const getGroups = () => {
+      if (!groups) groups = createSignalSenderKeyGroups(options.signal, store);
+      return groups;
+    };
 
     return {
       store,
       directMessages,
       actions,
-      groups,
+      get groups() { return getGroups(); },
       registrationId,
       identityKey,
       signedPreKey,
