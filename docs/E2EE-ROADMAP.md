@@ -467,3 +467,12 @@ This directive governs the remaining implementation work for Steps 2–4. It sup
 - Reference basis: Meta's published Messenger E2EE whitepaper, section “Transmitting Media and Other Attachments” (2023-12-06), and the independently reviewed FME Messenger media implementation for the concrete HKDF info labels and `media_conn`/upload shape. The exact CDN behavior still needs authorized live capture/acceptance.
 - Source/test commits: `287bfff77f47309c932661b6c35df8aaf7e3ca3c`, `f0d2e59143c3f854736583145126db3fce3ca9b6`, `caf6b061a786364041c5a6090bcdd7a603a17c9e`, `99e3bf1fa5ffc703f5dbcab38907857be891d922`, `b496b3187827a1b2c9d66685a5c5c68ae9b80844`, `b5e401e33ea4878db1f70aaa0fa6fe0f6402920d`, `5c163e28a867e6ec48edb01305dfbc6514ecaa85`, `3afb7f77730355e79d923405861d1b5f5e40fbfc`, `807834590b6ee27620bab3e3747db5480e6453c5`, `4c9d3f8e4601b0104a0e6205c1a53cfcefa659c4`, `c58be68f20d45af4f250944d5a313e5db6595978`, `3ad4c6a00923cd7c5628881791ddf92a678b102b`.
 - This implementation has source-level protocol fixtures but is not yet live-verified against Messenger's CDN or an actual recipient device. Step 4 remains **In progress** pending latest-head CI and authorized direct/group media interoperability tests.
+
+
+### 2026-11-28 — CI failure fix and current-head validation
+
+- Fixed the Node.js/TypeScript `fetch()` upload-body incompatibility in `src/domains/e2ee/messenger-media.ts` by copying encrypted bytes into a standalone `ArrayBuffer` before the HTTPS request. The ciphertext bytes and upload protocol are unchanged.
+- Corrected the `e2ee-messenger-send.test.cjs` fake device-directory response so its multi-device fixture actually returns both configured peer devices instead of silently using only the last single-device value.
+- Source fix commit: `8a5873a11e56e6f79510fdbf7a7badc824eb95c2`; test fixture commit / current branch head: `fef6c931e35178aa27c450974cc177066c4257a7`.
+- GitHub Actions [run 46050273016](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46050273016) completed successfully on the current branch head. Dependency audit, build and full test suite, TypeScript check, lint, and package dry run all passed.
+- Step 4 remains **In progress**, not Verified complete: authorized live Messenger direct/group media send/receive, CDN interoperability, reconnect, and restart acceptance are still outstanding.
