@@ -76,6 +76,12 @@ const fca = require("../dist/index.js");
     assert.equal(store.isTrustedIdentity(address, "aWRlbnRpdHk="), true);
     assert.equal(await store.saveIdentity(address, "aWRlbnRpdHk="), true);
     assert.equal(await store.saveIdentity(address, "aWRlbnRpdHk="), false);
+    await store.setGroupMembershipSnapshot("group-abc", ["member.2", "member.3"]);
+    await store.enqueuePendingMessengerMessage("pending-1", Buffer.from([0, 1, 2, 255]).toString("base64"));
+    assert.deepEqual(store.getGroupMembershipSnapshot("group-abc"), ["member.2", "member.3"]);
+    assert.deepEqual(store.listPendingMessengerMessages().map(({ id, stanza }) => ({ id, stanza })), [
+      { id: "pending-1", stanza: Buffer.from([0, 1, 2, 255]).toString("base64") }
+    ]);
     await store.flush();
     await store.close();
 
@@ -83,6 +89,12 @@ const fca = require("../dist/index.js");
     assert.equal(encrypted.includes("serialized-session"), false);
     const reopened = await fca.createSignalKeyStore({ accountId: "account-123", storagePath, encryptionKey });
     assert.equal(reopened.loadSession(address), Buffer.from("serialized-session").toString("base64"));
+    assert.deepEqual(reopened.getGroupMembershipSnapshot("group-abc"), ["member.2", "member.3"]);
+    assert.deepEqual(reopened.listGroupMembershipSnapshots(), [{ groupId: "group-abc", members: ["member.2", "member.3"] }]);
+    assert.equal(reopened.listPendingMessengerMessages()[0].id, "pending-1");
+    assert.deepEqual(Buffer.from(reopened.listPendingMessengerMessages()[0].stanza, "base64"), Buffer.from([0, 1, 2, 255]));
+    await reopened.removePendingMessengerMessage("pending-1");
+    assert.deepEqual(reopened.listPendingMessengerMessages(), []);
     assert.deepEqual(reopened.getNoiseKeyPair(), { publicKey: noiseKeyPair.publicKey.toString("base64"), privateKey: noiseKeyPair.privateKey.toString("base64") });
     assert.equal(reopened.loadSenderKey(address, "group-abc"), Buffer.from("serialized-sender-key").toString("base64"));
     assert.deepEqual(reopened.getSenderKeyDistributionRecipients(localSender, "group-abc"), ["member.2"]);
