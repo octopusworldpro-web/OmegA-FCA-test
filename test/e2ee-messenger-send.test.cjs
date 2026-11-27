@@ -2,6 +2,30 @@
 const assert = require("node:assert/strict");
 const fca = require("../dist/index.js");
 
+class ProtoWriter {
+  constructor() { this.parts = []; }
+  var(field, value) { this.parts.push(this.v(field * 8), this.v(value)); return this; }
+  bytes(field, value) { const b = Buffer.from(value); this.parts.push(this.v(field * 8 + 2), this.v(b.length), b); return this; }
+  string(field, value) { return this.bytes(field, Buffer.from(value)); }
+  v(value) { let n = BigInt(value), out = []; while (n > 127n) { out.push(Number((n & 127n) | 128n)); n >>= 7n; } out.push(Number(n)); return Buffer.from(out); }
+  build() { return Buffer.concat(this.parts); }
+}
+function textTransport(text) {
+  const messageText = new ProtoWriter().string(1, text).build();
+  const content = new ProtoWriter().bytes(1, messageText).build();
+  const payload = new ProtoWriter().bytes(1, content).build();
+  const consumer = new ProtoWriter().bytes(1, payload).build();
+  const consumerSub = new ProtoWriter().bytes(1, consumer).var(2, 1).build();
+  const subProtocol = new ProtoWriter().var(1, 0).bytes(2, consumerSub).build();
+  const appPayload = new ProtoWriter().bytes(4, subProtocol).build();
+  const messageApp = new ProtoWriter().bytes(1, appPayload).build();
+  const application = new ProtoWriter().bytes(1, messageApp).var(2, 2).build();
+  const app = new ProtoWriter().bytes(1, application).var(3, 0).build();
+  const integral = new ProtoWriter().bytes(1, Buffer.from([1, 2, 3])).build();
+  const protocol = new ProtoWriter().bytes(1, integral).build();
+  return new ProtoWriter().bytes(1, app).bytes(2, protocol).build();
+}
+const incomingTransport = textTransport("decrypted inbound");
 class FakeSocket {
   constructor() { this.nodes = new Set(); this.closes = new Set(); this.frames = []; }
   onNode(fn) { this.nodes.add(fn); return () => this.nodes.delete(fn); }
@@ -54,13 +78,13 @@ const runtime = {
   directMessages: {
     establishSession: async () => {},
     encrypt: async () => ({ type: 2, body: Buffer.from("ciphertext").toString("base64") }),
-    decrypt: async () => Buffer.alloc(0)
+    decrypt: async () => incomingTransport
   },
   groups: {
     createDistribution: async () => ({ groupId: "123-456@g.us", sender: { name: "123456789", deviceId: 42 }, body: Buffer.from("skdm").toString("base64") }),
     processDistribution: async () => {},
     encrypt: async (groupId, sender, plaintext) => ({ groupId, sender, body: Buffer.from("group-cipher").toString("base64") }),
-    decrypt: async () => Buffer.alloc(0)
+    decrypt: async () => incomingTransport
   }
 };
 (async () => {
