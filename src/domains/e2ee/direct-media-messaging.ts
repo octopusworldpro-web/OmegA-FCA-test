@@ -20,7 +20,7 @@ export interface SignalDirectMediaMessagingDeps {
 }
 
 function normalizePeerId(value: string): string {
-  if (typeof value !== "string" || !/^\\d+$/.test(value)) throw new TypeError("peerId must be numeric");
+  if (typeof value !== "string" || !/^\d+$/.test(value)) throw new TypeError("peerId must be numeric");
   return value;
 }
 function validateEnvelope(value: unknown): EncryptedDirectMediaEnvelope {
