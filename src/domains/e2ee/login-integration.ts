@@ -1,15 +1,16 @@
 import { createE2EEBootstrap, type E2EEBootstrapOptions } from "./bootstrap";
 import { createSignalE2EERuntime, type SignalE2EERuntime } from "./runtime";
 import { registerFacebookE2EEDevice, type FacebookE2EERegistrationResult } from "./device-registration";
+import { publishFacebookPreKeys, type FacebookE2EESendIQ } from "./prekey-publisher";
 
 export interface E2EELoginOptions extends E2EEBootstrapOptions {
   enabled?: boolean;
   signedPreKeyId?: number;
-  facebook?: { appId: string; fbCat: string; deviceId?: string; force?: boolean };
+  facebook?: { appId: string; fbCat: string; deviceId?: string; force?: boolean; sendIQ?: FacebookE2EESendIQ };
 }
 export type E2EELoginResult =
   | { status: "disabled"; runtime: null }
-  | { status: "ready"; runtime: SignalE2EERuntime; deviceRegistration?: FacebookE2EERegistrationResult }
+  | { status: "ready"; runtime: SignalE2EERuntime; deviceRegistration?: FacebookE2EERegistrationResult; preKeyPublication?: { id: string; uploaded: number } }
   | { status: "failed"; runtime: null; error: string };
 export interface E2EELoginFactories {
   bootstrap?: typeof createE2EEBootstrap;
@@ -49,6 +50,7 @@ export async function initializeE2EEForLogin(
     });
     initializedRuntime = runtime;
     let deviceRegistration: FacebookE2EERegistrationResult | undefined;
+    let preKeyPublication: { id: string; uploaded: number } | undefined;
     if (options.facebook) {
       const registerDevice = factories.registerDevice || registerFacebookE2EEDevice;
       if (!session.cookies?.trim() || !session.userAgent?.trim()) {
@@ -66,8 +68,11 @@ export async function initializeE2EEForLogin(
         deviceId: options.facebook.deviceId,
         force: options.facebook.force
       });
+      if (options.facebook.sendIQ) {
+        preKeyPublication = await publishFacebookPreKeys(runtime, options.facebook.sendIQ);
+      }
     }
-    return { status: "ready", runtime, deviceRegistration };
+    return { status: "ready", runtime, deviceRegistration, preKeyPublication };
   } catch (error) {
     if (initializedRuntime) await initializedRuntime.close().catch(() => undefined);
     return {
