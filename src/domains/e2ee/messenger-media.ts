@@ -105,7 +105,11 @@ export async function fetchMessengerMediaUploadConfig(socket: MessengerNoiseSock
   const hosts = children(mediaConn).filter((item) => item.tag === "host").map((item) => textAttr(item, "hostname")).filter(Boolean);
   const host = hosts.at(-1) || "";
   const auth = textAttr(mediaConn, "auth");
-  if (!host || !auth || !/^[a-z0-9.-]+$/i.test(host)) throw new Error("Messenger media_conn returned an invalid host or auth token");
+  const normalizedHost = host.toLowerCase();
+  const allowedHost = ["facebook.com", "fbcdn.net", "fbsbx.com", "whatsapp.net"].some((suffix) =>
+    normalizedHost === suffix || normalizedHost.endsWith(`.${suffix}`)
+  );
+  if (!host || !auth || !/^[a-z0-9.-]+$/i.test(host) || !allowedHost) throw new Error("Messenger media_conn returned an invalid or untrusted host/auth token");
   return { host, auth, ttl: Number(mediaConn.attrs.ttl) || undefined, authTtl: Number(mediaConn.attrs.auth_ttl) || undefined, fetchedAtMs: Date.now() };
 }
 
@@ -124,7 +128,8 @@ export async function uploadMessengerMedia(
     response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/octet-stream", "Content-Length": String(encrypted.uploadBytes.length), "Origin": "https://www.facebook.com", "Referer": "https://www.facebook.com/" },
-      body: encrypted.uploadBytes
+      body: encrypted.uploadBytes,
+      signal: AbortSignal.timeout(30000)
     });
     if (response.status === 401 && attempt === 0 && refreshConfig) {
       activeConfig = await refreshConfig();
