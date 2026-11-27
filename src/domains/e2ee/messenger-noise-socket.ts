@@ -1,5 +1,6 @@
 import WebSocket from "ws";
 import { EventEmitter } from "node:events";
+import { unmarshal } from "./messenger-binary";
 import { performMessengerNoiseXXHandshake, type MessengerNoiseFrameCipher, type MessengerNoiseRawTransport } from "./messenger-noise";
 
 const DEFAULT_ENDPOINT = "wss://web-chat-e2ee.facebook.com/ws/chat";
@@ -87,139 +88,11 @@ class WebSocketByteTransport implements MessengerNoiseRawTransport {
   }
 }
 
-function readVarint(data: Buffer, cursor: { offset: number }): number {
-  let value = 0;
-  let shift = 0;
-  while (cursor.offset < data.length && shift <= 28) {
-    const byte = data[cursor.offset++];
-    value |= (byte & 0x7f) << shift;
-    if (!(byte & 0x80)) return value;
-    shift += 7;
-  }
-  throw new Error("Malformed Messenger binary node varint");
-}
-function readString(data: Buffer, cursor: { offset: number }): string {
-  if (cursor.offset >= data.length) throw new Error("Truncated Messenger binary node string");
-  const token = data[cursor.offset++];
-  if (token >= 236 && token <= 239) {
-    if (cursor.offset >= data.length) throw new Error("Truncated Messenger double-byte token");
-    const index = data[cursor.offset++];
-    const value = DOUBLE_BYTE_TOKENS.get(`${token - 236}:${index}`);
-    if (value === undefined) throw new Error(`Unsupported Messenger double-byte token ${token - 236}:${index}`);
-    return value;
-  }
-  if (token < 236) {
-    const value = SINGLE_TOKENS.get(token);
-    if (value === undefined) throw new Error(`Unsupported Messenger binary token ${token}`);
-    return value;
-  }
-  if (token === 250) {
-    const user = readString(data, cursor);
-    const server = readString(data, cursor);
-    return user && server ? `${user}@${server}` : (user || server);
-  }
-  if (token === 251) {
-    if (cursor.offset >= data.length) throw new Error("Truncated Messenger hex8 length");
-    const length = data[cursor.offset++];
-    if (cursor.offset + length > data.length) throw new Error("Truncated Messenger hex8 value");
-    const value = data.subarray(cursor.offset, cursor.offset + length).toString("hex");
-    cursor.offset += length;
-    return value;
-  }
-  if (token === 255) {
-    if (cursor.offset >= data.length) throw new Error("Truncated Messenger nibble8 length");
-    const length = data[cursor.offset++];
-    const byteLength = Math.ceil(length / 2);
-    if (cursor.offset + byteLength > data.length) throw new Error("Truncated Messenger nibble8 value");
-    const alphabet = "0123456789-.";
-    let value = "";
-    for (let i = 0; i < byteLength; i++) {
-      const byte = data[cursor.offset++];
-      for (const nibble of [byte >> 4, byte & 15]) {
-        if (value.length >= length) break;
-        if (nibble >= alphabet.length) throw new Error("Invalid Messenger nibble8 digit");
-        value += alphabet[nibble];
-      }
-    }
-    return value;
-  }
-  if (token === 252) {
-    if (cursor.offset >= data.length) throw new Error("Truncated Messenger binary8 length");
-    const length = data[cursor.offset++];
-    if (cursor.offset + length > data.length) throw new Error("Truncated Messenger binary8 value");
-    const value = data.toString("utf8", cursor.offset, cursor.offset + length);
-    cursor.offset += length;
-    return value;
-  }
-  if (token === 253) {
-    if (cursor.offset + 3 > data.length) throw new Error("Truncated Messenger binary20 length");
-    const length = (data[cursor.offset] << 16) | (data[cursor.offset + 1] << 8) | data[cursor.offset + 2];
-    cursor.offset += 3;
-    if (cursor.offset + length > data.length) throw new Error("Truncated Messenger binary20 value");
-    const value = data.toString("utf8", cursor.offset, cursor.offset + length);
-    cursor.offset += length;
-    return value;
-  }
-  if (token === 254) {
-    if (cursor.offset + 4 > data.length) throw new Error("Truncated Messenger binary32 length");
-    const length = data.readUInt32BE(cursor.offset); cursor.offset += 4;
-    if (length > data.length - cursor.offset) throw new Error("Truncated Messenger binary32 value");
-    const value = data.toString("utf8", cursor.offset, cursor.offset + length);
-    cursor.offset += length;
-    return value;
-  }
-  throw new Error(`Unsupported Messenger binary string token ${token}`);
-}
-function readListSize(data: Buffer, cursor: { offset: number }): number {
-  if (cursor.offset >= data.length) throw new Error("Messenger binary node list is missing");
-  const token = data[cursor.offset++];
-  if (token === 0) return 0;
-  if (token === 248) {
-    if (cursor.offset >= data.length) throw new Error("Truncated Messenger list8");
-    return data[cursor.offset++];
-  }
-  if (token === 249) {
-    if (cursor.offset + 2 > data.length) throw new Error("Truncated Messenger list16");
-    const size = data.readUInt16BE(cursor.offset); cursor.offset += 2; return size;
-  }
-  throw new Error(`Unsupported Messenger binary list token ${token}`);
-}
-function readNode(data: Buffer, cursor: { offset: number }): BinaryNode {
-  const size = readListSize(data, cursor);
-  if (size < 1 || size > 255) throw new Error("Invalid Messenger binary node size");
-  const tag = readString(data, cursor);
-  const hasContent = ((size - 1) % 2) === 1;
-  const attributeCount = Math.floor((size - 1) / 2);
-  const attrs: Record<string, string> = Object.create(null) as Record<string, string>;
-  for (let i = 0; i < attributeCount; i++) {
-    const key = readString(data, cursor);
-    if (Object.prototype.hasOwnProperty.call(attrs, key)) throw new Error(`Duplicate Messenger node attribute: ${key}`);
-    attrs[key] = readString(data, cursor);
-  }
-  let content: unknown;
-  if (hasContent) {
-    if (cursor.offset >= data.length) throw new Error("Messenger binary node content is missing");
-    const marker = data[cursor.offset];
-    if (marker === 0 || marker === 248 || marker === 249) {
-      const childCount = readListSize(data, cursor);
-      const children: BinaryNode[] = [];
-      for (let i = 0; i < childCount; i++) children.push(readNode(data, cursor));
-      content = children;
-    } else {
-      content = readString(data, cursor);
-    }
-  }
-  return { tag, attrs, content };
-}
-
-/** Decode one complete WA-binary node, including arbitrarily nested child nodes. */
+/** Decode the complete WA-binary node, preserving binary payloads as Buffer values. */
 export function decodeMessengerBinaryNode(frame: Uint8Array): BinaryNode {
   const data = Buffer.from(frame);
-  const cursor = { offset: 0 };
-  if (data[0] === 0) cursor.offset++;
-  const node = readNode(data, cursor);
-  if (cursor.offset !== data.length) throw new Error("Unexpected trailing Messenger binary node bytes");
-  return node;
+  const node = unmarshal(data);
+  return node as BinaryNode;
 }
 
 export interface MessengerNoiseSocketOptions {
