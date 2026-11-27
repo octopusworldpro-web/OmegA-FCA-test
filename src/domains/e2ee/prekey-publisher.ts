@@ -150,7 +150,8 @@ async function publishFacebookPreKeysLocked(
   }
 
   const acknowledgedAt = Date.now();
-  // Acknowledge only keys actually included in this IQ, not every pending store ID.\n  await runtime.store.markPreKeysPublished(pendingPreKeys.map((key) => key.keyId), acknowledgedAt);
+  // Acknowledge only keys actually included in this IQ, not every pending store ID.
+  await runtime.store.markPreKeysPublished(pendingPreKeys.map((key) => key.keyId), acknowledgedAt);
   await runtime.store.markSignedPreKeyPublished(runtime.signedPreKey.keyId, acknowledgedAt);
   return { id, uploaded: pendingPreKeys.length };
 }
