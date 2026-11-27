@@ -165,6 +165,7 @@ export class MessengerE2EEService extends EventEmitter {
   private readonly unsubscribe: () => void;
   readonly ready: Promise<void>;
   private readonly groupKeys: ReturnType<typeof createSignalGroupKeyManager>;
+  private readonly pendingMessageAcks = new Map<string, { resolve: () => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
   constructor(private readonly options: MessengerE2EEServiceOptions) {
     super();
     this.local = { name: options.accountId, deviceId: options.localDeviceId };
@@ -195,7 +196,14 @@ export class MessengerE2EEService extends EventEmitter {
     this.unsubscribe = options.socket.onNode((node) => {
       void this.handleNode(node).catch((error) => this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error))));
     });
-    options.socket.onClose((error) => this.emit("disconnected", error));
+    options.socket.onClose((error) => {
+      for (const [id, pending] of this.pendingMessageAcks) {
+        clearTimeout(pending.timer);
+        pending.reject(error);
+        this.pendingMessageAcks.delete(id);
+      }
+      this.emit("disconnected", error);
+    });
     this.ready = this.startup();
     this.ready.catch((error) => this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error))));
   }
@@ -231,7 +239,25 @@ export class MessengerE2EEService extends EventEmitter {
     const stanza = marshal(encodeNode("message", { to: jid, id, type: "text" }, [
       encodeNode("enc", { v: "3", type: typeName }, ciphertext)
     ]));
-    await this.options.socket.sendFrame(stanza);
+    await this.sendStanzaWithAck(stanza, id);
+  }
+
+  private sendStanzaWithAck(stanza: Buffer, id: string, timeoutMs = 15000): Promise<void> {
+    if (this.pendingMessageAcks.has(id)) return Promise.reject(new Error(`Duplicate outgoing Messenger message ID ${id}`));
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingMessageAcks.delete(id);
+        reject(new Error(`Messenger message acknowledgement timed out: ${id}`));
+      }, timeoutMs);
+      this.pendingMessageAcks.set(id, { resolve, reject, timer });
+      this.options.socket.sendFrame(stanza).catch((error) => {
+        const pending = this.pendingMessageAcks.get(id);
+        if (!pending) return;
+        clearTimeout(pending.timer);
+        this.pendingMessageAcks.delete(id);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      });
+    });
   }
 
   async sendDirectText(peerId: string, text: string): Promise<string> {
@@ -269,7 +295,7 @@ export class MessengerE2EEService extends EventEmitter {
       encodeNode("franking", {}, [encodeNode("franking_tag", {}, frankingTag)]),
       encodeNode("trace", {}, [encodeNode("request_id", {}, Buffer.from(randomUUID().replace(/-/g, ""), "hex"))])
     ]));
-    await this.options.socket.sendFrame(stanza);
+    await this.sendStanzaWithAck(stanza, id);
     return id;
   }
 
@@ -300,6 +326,17 @@ export class MessengerE2EEService extends EventEmitter {
   }
 
   private async handleNode(node: Node): Promise<void> {
+    if (node.tag === "ack") {
+      const id = String(node.attrs.id || "");
+      const pending = this.pendingMessageAcks.get(id);
+      if (pending) {
+        clearTimeout(pending.timer);
+        this.pendingMessageAcks.delete(id);
+        pending.resolve();
+      }
+      this.emit("ack", node);
+      return;
+    }
     if (node.tag === "receipt") { this.emit("receipt", node); return; }
     if (node.tag === "iq" && node.attrs.xmlns === "urn:xmpp:ping" && node.attrs.type === "get") {
       await this.options.socket.sendFrame(marshal(encodeNode("iq", {
