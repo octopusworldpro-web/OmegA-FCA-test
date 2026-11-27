@@ -100,3 +100,33 @@ See [E2EE-ROADMAP.md](E2EE-ROADMAP.md) for the only approved four-Step checklist
 - No source-code changes were made in this baseline documentation update.
 
 **Next work:** Continue with the canonical roadmap's next incomplete requirement. After each implementation task, update this status log with exact files changed, test commands/results, evidence, and remaining blockers before claiming progress.
+
+
+### 2026-11-27 — Follow-up source audit
+
+**Audit result:** The four-step status table above remains accurate. Step 1 is verified complete only for the local Signal engine and FCA login lifecycle boundary. Steps 2–4 contain implementation groundwork but do not meet their full acceptance criteria.
+
+**Step 1 evidence rechecked**
+- `bootstrap.ts` and `signal-key-store.ts`: automatic account-scoped bootstrap, generated/reused local device metadata, encrypted persistence, and restart support.
+- `runtime.ts` and `libsignal-adapter.ts`: pinned libsignal integration and local identity/registration ID/Signed PreKey/One-time EC PreKey setup; Kyber generation is conditional on KEM support.
+- `login-integration.ts`, `login-helper.impl.ts`, and `state.ts`: opt-in E2EE lifecycle after authenticated FCA login, authenticated session context passed internally, and fail-open handling so E2EE initialization failure does not abort ordinary login.
+
+**Test files reviewed (not executed in this audit)**
+- `test/e2ee-bootstrap.test.cjs`: automatic key persistence and account isolation.
+- `test/e2ee-runtime-real.test.cjs`: installed libsignal runtime, prekey generation, persistence/restart reuse, and account isolation.
+- `test/e2ee-login-integration.test.cjs`: disabled/ready/failed lifecycle paths, authenticated context forwarding, and cleanup on failure.
+- `test/e2ee-runtime.test.cjs`: runtime lifecycle and restart persistence using a test Signal adapter.
+- `test/signal-key-store.test.cjs`: encrypted state persistence, account binding, and key/session/prekey operations.
+
+**Remaining gaps confirmed**
+- Step 2: ICDC and PreKey helper implementations exist, but the standard FCA login path does not construct/provide the authenticated Messenger Noise `sendIQ` transport. No live Facebook registration or PreKey acceptance evidence was obtained.
+- Step 3: direct/group Signal primitives and injected transport orchestration exist, but native Messenger peer/device discovery, bundle exchange, and MQTT encrypted send/receive integration remain unverified.
+- Step 4: direct/group media cryptography and callback-based upload/download composition exist, but native Messenger media transport, real-device interoperability, and EryXen comparison remain outstanding.
+
+**Validation limits**
+- No test suite, build, typecheck, or lint command was run during this source audit.
+- The queried combined CI status for commit `2a04b6cf87ac05ae41c22e1da6e6ff9ca8c8752e` was an empty status list (`[]`), not a passing check.
+- No authorized live Facebook/Messenger account or cross-device acceptance test was performed.
+- No source-code files were modified by this audit; this update records findings only.
+
+**Conclusion:** Keep Step 1 verified complete at its stated local-engine/login boundary. Keep Steps 2, 3, and 4 in progress. Do not interpret the existing helper modules or test files as proof of live Messenger E2EE interoperability.
