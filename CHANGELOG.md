@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Synchronize package and lockfile versions for the beta.5 candidate.
 - Correct README release status, license metadata, and E2EE implementation boundaries.
+- Set the project package license to `AGPL-3.0-or-later` (beta.4 package metadata was `Apache-2.0`); the original Apache-2.0 upstream component notices remain in `NOTICE`. Review `LICENSE` and `NOTICE` before upgrading or redistributing.
 - Expand CI validation to Node.js 20 and 22 and document the beta.5 release gates.
 
 ### Validation notes
