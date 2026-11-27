@@ -4,7 +4,7 @@
 **Version:** `0.2.3-beta.3`  
 **Branch:** `feature/release-0.2.3-beta.3`
 
-This file records source-level implementation evidence and its limits. The four-step roadmap is the sole authority for scope and completion criteria.
+This file records source-level implementation evidence and its limits. The four-step roadmap is the sole authority for scope and completion criteria. The latest native media protocol implementation supersedes earlier historical entries describing FCA attachment relay; E2EE media no longer uses the ordinary FCA attachment upload/send path.
 
 ## Overall
 
@@ -15,7 +15,7 @@ This file records source-level implementation evidence and its limits. The four-
 | 1. E2EE Engine & Login Integration | Verified complete (local boundary) | Pinned libsignal 0.70.0; authenticated UID validation; account-local bootstrap and encrypted store; automatic identity/device metadata; restart support; fail-open login integration | No remaining work within the stated local-engine/login boundary. Do not interpret this as server registration or native Messenger support |
 | 2. Facebook Device Registration & Key Sync | Verified complete — offline scope | Automatic CAT retrieval; default ICDC registration/reuse; authenticated Noise XX WebSocket key-sync transport; strict certificate verifier; encrypted frames and IQ correlation; persisted acknowledgements; monotonic prekey IDs; replenishment/rotation; bounded retries and restart recovery; offline fixtures and CI pass | Live Facebook acceptance was explicitly waived and is not claimed; no captured valid live certificate chain; long-lived encrypted message events/MQTT belong to Step 3; no verified Kyber upload format |
 | 3. E2EE Messaging & Group System | Offline implementation verified by CI; live acceptance pending | Native Noise WA-binary dispatcher; Messenger device/prekey discovery; direct/group encrypted text; ACK/retry/dedup; CAT-refresh reconnect; encrypted outbox persisted before send and replayed after restart until ACK; persisted group member/device snapshots and automatic Sender Key rotation on change during group send/reconnect; FCA API exposure | Authorized live cross-device acceptance; real receipts/order/replay validation |
-| 4. Encrypted Media & Full Compatibility Test | Source integration in progress; CI/live acceptance pending | Direct/group media encryption; native encrypted envelopes; ciphertext-only upload and thread attachment through existing FCA upload/send APIs; getMessage-based HTTPS/CDN-allowlisted download; integrity/context validation; EryXen attachment-path comparison documented | Direct-media multi-device key fanout; captured native Messenger media protocol fixtures; live media interoperability; video/file lifecycle and authorized real-account acceptance |
+| 4. Encrypted Media & Full Compatibility Test | Native media source implementation in progress; latest CI/live acceptance pending | 32-byte media keys with HKDF/AES-CBC/HMAC; `media_conn` + `/wa-msgr/mms` encrypted upload; native image/video/audio/document ConsumerApplication protobufs; direct fanout to peer/self devices; group Sender Key media; typed inbound media events; integrity-checked CDN download; binary/video/empty-file fixtures | Latest-head CI; authorized live media_conn/upload/download and cross-device direct/group acceptance; reconnect/restart and real receipt validation |
 
 ## Implemented components and boundaries
 
