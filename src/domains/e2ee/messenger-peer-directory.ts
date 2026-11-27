@@ -103,7 +103,15 @@ export class MessengerPeerDirectory {
       publicKey: rawPublicKey(findNode(signedNode, "value"), "signed prekey public key"),
       signature: bytes(findNode(signedNode, "signature"), "signed prekey signature")
     };
-    const oneTimeNode = findNode(keyRoot, "key");
+    const findOneTimeKey = (node: Node): Node | undefined => {
+      if (node.tag === "key" && findNode(node, "id") && findNode(node, "value")) return node;
+      for (const child of children(node)) {
+        const found = findOneTimeKey(child);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    const oneTimeNode = findOneTimeKey(keyRoot);
     const preKey = oneTimeNode && findNode(oneTimeNode, "value")
       ? {
           keyId: keyId(findNode(oneTimeNode, "id"), "one-time prekey ID"),
@@ -121,7 +129,7 @@ export class MessengerPeerDirectory {
 }
 
 /** Wires native Messenger device discovery/bundle fetch into the existing Signal peer manager. */
-export function createMessengerSignalPeerManager(runtime: SignalE2EERuntime, socket: MessengerNoiseSocket) {
+export function createMessengerSignalPeerManager(runtime: SignalE2EERuntime, socket: MessengerNoiseSocket, signal: unknown) {
   if (!runtime?.store || !runtime?.directMessages) throw new TypeError("Initialized Signal runtime is required");
   const directory = new MessengerPeerDirectory(socket);
   return createSignalPeerManager({
@@ -132,7 +140,7 @@ export function createMessengerSignalPeerManager(runtime: SignalE2EERuntime, soc
     parsePreKeyBundle: (payload, device) => {
       const raw = payload as MessengerRawPreKeyBundle;
       if (raw.deviceId !== device.deviceId) throw new Error("Messenger PreKeyBundle device ID mismatch");
-      return buildMessengerSignalPreKeyBundle((runtime as any).signal || (runtime as any).store.signal, raw);
+      return buildMessengerSignalPreKeyBundle(signal, raw);
     }
   });
 }
