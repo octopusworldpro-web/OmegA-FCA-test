@@ -59,7 +59,7 @@ class FakeSocket {
       return { tag: "iq", attrs: { id, type: "result" }, content: [{
         tag: "users", attrs: {}, content: [{
           tag: "user", attrs: { jid: `${user}.0@msgr` }, content: [{
-            tag: "devices", attrs: {}, content: [{ tag: "device", attrs: { id: user === "123456789" ? "43" : String(this.remoteDeviceId) } }]
+            tag: "devices", attrs: {}, content: (user === "123456789" ? ["43"] : (this.remoteDeviceIds || [this.remoteDeviceId]).map(String)).map((deviceId) => ({ tag: "device", attrs: { id: deviceId } }))
           }]
         }]
       }] };
