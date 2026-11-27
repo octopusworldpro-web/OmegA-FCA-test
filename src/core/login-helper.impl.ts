@@ -1037,8 +1037,10 @@ function loginHelper(
           runtime: e2eeResult.runtime,
           deviceRegistration: e2eeResult.status === "ready" ? e2eeResult.deviceRegistration : undefined,
           preKeyPublication: e2eeResult.status === "ready" ? e2eeResult.preKeyPublication : undefined,
+          noiseSocket: e2eeResult.status === "ready" ? e2eeResult.noiseSocket : undefined,
           error: e2eeResult.status === "failed" ? e2eeResult.error : undefined,
           close: async () => {
+            if (e2eeResult.status === "ready") e2eeResult.noiseSocket?.close();
             if (e2eeResult.runtime) await e2eeResult.runtime.close();
             api.e2ee = { status: "disabled", runtime: null };
           }

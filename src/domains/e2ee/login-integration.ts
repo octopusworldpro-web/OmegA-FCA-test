@@ -83,17 +83,18 @@ export async function initializeE2EEForLogin(
       });
       const persistedNoiseKey = runtime.store.getNoiseKeyPair();
       if (!persistedNoiseKey) throw new Error("Persisted Messenger Noise identity is missing");
-      noiseSocket = await connectMessengerNoiseSocket({
-        staticPrivateKey: Buffer.from(persistedNoiseKey.privateKey, "base64"),
-        fbid: accountId,
-        deviceId: deviceRegistration.waDeviceId,
-        fbCat,
-        userAgent: session.userAgent
-      });
-      preKeyPublication = await publishFacebookPreKeys(
-        runtime,
-        options.facebook.sendIQ || noiseSocket.sendIQ.bind(noiseSocket)
-      );
+      if (options.facebook.sendIQ) {
+        preKeyPublication = await publishFacebookPreKeys(runtime, options.facebook.sendIQ);
+      } else {
+        noiseSocket = await connectMessengerNoiseSocket({
+          staticPrivateKey: Buffer.from(persistedNoiseKey.privateKey, "base64"),
+          fbid: accountId,
+          deviceId: deviceRegistration.waDeviceId,
+          fbCat,
+          userAgent: session.userAgent
+        });
+        preKeyPublication = await publishFacebookPreKeys(runtime, noiseSocket.sendIQ.bind(noiseSocket));
+      }
     }
     return { status: "ready", runtime, deviceRegistration, preKeyPublication, noiseSocket };
   } catch (error) {
