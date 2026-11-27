@@ -44,6 +44,23 @@ const fca = require("../dist/index.js");
     assert.deepEqual(uploadedBytes, encrypted.uploadBytes);
     assert.equal(result.directPath, "/v/t59.2708-21/fixture");
     assert.equal(result.objectId, "media-object-1");
+
+    let attempts = 0, refreshes = 0;
+    global.fetch = async (url) => {
+      attempts++;
+      requestedUrl = String(url);
+      if (attempts === 1) return { ok: false, status: 401 };
+      return { ok: true, json: async () => ({ direct_path: "/v/t59.2708-21/refreshed" }) };
+    };
+    const refreshed = await fca.uploadMessengerMedia(
+      { host: "old-upload.facebook.com", auth: "expired", fetchedAtMs: Date.now() },
+      encrypted, "image",
+      async () => { refreshes++; return { host: "rupload.facebook.com", auth: "fresh", fetchedAtMs: Date.now() }; }
+    );
+    assert.equal(attempts, 2);
+    assert.equal(refreshes, 1);
+    assert.match(requestedUrl, /auth=fresh/);
+    assert.equal(refreshed.directPath, "/v/t59.2708-21/refreshed");
   } finally {
     global.fetch = originalFetch;
   }
