@@ -379,3 +379,11 @@ GitHub Actions runs [45990589918](https://github.com/octopusworldpro-web/OmegA-F
 - No captured, versioned Messenger protocol fixtures establish those remaining wire contracts. No guessed endpoints, token mappings, or plaintext fallback were introduced.
 
 **Step 3 status: IN PROGRESS — NOT COMPLETE.** This update is a real transport-layer implementation, not a claim that native direct and group E2EE messaging is complete. Ordinary FCA messaging remains unchanged.
+
+
+### Step 3 dispatcher follow-up — buffered consumer delivery
+
+- Source commit: `ce3c0a12bc3f35a8d8b0fd49b72a112ab31581ce`.
+- Incoming Messenger nodes are now retained until a consumer subscribes, including nodes received before the caller gets the connected socket. A bounded 10,000-node backlog stops the socket with an explicit error rather than silently dropping unconsumed events.
+- CI for this source head: [run 46036056104](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46036056104) — pending at the time this note was written.
+- This follow-up closes the early-subscriber event-loss window; it does not implement the remaining native direct/group message codecs and lifecycle. Step 3 remains **IN PROGRESS — NOT COMPLETE**.
