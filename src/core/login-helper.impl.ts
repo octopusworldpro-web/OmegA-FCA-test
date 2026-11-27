@@ -1101,7 +1101,7 @@ function loginHelper(
           sendGroupMedia: e2eeResult.status === "ready" && e2eeResult.messenger && typeof api.uploadAttachment === "function"
             ? (groupJid: string, media: Uint8Array | Buffer, metadata: { fileName?: string; contentType?: string } = {}) =>
                 e2eeResult.messenger!.sendGroupMedia(groupJid, media, (ciphertext, uploadMetadata) =>
-                  uploadEncryptedMediaToThread(groupJid.replace(/@g\\.us$/, ""), ciphertext, uploadMetadata), metadata)
+                  uploadEncryptedMediaToThread(groupJid.replace(/@g\.us$/, ""), ciphertext, uploadMetadata), metadata)
             : undefined,
           receiveDirectMedia: e2eeResult.status === "ready" && e2eeResult.messenger
             ? e2eeResult.messenger.receiveDirectMedia.bind(e2eeResult.messenger)
