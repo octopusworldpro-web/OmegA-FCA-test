@@ -11,9 +11,11 @@
 - Step 1: Verified complete — local engine and fail-open FCA login lifecycle
 - Step 2: Verified complete — automatic CAT/ICDC, authenticated Noise XX key-sync transport, acknowledged prekey publication, replenishment/rotation, bounded retry, restart recovery, and offline CI/fixture acceptance. Live Facebook acceptance was explicitly waived by the user.
 - Step 3: Native text messaging, persistent encrypted outbox/restart replay, and automatic group member/device-change Sender Key rotation implemented; offline CI verification pending and authorized live acceptance remains separately pending
-- Step 4: In progress — local media crypto helpers exist; native media transport and real-device acceptance remain
+- Step 4: In progress — native Messenger media crypto/upload/protobuf and direct/group Signal transport are implemented with offline fixtures; latest-head CI and authorized real-device acceptance remain
 
 A Step is complete only after its code, tests, required integration, and acceptance evidence are present. Unit tests, mocks, helper modules, and CI success do not by themselves prove Messenger interoperability.
+
+**Step 4 current implementation supersedes earlier historical progress entries below that describe FCA `uploadAttachment` / `sendMessage` ciphertext relay. Current E2EE media uses the authenticated Messenger `media_conn` upload path and native media protobufs; ordinary non-E2EE FCA attachments remain unchanged.**
 
 ## Step 1 — E2EE Engine & Login Integration
 
