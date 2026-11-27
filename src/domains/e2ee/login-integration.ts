@@ -19,6 +19,8 @@ export interface E2EELoginFactories {
   runtime?: typeof createSignalE2EERuntime;
   registerDevice?: typeof registerFacebookE2EEDevice;
   fetchCAT?: typeof fetchFacebookCryptoAuthToken;
+  connectNoise?: typeof connectMessengerNoiseSocket;
+  sleep?: (milliseconds: number) => Promise<void>;
 }
 export interface E2EELoginSession {
   cookies?: string;
@@ -62,13 +64,15 @@ export async function initializeE2EEForLogin(
       if (!session.cookies?.trim() || !session.userAgent?.trim()) {
         throw new Error("Facebook ICDC registration requires the authenticated cookie header and user agent");
       }
-      const fbCat = options.facebook.fbCat || await (factories.fetchCAT || fetchFacebookCryptoAuthToken)({
+      const fetchCAT = factories.fetchCAT || fetchFacebookCryptoAuthToken;
+      const catOptions = {
         fbid: accountId,
         fbDtsg: session.fbDtsg,
         cookies: session.cookies,
         userAgent: session.userAgent,
         request: session.requestCAT || (async () => { throw new Error("Authenticated FCA CAT request adapter is unavailable"); })
-      });
+      };
+      let fbCat = options.facebook.fbCat || await fetchCAT(catOptions);
       deviceRegistration = await registerDevice({
         fbid: accountId,
         fbCat,
@@ -86,13 +90,27 @@ export async function initializeE2EEForLogin(
       } else {
         const persistedNoiseKey = runtime.store.getNoiseKeyPair();
         if (!persistedNoiseKey) throw new Error("Persisted Messenger Noise identity is missing");
-        const connectedNoiseSocket = await connectMessengerNoiseSocket({
-          staticPrivateKey: Buffer.from(persistedNoiseKey.privateKey, "base64"),
-          fbid: accountId,
-          deviceId: deviceRegistration.waDeviceId,
-          fbCat,
-          userAgent: session.userAgent
-        });
+        const connectNoise = factories.connectNoise || connectMessengerNoiseSocket;
+        const wait = factories.sleep || ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+        let connectedNoiseSocket: MessengerNoiseSocket | undefined;
+        for (let attempt = 0; attempt < 3 && !connectedNoiseSocket; attempt++) {
+          try {
+            connectedNoiseSocket = await connectNoise({
+              staticPrivateKey: Buffer.from(persistedNoiseKey.privateKey, "base64"),
+              fbid: accountId,
+              deviceId: deviceRegistration.waDeviceId,
+              fbCat,
+              userAgent: session.userAgent
+            });
+          } catch (connectError) {
+            const message = connectError instanceof Error ? connectError.message : String(connectError);
+            const retryable = /timed out|websocket|socket|econn|enotfound|network|temporar|http 5\\d\\d/i.test(message);
+            if (!retryable || attempt === 2) throw connectError;
+            if (!options.facebook.fbCat) fbCat = await fetchCAT(catOptions);
+            await wait(250 * (attempt + 1));
+          }
+        }
+        if (!connectedNoiseSocket) throw new Error("Messenger Noise connection could not be established");
         noiseSocket = connectedNoiseSocket;
         preKeyPublication = await publishFacebookPreKeys(runtime, connectedNoiseSocket.sendIQ.bind(connectedNoiseSocket));
       }
