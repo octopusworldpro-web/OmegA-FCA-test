@@ -9,7 +9,13 @@ const { initializeE2EEForLogin } = require("../dist/index.js");
   let bootstrapCalled = false;
   let runtimeOptions;
   let runtimeClosed = false;
-  const runtime = { store: { marker: true }, signedPreKey: { keyId: 9 }, close: async () => { runtimeClosed = true; } };
+  const runtime = {
+    store: { marker: true }, registrationId: 456,
+    identityKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 1)]).toString("base64"),
+    signedPreKey: { keyId: 9, publicKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 2)]).toString("base64"), signature: Buffer.alloc(64, 3).toString("base64") },
+    preKeys: [{ keyId: 1, publicKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 4)]).toString("base64") }],
+    close: async () => { runtimeClosed = true; }
+  };
   const ready = await initializeE2EEForLogin("123456789", { enabled: true }, {
     bootstrap: async (accountId) => {
       bootstrapCalled = true;
@@ -28,7 +34,7 @@ const { initializeE2EEForLogin } = require("../dist/index.js");
   let registrationOptions;
   const registered = await initializeE2EEForLogin("123456789", {
     enabled: true,
-    facebook: { appId: "test-app", fbCat: "www" }
+    facebook: { appId: "test-app", fbCat: "www", sendIQ: async (_stanza, id) => ({ tag: "iq", attrs: { id, type: "result" } }) }
   }, {
     bootstrap: async () => ({ storagePath: "/tmp/account.signal", encryptionKey: Buffer.alloc(32, 7), localDeviceId: 123, signal: { marker: true } }),
     runtime: async () => runtime,
@@ -36,6 +42,7 @@ const { initializeE2EEForLogin } = require("../dist/index.js");
   }, { cookies: "c_user=123456789; xs=session", userAgent: "test-agent" });
   assert.equal(registered.status, "ready");
   assert.equal(registered.deviceRegistration.waDeviceId, 42);
+  assert.equal(registered.preKeyPublication.uploaded, 1);
   assert.equal(registrationOptions.fbid, "123456789");
   assert.equal(registrationOptions.cookies, "c_user=123456789; xs=session");
   assert.equal(registrationOptions.userAgent, "test-agent");
