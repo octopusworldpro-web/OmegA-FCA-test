@@ -10,6 +10,13 @@ class ProtoWriter {
   v(value) { let n = BigInt(value), out = []; while (n > 127n) { out.push(Number((n & 127n) | 128n)); n >>= 7n; } out.push(Number(n)); return Buffer.from(out); }
   build() { return Buffer.concat(this.parts); }
 }
+function applicationTransport(messageApp) {
+  const application = new ProtoWriter().bytes(1, messageApp).var(2, 2).build();
+  const payload = new ProtoWriter().bytes(1, application).var(3, 0).build();
+  const integral = new ProtoWriter().bytes(1, Buffer.from([1, 2, 3])).build();
+  const protocol = new ProtoWriter().bytes(1, integral).build();
+  return new ProtoWriter().bytes(1, payload).bytes(2, protocol).build();
+}
 function textTransport(text) {
   const messageText = new ProtoWriter().string(1, text).build();
   const content = new ProtoWriter().bytes(1, messageText).build();
@@ -40,6 +47,12 @@ class FakeSocket {
   }
   async sendIQ(frame, id) {
     const node = fca.decodeMessengerNode(frame);
+    if (node.attrs.xmlns === "w:m") {
+      return { tag: "iq", attrs: { id, type: "result" }, content: [{
+        tag: "media_conn", attrs: { auth: "test-media-auth", ttl: "300", auth_ttl: "300" },
+        content: [{ tag: "host", attrs: { hostname: "rupload.facebook.com" } }]
+      }] };
+    }
     if (node.attrs.xmlns === "fbid:devices") {
       const jid = node.content[0].content[0].attrs.jid;
       const user = jid.split("@")[0].split(".")[0];
@@ -144,28 +157,43 @@ const runtime = {
   assert.equal(received[0].text, "decrypted inbound");
   assert.equal(received[1].threadId, "123-456@g.us");
   assert.equal(received[1].senderId, "987654321");
-  // A direct media envelope is fanned out to every discovered peer device.
-  socket.remoteDeviceIds = [17, 18];
-  encryptedForDevices.length = 0;
+  // Native Messenger media is uploaded once, then Signal-fanned out to peer and self devices.
+  const originalFetch = global.fetch;
   let mediaUploads = 0;
-  const mediaEnvelopes = await service.sendDirectMedia("987654321", Buffer.from("media-payload"), async (ciphertext) => {
+  global.fetch = async (url, options) => {
+    if (!String(url).includes("/wa-msgr/mms/")) throw new Error("unexpected fetch URL " + url);
     mediaUploads++;
-    assert.notDeepEqual(ciphertext, Buffer.from("media-payload"), "only ciphertext is uploaded");
-    return { attachmentId: `encrypted-media-${mediaUploads}` };
-  }, { fileName: "fixture.bin", contentType: "application/octet-stream" });
-  assert.equal(mediaEnvelopes.length, 2);
-  assert.equal(mediaUploads, 2);
-  assert.deepEqual([...new Set(encryptedForDevices)].sort(), [17, 18]);
-  assert.ok(mediaEnvelopes.every((item) => typeof item.descriptor.encryptedKey.body === "string"));
+    assert.notDeepEqual(Buffer.from(options.body), Buffer.from("media-payload"), "only ciphertext + MAC are uploaded");
+    return { ok: true, json: async () => ({ direct_path: "/v/t59.2708-21/native-media", object_id: "native-object" }) };
+  };
+  try {
+    socket.remoteDeviceIds = [17, 18];
+    encryptedForDevices.length = 0;
+    const directMediaResult = await service.sendDirectMedia("987654321", Buffer.from("media-payload"), { fileName: "fixture.bin", contentType: "application/octet-stream" });
+    assert.ok(directMediaResult.messageId);
+    assert.equal(mediaUploads, 1);
+    assert.deepEqual([...new Set(encryptedForDevices)].sort(), [17, 18, 43]);
+    const nativeDirect = socket.frames.map((frame) => fca.decodeMessengerNode(frame)).find((node) => node.tag === "message" && node.attrs.id === directMediaResult.messageId);
+    assert.equal(nativeDirect.content.find((item) => item.tag === "participants").content.length, 3);
 
-  // Incoming Signal-encrypted media JSON is surfaced as typed media events,
-  // not misreported as a normal text chat message.
+    const groupMediaResult = await service.sendGroupMedia("123-456@g.us", Buffer.from("group-media-payload"), { fileName: "clip.mp4", contentType: "video/mp4", seconds: 4 });
+    assert.ok(groupMediaResult.messageId);
+    assert.equal(mediaUploads, 2);
+    const nativeGroup = socket.frames.map((frame) => fca.decodeMessengerNode(frame)).find((node) => node.tag === "message" && node.attrs.id === groupMediaResult.messageId);
+    assert.equal(nativeGroup.content.find((item) => item.tag === "enc").attrs.type, "skmsg");
+  } finally {
+    global.fetch = originalFetch;
+  }
+
+  // Native Messenger media protobufs are surfaced as typed media events.
   const directMediaEvents = [];
   const groupMediaEvents = [];
   service.on("direct_media", (event) => directMediaEvents.push(event));
   service.on("group_media", (event) => groupMediaEvents.push(event));
-  const directEnvelope = { version: 1, kind: "direct_media", descriptor: {}, upload: { id: "d1" } };
-  incomingTransport = textTransport(JSON.stringify(directEnvelope));
+  const sampleEncrypted = fca.encryptMessengerMedia(Buffer.from("received media"), "image");
+  const sampleFields = { ...sampleEncrypted.fields, directPath: "/v/t59.2708-21/incoming", mimeType: "image/png" };
+  const sampleApp = fca.buildMessengerMediaApplication(sampleFields).messageApp;
+  incomingTransport = applicationTransport(sampleApp);
   socket.emit({
     tag: "message", attrs: { from: "987654321.17@msgr", id: "incoming-direct-media", t: "1700000002" },
     content: [{ tag: "participants", attrs: {}, content: [{
@@ -174,18 +202,18 @@ const runtime = {
       }]
     }] }]
   });
-  const groupEnvelope = { version: 1, kind: "group_media", descriptor: {}, upload: { id: "g1" } };
-  incomingTransport = textTransport(JSON.stringify(groupEnvelope));
+  incomingTransport = applicationTransport(sampleApp);
   socket.emit({
     tag: "message", attrs: { from: "123-456@g.us", participant: "987654321.17@msgr", id: "incoming-group-media", t: "1700000003" },
     content: [{ tag: "enc", attrs: { type: "skmsg" }, content: Buffer.from("group-media-cipher") }]
   });
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(directMediaEvents.length, 1);
-  assert.equal(directMediaEvents[0].envelope.kind, "direct_media");
+  assert.equal(directMediaEvents[0].media.kind, "image");
+  assert.equal(directMediaEvents[0].media.mediaKey.length, 32);
   assert.equal(directMediaEvents[0].sender.deviceId, 17);
   assert.equal(groupMediaEvents.length, 1);
-  assert.equal(groupMediaEvents[0].envelope.kind, "group_media");
+  assert.equal(groupMediaEvents[0].media.kind, "image");
   assert.equal(groupMediaEvents[0].groupId, "123-456@g.us");
 
   service.close();
