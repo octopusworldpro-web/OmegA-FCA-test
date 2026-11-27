@@ -81,6 +81,12 @@ The previously recorded CI run [45860381188](https://github.com/octopusworldpro-
 See [E2EE-ROADMAP.md](E2EE-ROADMAP.md) for the only approved four-Step checklist and progress rules.
 
 
+## 2026-11-27 — ICDC identity decoding hardening
+
+- Updated `device-registration.ts` to accept both canonical padded Base64 and unpadded Base64URL ICDC identity encodings, while enforcing canonical decoding and an exact 32-byte public-key length.
+- Updated `e2ee-device-registration.test.cjs` to exercise an unpadded Base64URL identity from the fetch response.
+- This is a source/test hardening change only. It does not establish live ICDC acceptance or satisfy Step 2's authenticated Messenger Noise transport, CAT acquisition, server-aware prekey rotation/recovery, or live acceptance criteria. Step 2 remains **In progress**.
+
 ## Progress log
 
 ### 2026-11-27 — Initial documentation baseline review
