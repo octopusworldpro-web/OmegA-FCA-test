@@ -168,3 +168,5 @@ export { buildFacebookPreKeyUpload, publishFacebookPreKeys, type FacebookE2EESen
 export { verifyMessengerNoiseCertificateChain, MESSENGER_NOISE_ROOT_PUBLIC_KEY } from "./domains/e2ee/noise-certificate";
 
 export { fetchFacebookCryptoAuthToken, FACEBOOK_CAT_GRAPHQL_DOC_ID, type FacebookCATRequestOptions } from "./domains/e2ee/messenger-cat";
+
+export { performMessengerNoiseXXHandshake, buildMessengerClientPayload, MessengerNoiseFrameCipher, type MessengerNoiseRawTransport, type MessengerNoiseHandshakeOptions, type MessengerNoiseHandshakeResult } from "./domains/e2ee/messenger-noise";
