@@ -285,10 +285,69 @@ export class MessengerE2EEService extends EventEmitter {
       encodeNode("offline", {}),
       encodeNode("dirty", { type: "account_sync" })
     ])));
+    await this.restorePendingMessages();
+    await this.refreshTrackedGroupMemberships();
+  }
+
+  private async restorePendingMessages(): Promise<void> {
+    const store = this.options.runtime.store as any;
+    if (typeof store.listPendingMessengerMessages !== "function") return;
+    for (const record of store.listPendingMessengerMessages()) {
+      if (this.pendingMessageAcks.has(record.id)) continue;
+      const pending = {
+        resolve: () => {}, reject: (_error: Error) => {},
+        timer: setTimeout(() => {}, 0), stanza: Buffer.from(record.stanza, "base64"), attempts: 0
+      };
+      clearTimeout(pending.timer);
+      this.pendingMessageAcks.set(record.id, pending);
+      this.transmitPending(record.id, pending, 15000);
+    }
+  }
+
+  private async groupMemberDeviceSnapshot(groupJid: string, participants: string[]): Promise<string[]> {
+    const members = [...participants, `${this.local.name}.0@msgr`];
+    const devices: string[] = [];
+    for (const member of members) {
+      const user = jidAddress(member).name;
+      for (const device of await this.directory.listDevices(user)) {
+        if (!(device.name === this.local.name && device.deviceId === this.local.deviceId)) devices.push(`${device.name}.${device.deviceId}`);
+      }
+    }
+    return [...new Set(devices)].sort();
+  }
+
+  private async refreshGroupMembership(groupJid: string, participants: string[]): Promise<void> {
+    const store = this.options.runtime.store as any;
+    if (typeof store.getGroupMembershipSnapshot !== "function" || typeof store.setGroupMembershipSnapshot !== "function") return;
+    const current = await this.groupMemberDeviceSnapshot(groupJid, participants);
+    const previous = store.getGroupMembershipSnapshot(groupJid) as string[] | undefined;
+    if (previous && JSON.stringify([...previous].sort()) !== JSON.stringify(current)) {
+      await this.groupKeys.syncMembership(groupJid, this.local);
+      this.emit("group_membership_changed", { groupJid, previous: [...previous].sort(), current });
+    }
+    await store.setGroupMembershipSnapshot(groupJid, current);
+  }
+
+  private async refreshTrackedGroupMemberships(): Promise<void> {
+    const store = this.options.runtime.store as any;
+    if (typeof store.listGroupMembershipSnapshots !== "function") return;
+    for (const entry of store.listGroupMembershipSnapshots() as Array<{ groupId: string; members: string[] }>) {
+      try {
+        const participants = await this.getGroupParticipants(entry.groupId);
+        await this.refreshGroupMembership(entry.groupId, participants);
+      } catch (error) {
+        this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error)));
+      }
+    }
   }
 
   async syncGroupMembership(groupJid: string): Promise<void> {
     await this.groupKeys.syncMembership(groupJid, this.local);
+    const participants = await this.getGroupParticipants(groupJid);
+    const store = this.options.runtime.store as any;
+    if (typeof store.setGroupMembershipSnapshot === "function") {
+      await store.setGroupMembershipSnapshot(groupJid, await this.groupMemberDeviceSnapshot(groupJid, participants));
+    }
   }
 
   private async getGroupParticipants(groupJid: string): Promise<string[]> {
@@ -315,9 +374,13 @@ export class MessengerE2EEService extends EventEmitter {
     await this.sendStanzaWithAck(stanza, id);
   }
 
-  private sendStanzaWithAck(stanza: Buffer, id: string, timeoutMs = 15000): Promise<void> {
-    if (this.closed) return Promise.reject(new Error("Messenger E2EE service is closed"));
-    if (this.pendingMessageAcks.has(id)) return Promise.reject(new Error(`Duplicate outgoing Messenger message ID ${id}`));
+  private async sendStanzaWithAck(stanza: Buffer, id: string, timeoutMs = 15000): Promise<void> {
+    if (this.closed) throw new Error("Messenger E2EE service is closed");
+    if (this.pendingMessageAcks.has(id)) throw new Error(`Duplicate outgoing Messenger message ID ${id}`);
+    const store = this.options.runtime.store as any;
+    if (typeof store.enqueuePendingMessengerMessage === "function") {
+      await store.enqueuePendingMessengerMessage(id, Buffer.from(stanza).toString("base64"));
+    }
     return new Promise<void>((resolve, reject) => {
       const pending = { resolve, reject, timer: setTimeout(() => {}, 0), stanza: Buffer.from(stanza), attempts: 0 };
       clearTimeout(pending.timer);
@@ -399,10 +462,11 @@ export class MessengerE2EEService extends EventEmitter {
   async sendGroupText(groupJid: string, text: string): Promise<string> {
     if (!groupJid.endsWith("@g.us")) throw new TypeError("A Messenger group JID ending in @g.us is required");
     if (typeof text !== "string" || !text.length) throw new TypeError("E2EE text must be non-empty");
+    const participants = await this.getGroupParticipants(groupJid);
+    await this.refreshGroupMembership(groupJid, participants);
     const { messageApp, frankingTag } = makeTextApplication(text);
     const transport = makeTransport(messageApp);
     const encrypted = await this.groupKeys.encrypt(groupJid, this.local, transport);
-    const participants = await this.getGroupParticipants(groupJid);
     const deviceJids: string[] = [];
     for (const member of [...participants, `${this.local.name}.0@msgr`]) {
       const user = jidAddress(member).name;
@@ -473,6 +537,11 @@ export class MessengerE2EEService extends EventEmitter {
       if (pending) {
         clearTimeout(pending.timer);
         this.pendingMessageAcks.delete(id);
+        const store = this.options.runtime.store as any;
+        if (typeof store.removePendingMessengerMessage === "function") {
+          try { await store.removePendingMessengerMessage(id); }
+          catch (error) { this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error))); }
+        }
         pending.resolve();
       }
       this.emit("ack", node);
