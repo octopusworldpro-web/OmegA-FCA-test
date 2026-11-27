@@ -9,6 +9,10 @@ import type { SignalPeerAddress } from "./direct-messages";
 import { createSignalEncryptedDirectMediaMessaging, type EncryptedDirectMediaEnvelope } from "./direct-media-messaging";
 import { createSignalEncryptedGroupMedia } from "./encrypted-group-media";
 import { createSignalEncryptedGroupMediaMessaging, type EncryptedGroupMediaMessageEnvelope } from "./group-media-messaging";
+import {
+  encryptMessengerMedia, decryptMessengerMedia, fetchMessengerMediaUploadConfig, uploadMessengerMedia,
+  buildMessengerMediaApplication, type MessengerMediaFields, type MessengerMediaType
+} from "./messenger-media";
 
 class ProtoWriter {
   private chunks: Buffer[] = [];
@@ -130,6 +134,58 @@ function decodeText(messageApp: Buffer): string | undefined {
   if (!content) return undefined;
   const messageText = fieldBytes(readProto(content), 1);
   return messageText ? fieldString(readProto(messageText), 1) : undefined;
+}
+function decodeMessengerMediaApplication(messageApp: Buffer): MessengerMediaFields | undefined {
+  const appPayload = fieldBytes(readProto(messageApp), 1);
+  if (!appPayload) return undefined;
+  const subProtocol = fieldBytes(readProto(appPayload), 4);
+  const consumerSub = subProtocol ? fieldBytes(readProto(subProtocol), 2) : undefined;
+  const consumer = consumerSub ? fieldBytes(readProto(consumerSub), 1) : undefined;
+  const consumerPayload = consumer ? fieldBytes(readProto(consumer), 1) : undefined;
+  const content = consumerPayload ? fieldBytes(readProto(consumerPayload), 1) : undefined;
+  if (!content) return undefined;
+  const contentFields = readProto(content);
+  const candidates: Array<[number, MessengerMediaType]> = [[2, "image"], [9, "video"], [8, "audio"], [7, "document"]];
+  let kind: MessengerMediaType | undefined, wrapper: Buffer | undefined;
+  for (const [field, candidate] of candidates) {
+    wrapper = fieldBytes(contentFields, field);
+    if (wrapper) { kind = candidate; break; }
+  }
+  if (!kind || !wrapper) return undefined;
+  const mediaSubProtocol = fieldBytes(readProto(wrapper), 1);
+  const mediaPayload = mediaSubProtocol ? fieldBytes(readProto(mediaSubProtocol), 1) : undefined;
+  const mediaIntegral = mediaPayload ? fieldBytes(readProto(mediaPayload), 1) : undefined;
+  const common = mediaIntegral ? fieldBytes(readProto(mediaIntegral), 1) : undefined;
+  if (!common) return undefined;
+  const commonFields = readProto(common);
+  const integral = fieldBytes(commonFields, 1);
+  const ancillary = fieldBytes(commonFields, 2);
+  if (!integral || !ancillary) return undefined;
+  const integralFields = readProto(integral), ancillaryFields = readProto(ancillary);
+  const mediaKey = fieldBytes(integralFields, 2), fileSHA256 = fieldBytes(integralFields, 1);
+  const fileEncSHA256 = fieldBytes(integralFields, 3), directPath = fieldString(integralFields, 4);
+  const fileLength = ancillaryFields.get(1)?.[0]?.value;
+  const mimeType = fieldString(ancillaryFields, 2);
+  if (!mediaKey || mediaKey.length !== 32 || !fileSHA256 || !fileEncSHA256 || !directPath || typeof fileLength !== "bigint" || !mimeType) {
+    throw new Error("Decrypted Messenger media message is missing required media fields");
+  }
+  const timestamp = integralFields.get(5)?.[0]?.value;
+  return {
+    kind, mediaKey, fileSHA256, fileEncSHA256, directPath, mimeType,
+    fileLength: Number(fileLength), mediaKeyTimestamp: typeof timestamp === "bigint" ? Number(timestamp) : 0,
+    objectId: fieldString(ancillaryFields, 4)
+  };
+}
+function inferMessengerMediaType(metadata: { fileName?: string; contentType?: string }): MessengerMediaType {
+  const mime = (metadata.contentType || "").toLowerCase();
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("audio/")) return "audio";
+  const ext = (metadata.fileName || "").split(".").pop()?.toLowerCase() || "";
+  if (["jpg","jpeg","png","gif","webp","heic","heif","bmp"].includes(ext)) return "image";
+  if (["mp4","mov","avi","mkv","webm","3gp","m4v"].includes(ext)) return "video";
+  if (["mp3","ogg","aac","flac","wav","m4a","opus"].includes(ext)) return "audio";
+  return "document";
 }
 function randomMessageId(): string { return String(BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000))); }
 function toADString(jid: string): string {
@@ -445,30 +501,109 @@ export class MessengerE2EEService extends EventEmitter {
   async sendDirectMedia(
     peerId: string,
     media: Uint8Array | Buffer,
-    upload: (ciphertext: Buffer, metadata: { fileName: string; contentType: string }) => Promise<unknown>,
-    metadata: { fileName?: string; contentType?: string } = {}
-  ): Promise<EncryptedDirectMediaEnvelope[]> {
+    metadata: { fileName?: string; contentType?: string; width?: number; height?: number; seconds?: number; caption?: string; ptt?: boolean } = {}
+  ): Promise<{ messageId: string; timestampMs: number; directPath: string; fileEncSHA256: string }> {
     await this.ready;
-    const devices = await this.peers.preparePeer(peerId);
-    if (!devices.length) throw new Error("No Messenger E2EE device is available for direct media");
-    const envelopes: EncryptedDirectMediaEnvelope[] = [];
-    const failures: Array<{ device: SignalPeerAddress; error: Error }> = [];
-    // Each device receives a key wrapped in its own Signal session. Keep going
-    // when one device is stale/unreachable so other active devices still receive it.
-    for (const remote of devices) {
+    if (!/^\\d+$/.test(peerId)) throw new TypeError("Messenger peer ID must be numeric");
+    const kind = inferMessengerMediaType(metadata);
+    const encrypted = encryptMessengerMedia(media, kind);
+    const config = await fetchMessengerMediaUploadConfig(this.options.socket);
+    const uploaded = await uploadMessengerMedia(config, encrypted, kind);
+    const fields: MessengerMediaFields = {
+      ...encrypted.fields, directPath: uploaded.directPath,
+      mimeType: metadata.contentType || (kind === "image" ? "image/jpeg" : kind === "video" ? "video/mp4" : kind === "audio" ? "audio/ogg" : "application/octet-stream"),
+      fileName: metadata.fileName, width: metadata.width, height: metadata.height,
+      seconds: metadata.seconds, caption: metadata.caption, ptt: metadata.ptt, objectId: uploaded.objectId
+    };
+    const { messageApp, frankingTag } = buildMessengerMediaApplication(fields);
+    const peerDevices = await this.peers.preparePeer(peerId);
+    const ownDevices = await this.directory.listDevices(this.local.name);
+    for (const device of ownDevices) if (device.deviceId !== this.local.deviceId) await this.peers.ensureSession(device);
+    const all = [...new Map([...peerDevices, ...ownDevices].map((d) => [`${d.name}.${d.deviceId}`, d])).values()]
+      .filter((d) => !(d.name === this.local.name && d.deviceId === this.local.deviceId));
+    const transport = makeTransport(messageApp);
+    const participantNodes: Buffer[] = [];
+    for (const device of all) {
       try {
-        envelopes.push(await this.directMedia.send(peerId, remote, media, upload, metadata));
-      } catch (error) {
-        const normalized = error instanceof Error ? error : new Error(String(error));
-        failures.push({ device: remote, error: normalized });
-        this.emit("e2ee_error", normalized);
+        if (device.name === this.local.name && !this.options.runtime.store.loadSession(device)) continue;
+        if (!this.options.runtime.store.loadSession(device)) await this.peers.ensureSession(device);
+        const deviceTransport = device.name === this.local.name
+          ? makeTransport(messageApp, undefined, { destinationJid: `${peerId}.0@msgr`, phash: "" })
+          : transport;
+        const encryptedDevice = await this.options.runtime.directMessages.encrypt(device, deviceTransport);
+        const typeName = encryptedDevice.type === (this.options.signal as any)?.CiphertextMessageType?.PreKey ? "pkmsg" : "msg";
+        participantNodes.push(encodeNode("to", { jid: `${device.name}.${device.deviceId}@msgr` }, [
+          encodeNode("enc", { v: "3", type: typeName }, Buffer.from(encryptedDevice.body, "base64"))
+        ]));
+      } catch (error) { this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error))); }
+    }
+    if (!participantNodes.length) throw new Error("Could not encrypt media for any active Messenger device");
+    const id = randomMessageId();
+    const stanza = marshal(encodeNode("message", { to: `${peerId}.0@msgr`, type: "text", id }, [
+      encodeNode("participants", {}, participantNodes),
+      encodeNode("franking", {}, [encodeNode("franking_tag", {}, frankingTag)]),
+      encodeNode("trace", {}, [encodeNode("request_id", {}, Buffer.from(randomUUID().replace(/-/g, ""), "hex"))])
+    ]));
+    await this.sendStanzaWithAck(stanza, id);
+    return { messageId: id, timestampMs: Date.now(), directPath: uploaded.directPath, fileEncSHA256: encrypted.fields.fileEncSHA256.toString("base64") };
+  }
+
+  async sendGroupMedia(
+    groupJid: string,
+    media: Uint8Array | Buffer,
+    metadata: { fileName?: string; contentType?: string; width?: number; height?: number; seconds?: number; caption?: string; ptt?: boolean } = {}
+  ): Promise<{ messageId: string; timestampMs: number; directPath: string; fileEncSHA256: string }> {
+    await this.ready;
+    if (!groupJid.endsWith("@g.us")) throw new TypeError("A Messenger group JID ending in @g.us is required");
+    const participants = await this.getGroupParticipants(groupJid);
+    await this.refreshGroupMembership(groupJid, participants);
+    const kind = inferMessengerMediaType(metadata);
+    const encryptedMedia = encryptMessengerMedia(media, kind);
+    const config = await fetchMessengerMediaUploadConfig(this.options.socket);
+    const uploaded = await uploadMessengerMedia(config, encryptedMedia, kind);
+    const fields: MessengerMediaFields = {
+      ...encryptedMedia.fields, directPath: uploaded.directPath,
+      mimeType: metadata.contentType || (kind === "image" ? "image/jpeg" : kind === "video" ? "video/mp4" : kind === "audio" ? "audio/ogg" : "application/octet-stream"),
+      fileName: metadata.fileName, width: metadata.width, height: metadata.height,
+      seconds: metadata.seconds, caption: metadata.caption, ptt: metadata.ptt, objectId: uploaded.objectId
+    };
+    const { messageApp, frankingTag } = buildMessengerMediaApplication(fields);
+    const transport = makeTransport(messageApp);
+    const encryptedGroup = await this.groupKeys.encrypt(groupJid, this.local, transport);
+    const deviceJids: string[] = [];
+    for (const member of [...participants, `${this.local.name}.0@msgr`]) {
+      const user = jidAddress(member).name;
+      for (const device of await this.directory.listDevices(user)) {
+        if (!(device.name === this.local.name && device.deviceId === this.local.deviceId)) deviceJids.push(`${device.name}.${device.deviceId}@msgr`);
       }
     }
-    if (!envelopes.length) {
-      throw new AggregateError(failures.map((item) => item.error), "Could not deliver encrypted media to any Messenger peer device");
+    const unique = [...new Set(deviceJids)];
+    const id = randomMessageId();
+    const stanza = marshal(encodeNode("message", { to: groupJid, type: "text", id, phash: participantHash(unique) }, [
+      encodeNode("franking", {}, [encodeNode("franking_tag", {}, frankingTag)]),
+      encodeNode("trace", {}, [encodeNode("request_id", {}, Buffer.from(randomUUID().replace(/-/g, ""), "hex"))]),
+      encodeNode("enc", { v: "3", type: "skmsg" }, Buffer.from(encryptedGroup.body, "base64"))
+    ]));
+    await this.sendStanzaWithAck(stanza, id);
+    return { messageId: id, timestampMs: Date.now(), directPath: uploaded.directPath, fileEncSHA256: encryptedMedia.fields.fileEncSHA256.toString("base64") };
+  }
+
+  async downloadMessengerMedia(fields: MessengerMediaFields): Promise<Buffer> {
+    await this.ready;
+    const config = await fetchMessengerMediaUploadConfig(this.options.socket);
+    const url = /^https:\\/\\//i.test(fields.directPath)
+      ? new URL(fields.directPath)
+      : new URL(fields.directPath.startsWith("/") ? fields.directPath : `/${fields.directPath}`, `https://${config.host}`);
+    const host = url.hostname.toLowerCase();
+    if (!["facebook.com", "fbcdn.net", "fbsbx.com", "whatsapp.net"].some((suffix) => host === suffix || host.endsWith(`.${suffix}`))) {
+      throw new Error("Messenger media download host is not allowed");
     }
-    if (failures.length) this.emit("direct_media_partial_delivery", { peerId, delivered: envelopes.length, failed: failures });
-    return envelopes;
+    if (url.protocol !== "https:") throw new Error("Messenger media download requires HTTPS");
+    const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
+    if (!response.ok) throw new Error(`Messenger media download failed: HTTP ${response.status}`);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length > 100 * 1024 * 1024 + 1024) throw new Error("Messenger encrypted media exceeds the 100 MiB download limit");
+    return decryptMessengerMedia(bytes, fields);
   }
 
   receiveDirectMedia(
@@ -609,6 +744,22 @@ export class MessengerE2EEService extends EventEmitter {
     await this.options.socket.sendFrame(marshal(encodeNode("receipt", attrs, children)));
   }
 
+  private dispatchApplicationPayload(
+    messageApp: Buffer,
+    context: { id: string; threadId: string; senderJid: string; sender: SignalPeerAddress; timestampMs: number },
+    group: boolean
+  ): void {
+    const media = decodeMessengerMediaApplication(messageApp);
+    if (media) {
+      this.emit(group ? "group_media" : "direct_media", {
+        ...context, ...(group ? { groupId: context.threadId } : {}), media
+      });
+      return;
+    }
+    const text = decodeText(messageApp);
+    if (text !== undefined) this.dispatchApplicationText(text, context, group);
+  }
+
   private dispatchApplicationText(
     text: string,
     context: { id: string; threadId: string; senderJid: string; sender: SignalPeerAddress; timestampMs: number },
@@ -697,16 +848,13 @@ export class MessengerE2EEService extends EventEmitter {
         participantProcessed = true;
       }
       if (participantPayload.messageApp) {
-        const text = decodeText(participantPayload.messageApp);
-        if (text !== undefined) {
-          this.dispatchApplicationText(text, {
-            id: String(node.attrs.id || ""),
-            threadId: participantPayload.destinationJid || from,
-            senderJid, sender,
-            timestampMs: Number(node.attrs.t || Date.now()) * 1000
-          }, false);
-          participantProcessed = true;
-        }
+        this.dispatchApplicationPayload(participantPayload.messageApp, {
+          id: String(node.attrs.id || ""),
+          threadId: participantPayload.destinationJid || from,
+          senderJid, sender,
+          timestampMs: Number(node.attrs.t || Date.now()) * 1000
+        }, false);
+        participantProcessed = true;
       }
     }
     const mainEnc = list(node).find((child) => child.tag === "enc");
@@ -735,13 +883,10 @@ export class MessengerE2EEService extends EventEmitter {
       });
     }
     if (decoded.messageApp) {
-      const text = decodeText(decoded.messageApp);
-      if (text !== undefined) {
-        this.dispatchApplicationText(text, {
-          id: String(node.attrs.id || ""), threadId: from, senderJid, sender,
-          timestampMs: Number(node.attrs.t || Date.now()) * 1000
-        }, mainEnc.attrs.type === "skmsg");
-      }
+      this.dispatchApplicationPayload(decoded.messageApp, {
+        id: String(node.attrs.id || ""), threadId: from, senderJid, sender,
+        timestampMs: Number(node.attrs.t || Date.now()) * 1000
+      }, mainEnc.attrs.type === "skmsg");
     }
     const ackAttrs: Record<string, string> = { class: "message", id: String(node.attrs.id || ""), to: from };
     if (node.attrs.participant) ackAttrs.participant = String(node.attrs.participant);
