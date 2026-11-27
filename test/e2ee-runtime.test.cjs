@@ -62,7 +62,7 @@ function fakeSignal() {
     const runtime = await fca.createSignalE2EERuntime({
       accountId: "123456789", storagePath: path.join(directory, "account.signal"),
       encryptionKey: "this-is-a-test-secret-at-least-32-bytes", localDeviceId: 1,
-      signal: fakeSignal(), kyberPreKeyCount: 1, signedPreKeyRotationMs: 1
+      signal: fakeSignal(), kyberPreKeyCount: 1, signedPreKeyRotationMs: 30 * 24 * 60 * 60 * 1000
     });
     assert.equal(typeof runtime.directMessages.encrypt, "function");
     assert.equal(typeof runtime.directMessages.establishSession, "function");
@@ -79,13 +79,13 @@ function fakeSignal() {
     assert.equal(Object.hasOwn(runtime, "privateKey"), false);
     assert.equal(Object.hasOwn(runtime, "identityPrivateKey"), false);
     assert.deepEqual(runtime.store.listSignedPreKeyIds(), [1]);
-    const rotatedSignedPreKey = await runtime.rotateSignedPreKeyIfDue(Date.now() + 5);
+    const rotatedSignedPreKey = await runtime.rotateSignedPreKeyIfDue(Date.now() + 30 * 24 * 60 * 60 * 1000 + 10);
     assert.equal(rotatedSignedPreKey.keyId, 2, "expired signed prekey rotates to a new monotonic ID");
     assert.deepEqual(runtime.store.listSignedPreKeyIds(), [1, 2], "old signed prekey remains persisted during rotation");
     assert.deepEqual(runtime.signedPreKey, {
-      keyId: 1,
-      publicKey: runtime.store.loadSignedPreKey(1).publicKey,
-      signature: runtime.store.loadSignedPreKey(1).signature
+      keyId: 2,
+      publicKey: runtime.store.loadSignedPreKey(2).publicKey,
+      signature: runtime.store.loadSignedPreKey(2).signature
     });
     assert.equal(runtime.store.listPreKeyIds().length, 25);
     assert.equal(runtime.preKeys.length, 25);
