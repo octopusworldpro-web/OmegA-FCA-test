@@ -134,3 +134,14 @@ A documentation-only commit does not rerun or certify the source test suite. Che
 - Distinguish “login lifecycle invokes a configured helper” from “Facebook accepted the request”.
 - Distinguish “publisher can encode/send through an injected adapter” from “a live Messenger Noise transport is integrated”.
 - Do not reintroduce superseded Labyrinth backup/restore, key-transparency, alias-parity, or other older audit-list items into this four-Step plan unless the user explicitly changes the scope.
+
+
+### 2026-11-27 — Follow-up source audit
+
+- Rechecked the Step 1 scope against `bootstrap.ts`, `runtime.ts`, `signal-key-store.ts`, `libsignal-adapter.ts`, `login-integration.ts`, `login-helper.impl.ts`, and `state.ts`. The source contains automatic account-scoped local bootstrap, libsignal runtime initialization, persistent encrypted Signal state, authenticated FCA login lifecycle invocation, and fail-open handling.
+- Reviewed the repository tests `e2ee-bootstrap.test.cjs`, `e2ee-runtime-real.test.cjs`, `e2ee-login-integration.test.cjs`, `e2ee-runtime.test.cjs`, and `signal-key-store.test.cjs`. These test files cover local bootstrap/account isolation, real libsignal runtime and restart reuse, login integration/fail-open behavior, and encrypted store persistence. They are test coverage evidence only; they were not executed during this audit.
+- Step 2 source contains ICDC registration and WA-binary PreKey IQ helper code, but the normal FCA login path does not supply a native authenticated Messenger Noise IQ adapter. Mocked callback acknowledgement is not live server acceptance.
+- Step 3 source contains direct-message and group Signal primitives/orchestration, but native Messenger peer/bundle discovery and MQTT encrypted-envelope integration remain unverified.
+- Step 4 source contains direct/group media encryption and callback-based upload/download orchestration, but native Messenger media transport and real-device interoperability remain unverified.
+- **Verification limitation:** no test command was executed in this audit. The queried combined status for documentation commit `2a04b6cf87ac05ae41c22e1da6e6ff9ca8c8752e` returned an empty status list; this is not a passing CI result and does not validate the current source head.
+- **Conclusion:** retain Step 1 as verified complete only within its explicitly documented local-engine/FCA-login boundary. Steps 2–4 remain in progress. No live Facebook/Messenger acceptance or production-readiness claim is made.
