@@ -16,7 +16,7 @@ const runtime = {
   for (const field of ["iq", "s.whatsapp.net", "encrypt", "registration", "identity", "list", "key", "skey", "signature"]) {
     assert.ok(stanza.includes(Buffer.from(field)), `stanza contains ${field}`);
   }
-  assert.ok(stanza.includes(Buffer.from([0, 0, 0, 0x05])), "registration ID is encoded as uint32 big-endian");
+  assert.ok(stanza.includes(Buffer.from([0, 0, 0x30, 0x39])), "registration ID is encoded as uint32 big-endian");
   assert.ok(stanza.includes(Buffer.alloc(32, 1)), "identity public key is normalized to raw 32-byte form");
   assert.ok(stanza.includes(Buffer.alloc(32, 2)), "signed prekey is normalized to raw 32-byte form");
 
