@@ -1,4 +1,5 @@
 import { createSignalKeyStore, type SignalKeyStore } from "./signal-key-store";
+import { generateOmegAX25519KeyPair } from "./native-crypto";
 import {
   ensureSignalIdentity,
   createSignalSignedPreKey,
@@ -79,6 +80,17 @@ export async function createSignalE2EERuntime(options: SignalRuntimeOptions): Pr
 
   try {
     await ensureSignalIdentity(options.signal, store);
+    // Messenger Noise uses a separate long-lived X25519 static identity. Keep it
+    // account-scoped and encrypted at rest; never reuse the Signal identity key.
+    if (!store.getNoiseKeyPair()) {
+      const noiseKeyPair = generateOmegAX25519KeyPair();
+      await store.setNoiseKeyPair({
+        publicKey: noiseKeyPair.publicKey.toString("base64"),
+        privateKey: noiseKeyPair.privateKey.toString("base64")
+      });
+    }
+    const persistedNoiseKeyPair = store.getNoiseKeyPair();
+    if (!persistedNoiseKeyPair) throw new Error("Messenger Noise identity initialization failed");
     const persistedIdentity = store.getIdentityKeyPair();
     const registrationId = store.getRegistrationId();
     if (!persistedIdentity || registrationId === undefined) {
