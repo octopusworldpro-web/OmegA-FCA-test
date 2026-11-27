@@ -62,7 +62,7 @@ function fakeSignal() {
     const runtime = await fca.createSignalE2EERuntime({
       accountId: "123456789", storagePath: path.join(directory, "account.signal"),
       encryptionKey: "this-is-a-test-secret-at-least-32-bytes", localDeviceId: 1,
-      signal: fakeSignal(), kyberPreKeyCount: 1
+      signal: fakeSignal(), kyberPreKeyCount: 1, signedPreKeyRotationMs: 1
     });
     assert.equal(typeof runtime.directMessages.encrypt, "function");
     assert.equal(typeof runtime.directMessages.establishSession, "function");
@@ -79,6 +79,9 @@ function fakeSignal() {
     assert.equal(Object.hasOwn(runtime, "privateKey"), false);
     assert.equal(Object.hasOwn(runtime, "identityPrivateKey"), false);
     assert.deepEqual(runtime.store.listSignedPreKeyIds(), [1]);
+    const rotatedSignedPreKey = await runtime.rotateSignedPreKeyIfDue(Date.now() + 5);
+    assert.equal(rotatedSignedPreKey.keyId, 2, "expired signed prekey rotates to a new monotonic ID");
+    assert.deepEqual(runtime.store.listSignedPreKeyIds(), [1, 2], "old signed prekey remains persisted during rotation");
     assert.deepEqual(runtime.signedPreKey, {
       keyId: 1,
       publicKey: runtime.store.loadSignedPreKey(1).publicKey,
@@ -86,6 +89,11 @@ function fakeSignal() {
     });
     assert.equal(runtime.store.listPreKeyIds().length, 25);
     assert.equal(runtime.preKeys.length, 25);
+    await runtime.store.removePreKey(1);
+    const replenished = await runtime.replenishPreKeys();
+    assert.equal(replenished.length, 25);
+    assert.equal(replenished.some((item) => item.keyId === 1), false);
+    assert.equal(replenished.some((item) => item.keyId === 26), true, "replenishment allocates a never-reused prekey ID");
     const runtimePreKeys = runtime.preKeys;
     assert.equal(runtime.kyberPreKeys.length, 1);
     const runtimeKyberPreKeys = runtime.kyberPreKeys;
@@ -98,6 +106,7 @@ function fakeSignal() {
     });
     assert.equal(restored.store.listPreKeyIds().length, 25);
     assert.deepEqual(restored.signedPreKey, runtime.signedPreKey);
+    assert.deepEqual(restored.store.listSignedPreKeyIds(), [1, 2]);
     assert.equal(restored.registrationId, runtime.registrationId);
     assert.equal(restored.identityKey, runtime.identityKey);
     assert.deepEqual(restored.store.getNoiseKeyPair(), noiseIdentity);
