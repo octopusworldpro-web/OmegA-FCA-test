@@ -23,7 +23,7 @@ export interface FcaOptions {
     signedPreKeyId?: number;
     /** Facebook ICDC registration parameters; omitted means local-only E2EE bootstrap. */
     facebook?: {
-      appId: string;
+      appId?: string;
       /** Optional CAT override; normally fetched from the authenticated FCA session. */
       fbCat?: string;
       deviceId?: string;

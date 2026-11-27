@@ -2,6 +2,9 @@ import { createHash, randomUUID } from "node:crypto";
 import type { SignalKeyStore } from "./signal-key-store";
 
 type Dynamic = any;
+
+/** Unofficial Messenger ICDC application ID used by the audited reference implementation. */
+export const FACEBOOK_E2EE_APP_ID = "256002347743983";
 type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 export interface FacebookE2EERegistrationOptions {

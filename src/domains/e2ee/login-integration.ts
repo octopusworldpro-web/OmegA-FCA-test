@@ -8,7 +8,7 @@ import { connectMessengerNoiseSocket, type MessengerNoiseSocket } from "./messen
 export interface E2EELoginOptions extends E2EEBootstrapOptions {
   enabled?: boolean;
   signedPreKeyId?: number;
-  facebook?: { appId: string; fbCat?: string; deviceId?: string; force?: boolean; sendIQ?: FacebookE2EESendIQ };
+  facebook?: { appId?: string; fbCat?: string; deviceId?: string; force?: boolean; sendIQ?: FacebookE2EESendIQ };
 }
 export type E2EELoginResult =
   | { status: "disabled"; runtime: null }
@@ -72,7 +72,7 @@ export async function initializeE2EEForLogin(
       deviceRegistration = await registerDevice({
         fbid: accountId,
         fbCat,
-        appId: options.facebook.appId,
+        appId: options.facebook.appId || FACEBOOK_E2EE_APP_ID,
         cookies: session.cookies,
         userAgent: session.userAgent,
         signal: bootstrap.signal,
