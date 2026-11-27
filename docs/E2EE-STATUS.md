@@ -208,3 +208,24 @@ See [E2EE-ROADMAP.md](E2EE-ROADMAP.md) for the only approved four-Step checklist
 - No authorized live Facebook account was used. ICDC acceptance and server IQ acknowledgement remain unverified against Facebook.
 
 **Step 2 status: In progress — NOT complete.** The acknowledgement/retry groundwork is now implemented and tested in source-level tests, but the missing authenticated Noise transport and automatic login integration still prevent the full Step 2 acceptance criteria from being met.
+
+
+## 2026-11-27 — Follow-up reference and transport security review
+
+The remaining Step 2 transport work was re-investigated against the public Messenger implementations:
+
+- `bhhoang/fbapi-unofficial` (MIT) confirms the CAT GraphQL document ID, Messenger E2EE app ID, E2EE WebSocket endpoint, ICDC request fields, and the `encrypt` IQ shape. Its Noise implementation does not expose a certificate-chain verification step.
+- `HerokeyVN/FB-Messenger-E2EE` (AGPL-3.0) contains a Messenger Noise XX transport implementation, but its `verifyCertChain()` function is explicitly a placeholder/TODO and does not validate the server certificate chain. The reviewed socket also logs sensitive ephemeral private-key material. This implementation is therefore not safe to transplant as a production transport without replacing and independently validating those sections.
+- The public references do not provide evidence that the current OmegA-FCA login MQTT socket is itself an authenticated Messenger E2EE Noise channel. MQTT JSON traffic cannot be adapted into a Noise IQ transport.
+
+**No unverified Noise socket, certificate bypass, or guessed server ACK has been added.** A transport that skips server certificate verification would expose the E2EE session to an active man-in-the-middle and would not meet the security requirement.
+
+### Remaining acceptance blockers
+
+1. Implement a Messenger Noise XX handshake with verified server certificate chain, correct client payload, framed AES-GCM transport, and IQ response correlation; add protocol-vector tests.
+2. Wire CAT retrieval using the authenticated FCA request/session and automatically invoke ICDC registration with the confirmed app ID.
+3. Attach the Noise transport to the authenticated Messenger E2EE endpoint; publish and verify EC one-time and signed prekeys through the real IQ channel.
+4. Add server-side prekey-count query and bounded replenishment, plus a safe signed-prekey rotation/retirement policy that preserves old keys while active sessions may still reference them.
+5. Run an authorized live-account registration and prekey acceptance test.
+
+**Status remains: Step 2 In progress — NOT complete.** The source-level ACK persistence and duplicate-upload changes from the preceding implementation remain in place. This follow-up review found that the available reference Noise implementations are not sufficient evidence for a secure production transport; the missing acceptance items above are not marked complete.
