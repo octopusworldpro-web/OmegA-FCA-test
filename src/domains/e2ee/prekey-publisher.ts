@@ -84,7 +84,6 @@ export function buildFacebookPreKeyUpload(runtime: SignalE2EERuntime, id = `pk-$
   if (identity.length !== 32 || signedPublic.length !== 32 || signedSignature.length !== 64) {
     throw new Error("Signal identity/signed-prekey bundle has an unexpected libsignal encoding");
   }
-  if (!runtime.preKeys.length) throw new Error("At least one one-time prekey is required for initial Messenger publication");
   const registration = Buffer.alloc(4);
   registration.writeUInt32BE(runtime.registrationId);
   const children = [
@@ -103,13 +102,33 @@ export function buildFacebookPreKeyUpload(runtime: SignalE2EERuntime, id = `pk-$
 }
 
 /** Sends the prekey IQ over an already authenticated Messenger Noise socket and requires an IQ result acknowledgement. */
-export async function publishFacebookPreKeys(runtime: SignalE2EERuntime, sendIQ: FacebookE2EESendIQ): Promise<{ id: string; uploaded: number }> {
+export async function publishFacebookPreKeys(
+  runtime: SignalE2EERuntime,
+  sendIQ: FacebookE2EESendIQ
+): Promise<{ id: string; uploaded: number; skipped?: boolean }> {
   if (typeof sendIQ !== "function") throw new TypeError("An authenticated Messenger Noise sendIQ transport is required");
+
+  // A persisted IQ result is the only event that marks keys as published.
+  // On restart, never resend the full local key store: only unacknowledged
+  // one-time keys are eligible for upload.
+  const unpublishedIds = runtime.store.listUnpublishedPreKeyIds();
+  const unpublishedSet = new Set(unpublishedIds);
+  const pendingPreKeys = runtime.preKeys.filter((key) => unpublishedSet.has(key.keyId));
+  const signedPreKeyPending = !runtime.store.isSignedPreKeyPublished(runtime.signedPreKey.keyId);
+  if (pendingPreKeys.length === 0 && !signedPreKeyPending) {
+    return { id: "", uploaded: 0, skipped: true };
+  }
+
   const id = `pk-${randomUUID()}`;
-  const response = await sendIQ(buildFacebookPreKeyUpload(runtime, id), id);
+  const uploadRuntime = { ...runtime, preKeys: pendingPreKeys };
+  const response = await sendIQ(buildFacebookPreKeyUpload(uploadRuntime, id), id);
   if (!response || response.tag !== "iq" || response.attrs?.id !== id || response.attrs?.type !== "result") {
     const reason = response?.attrs?.type || "missing/invalid IQ result";
     throw new Error(`Messenger rejected or did not acknowledge prekey publication: ${reason}`);
   }
-  return { id, uploaded: runtime.preKeys.length };
+
+  const acknowledgedAt = Date.now();
+  await runtime.store.markPreKeysPublished(unpublishedIds, acknowledgedAt);
+  await runtime.store.markSignedPreKeyPublished(runtime.signedPreKey.keyId, acknowledgedAt);
+  return { id, uploaded: pendingPreKeys.length };
 }
