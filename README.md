@@ -233,7 +233,7 @@ The compatibility audit is still in progress. integrating bot's `sessionGuard()`
 
 ## <img src="https://img.shields.io/badge/07-E2EE%20STATUS-607D8B?style=flat-square" /> End-to-end encryption status
 
-The uploaded source archive does **not** contain a Messenger E2EE implementation, Signal Protocol session store, Group Sender Keys, or SKDM implementation. OmegA-FCA does not claim encrypted one-to-one or group messaging support in this release. These capabilities require separate implementation and testing.
+The source now contains **E2EE implementation foundations**, including an account-scoped local Signal runtime, encrypted Signal state storage, conditional Facebook ICDC registration helpers, a prekey-publishing helper, direct/group messaging primitives, and media cryptography helpers. These components do **not** establish complete native Messenger E2EE interoperability: live device registration and prekey publication, native peer/bundle exchange, MQTT encrypted-envelope integration, and native media transport still require verification. See [the canonical E2EE roadmap](docs/E2EE-ROADMAP.md) and [current implementation status](docs/E2EE-STATUS.md).
 
 ## <img src="https://img.shields.io/badge/08-DEVELOPMENT-00B8D9?style=flat-square" /> Development & checks
 
