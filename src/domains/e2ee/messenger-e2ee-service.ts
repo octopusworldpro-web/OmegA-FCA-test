@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { encodeNode, marshal, type Node } from "./messenger-binary";
 import type { MessengerNoiseSocket } from "./messenger-noise-socket";
@@ -116,6 +116,14 @@ function decodeText(messageApp: Buffer): string | undefined {
   return messageText ? fieldString(readProto(messageText), 1) : undefined;
 }
 function randomMessageId(): string { return String(BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000))); }
+function toADString(jid: string): string {
+  const parsed = jidAddress(jid);
+  return `${parsed.name}.0:${parsed.deviceId}@msgr`;
+}
+function participantHash(jids: string[]): string {
+  const normalized = [...jids].map(toADString).sort();
+  return `2:${createHash("sha256").update(normalized.join("")).digest().subarray(0, 6).toString("base64").replace(/=+$/, "")}`;
+}
 
 export interface MessengerE2EEMessageEvent {
   id: string;
@@ -197,6 +205,7 @@ export class MessengerE2EEService extends EventEmitter {
     if (typeof text !== "string" || !text.length) throw new TypeError("E2EE text must be non-empty");
     if (!/^\d+$/.test(peerId)) throw new TypeError("Messenger peer ID must be numeric");
     const peerDevices = await this.peers.preparePeer(peerId);
+    await this.peers.preparePeer(this.local.name);
     const ownDevices = await this.directory.listDevices(this.local.name);
     const all = [...peerDevices, ...ownDevices].filter((d) => !(d.name === this.local.name && d.deviceId === this.local.deviceId));
     if (!all.length) throw new Error("No remote Messenger E2EE devices were discovered");
@@ -240,7 +249,7 @@ export class MessengerE2EEService extends EventEmitter {
       }
     }
     const unique = [...new Set(deviceJids)];
-    const phash = createHmac("sha256", Buffer.alloc(0)).update(unique.join(",")).digest("hex").slice(0, 16);
+    const phash = participantHash(unique);
     const id = randomMessageId();
     const stanza = marshal(encodeNode("message", { to: groupJid, type: "text", id, phash }, [
       encodeNode("franking", {}, [encodeNode("franking_tag", {}, frankingTag)]),
@@ -256,9 +265,36 @@ export class MessengerE2EEService extends EventEmitter {
     if (node.tag !== "message") { this.emit("raw", node); return; }
     const senderJid = String(node.attrs.participant || node.attrs.from || "");
     const from = String(node.attrs.from || senderJid);
-    const mainEnc = findNode(node, "enc");
-    if (!mainEnc || !Buffer.isBuffer(mainEnc.content)) return;
     const sender = jidAddress(senderJid);
+    const participantNode = list(node).find((child) => child.tag === "participants");
+    let participantProcessed = false;
+    for (const recipientNode of list(participantNode)) {
+      if (recipientNode.tag !== "to" || typeof recipientNode.attrs.jid !== "string") continue;
+      const target = jidAddress(String(recipientNode.attrs.jid));
+      if (target.name !== this.local.name || target.deviceId !== this.local.deviceId) continue;
+      const participantEnc = list(recipientNode).find((child) => child.tag === "enc");
+      if (!participantEnc || !Buffer.isBuffer(participantEnc.content)) continue;
+      const type = participantEnc.attrs.type === "pkmsg"
+        ? (this.options.signal as any).CiphertextMessageType.PreKey
+        : (this.options.signal as any).CiphertextMessageType.Whisper;
+      const dm = await this.options.runtime.directMessages.decrypt(sender, {
+        type, body: Buffer.from(participantEnc.content).toString("base64")
+      });
+      const participantPayload = decodeTransport(Buffer.from(dm));
+      if (participantPayload.skdm) {
+        await this.options.runtime.groups.processDistribution({
+          groupId: participantPayload.skdm.groupId, sender, body: participantPayload.skdm.bytes.toString("base64")
+        });
+        participantProcessed = true;
+      }
+    }
+    const mainEnc = list(node).find((child) => child.tag === "enc");
+    if (!mainEnc || !Buffer.isBuffer(mainEnc.content)) {
+      if (participantProcessed && node.attrs.id) {
+        await this.options.socket.sendFrame(marshal(encodeNode("ack", { class: "message", id: String(node.attrs.id), to: from })));
+      }
+      return;
+    }
     let plaintext: Buffer;
     if (mainEnc.attrs.type === "skmsg") {
       const groupCipher = { groupId: from, sender, body: Buffer.from(mainEnc.content).toString("base64") };
