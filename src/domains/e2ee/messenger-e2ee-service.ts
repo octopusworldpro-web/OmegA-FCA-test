@@ -6,6 +6,9 @@ import type { SignalE2EERuntime } from "./runtime";
 import { MessengerPeerDirectory, createMessengerSignalPeerManager } from "./messenger-peer-directory";
 import { createSignalGroupKeyManager } from "./group-key-manager";
 import type { SignalPeerAddress } from "./direct-messages";
+import { createSignalEncryptedDirectMediaMessaging, type EncryptedDirectMediaEnvelope } from "./direct-media-messaging";
+import { createSignalEncryptedGroupMedia } from "./encrypted-group-media";
+import { createSignalEncryptedGroupMediaMessaging, type EncryptedGroupMediaMessageEnvelope } from "./group-media-messaging";
 
 class ProtoWriter {
   private chunks: Buffer[] = [];
@@ -167,6 +170,8 @@ export class MessengerE2EEService extends EventEmitter {
   private unsubscribeClose: () => void = () => {};
   readonly ready: Promise<void>;
   private readonly groupKeys: ReturnType<typeof createSignalGroupKeyManager>;
+  private readonly directMedia: ReturnType<typeof createSignalEncryptedDirectMediaMessaging>;
+  private readonly groupMedia: ReturnType<typeof createSignalEncryptedGroupMediaMessaging>;
   private readonly pendingMessageAcks = new Map<string, { resolve: () => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout>; stanza: Buffer; attempts: number }>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
@@ -199,6 +204,15 @@ export class MessengerE2EEService extends EventEmitter {
         const encrypted = await options.runtime.directMessages.encrypt(recipient, transport);
         await this.sendDirectCiphertext(recipient, encrypted.type, Buffer.from(encrypted.body, "base64"));
       }
+    });
+    this.directMedia = createSignalEncryptedDirectMediaMessaging({
+      signal: options.runtime.directMessages,
+      sendEnvelope: async (peerId, envelope) => { await this.sendDirectText(peerId, JSON.stringify(envelope)); }
+    });
+    const groupMediaEngine = createSignalEncryptedGroupMedia(options.runtime.groups);
+    this.groupMedia = createSignalEncryptedGroupMediaMessaging({
+      media: groupMediaEngine,
+      sendEnvelope: async (groupId, envelope) => { await this.sendGroupText(groupId, JSON.stringify(envelope)); }
     });
     this.attachSocket(options.socket);
     this.ready = this.startup();
@@ -418,6 +432,46 @@ export class MessengerE2EEService extends EventEmitter {
         pending.reject(error instanceof Error ? error : new Error(String(error)));
       }
     });
+  }
+
+  async sendDirectMedia(
+    peerId: string,
+    media: Uint8Array | Buffer,
+    upload: (ciphertext: Buffer, metadata: { fileName: string; contentType: string }) => Promise<unknown>,
+    metadata: { fileName?: string; contentType?: string } = {}
+  ): Promise<EncryptedDirectMediaEnvelope> {
+    await this.ready;
+    const remote = { name: peerId, deviceId: 1 };
+    await this.peers.preparePeer(peerId);
+    return this.directMedia.send(peerId, remote, media, upload, metadata);
+  }
+
+  receiveDirectMedia(
+    envelope: unknown,
+    remote: SignalPeerAddress,
+    download: (upload: unknown, descriptor: any) => Promise<Uint8Array | Buffer>
+  ): Promise<Buffer> {
+    return this.directMedia.receive(envelope, remote, download);
+  }
+
+  async sendGroupMedia(
+    groupJid: string,
+    media: Uint8Array | Buffer,
+    upload: (ciphertext: Buffer, metadata: { fileName: string; contentType: string }) => Promise<unknown>,
+    metadata: { fileName?: string; contentType?: string } = {}
+  ): Promise<EncryptedGroupMediaMessageEnvelope> {
+    await this.ready;
+    const participants = await this.getGroupParticipants(groupJid);
+    await this.refreshGroupMembership(groupJid, participants);
+    return this.groupMedia.send(groupJid, this.local, media, upload, metadata);
+  }
+
+  receiveGroupMedia(
+    envelope: unknown,
+    download: (descriptor: any, upload: unknown) => Promise<Uint8Array | Buffer>,
+    expected?: { groupId?: string; sender?: SignalPeerAddress }
+  ): Promise<Buffer> {
+    return this.groupMedia.receive(envelope, download, expected);
   }
 
   async sendDirectText(peerId: string, text: string): Promise<string> {
