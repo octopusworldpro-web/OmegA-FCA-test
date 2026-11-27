@@ -1,6 +1,6 @@
 # OmegA-FCA — Canonical E2EE Completion Plan
 
-**Version:** `0.2.3-beta.3`  
+**Version:** `0.2.3-beta.5`  
 **Branch:** `feature/release-0.2.3-beta.3`  
 **Authority:** This is the single source of truth for E2EE scope, acceptance criteria, and progress. The plan contains exactly four Steps. Older E2EE task lists and previous multi-step checklists are superseded.
 

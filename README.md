@@ -7,10 +7,10 @@
 </p>
 
 <p>
-  <img src="https://img.shields.io/badge/VERSION-0.2.2-7C3AED?style=for-the-badge&logo=semver&logoColor=white" alt="Version 0.2.2" />
+  <img src="https://img.shields.io/badge/VERSION-0.2.3--beta.5-7C3AED?style=for-the-badge&logo=semver&logoColor=white" alt="Version 0.2.3-beta.5" />
   <img src="https://img.shields.io/badge/NODE.JS-20%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js 20+" />
   <img src="https://img.shields.io/badge/LICENSE-AGPL--3.0--or--later-EA580C?style=for-the-badge" alt="AGPL-3.0-or-later" />
-  <img src="https://img.shields.io/badge/STATUS-Stable-16A34A?style=for-the-badge&logo=githubactions&logoColor=white" alt="Stable release" />
+  <img src="https://img.shields.io/badge/STATUS-Beta%20Pre-release-F59E0B?style=for-the-badge&logo=githubactions&logoColor=white" alt="Beta pre-release" />
 </p>
 
 <p>
@@ -57,9 +57,9 @@
 | | Details |
 |:--|:--|
 | **Package** | `@nirzon-islam/omega-fca` |
-| **Current version** | `0.2.2` |
+| **Current version** | `0.2.3-beta.5` |
 | **Runtime** | Node.js 20+ |
-| **License** | Apache-2.0 |
+| **License** | AGPL-3.0-or-later |
 | **Target bot** | the integrating bot |
 
 <div align="center">
@@ -227,13 +227,13 @@ The intended integration target is **the integrating bot**.
 
 The goal is a drop-in FCA experience: preserve the bot's existing login pattern, callback/event lifecycle and expected `api` methods, so the bot can use the npm package without an extra bridge or a separate login system.
 
-The compatibility audit is still in progress. integrating bot's `sessionGuard()` / `stopSessionGuard()` API is implemented with account-bound atomic AppState snapshots; its live session-refresh behavior still needs runtime validation. The `e2ee` API remains unimplemented. Do not replace the bot's current FCA dependency until the compatibility matrix and bot-side regression tests confirm the required methods and lifecycle behavior.
+The compatibility audit is still in progress. integrating bot's `sessionGuard()` / `stopSessionGuard()` API is implemented with account-bound atomic AppState snapshots; its live session-refresh behavior still needs runtime validation. The native `api.e2ee` surface is implemented in OmegA-FCA; integration-target acceptance and live Messenger compatibility remain separate validation items. Do not replace the bot's current FCA dependency until the compatibility matrix and bot-side regression tests confirm the required methods and lifecycle behavior.
 
 - [integrating bot Compatibility Notes](docs/GOATBOT-COMPATIBILITY.md)
 
 ## <img src="https://img.shields.io/badge/07-E2EE%20STATUS-607D8B?style=flat-square" /> End-to-end encryption status
 
-The source now contains **E2EE implementation foundations**, including an account-scoped local Signal runtime, encrypted Signal state storage, conditional Facebook ICDC registration helpers, a prekey-publishing helper, direct/group messaging primitives, and media cryptography helpers. These components do **not** establish complete native Messenger E2EE interoperability: live device registration and prekey publication, native peer/bundle exchange, MQTT encrypted-envelope integration, and native media transport still require verification. See [the canonical E2EE roadmap](docs/E2EE-ROADMAP.md) and [current implementation status](docs/E2EE-STATUS.md).
+The source includes an opt-in native Messenger E2EE path: account-scoped Signal state, authenticated CAT/ICDC and Noise key-sync integration, peer-device discovery, direct/group encrypted text, durable encrypted outbox recovery, Sender Key rotation, and native encrypted image/video/audio/document media transport. **Steps 1–4 are verified complete for offline source, integration, fixture, and CI scope.** Live Facebook device, message, and media-CDN interoperability remains deferred and unverified; this beta does not claim live E2EE acceptance or production readiness. See [the canonical E2EE roadmap](docs/E2EE-ROADMAP.md) and [current implementation status](docs/E2EE-STATUS.md).
 
 ## <img src="https://img.shields.io/badge/08-DEVELOPMENT-00B8D9?style=flat-square" /> Development & checks
 
@@ -254,16 +254,16 @@ The test suite contains synthetic checks and an optional live-login test that is
 
 | Area | Status |
 |:--|:--:|
-| Source integration | In progress |
-| Build & automated validation | CI passed (Node 20) |
+| Core source integration | Implemented; live acceptance pending |
+| Build & automated validation | CI validation required for this beta.5 commit (Node 20/22) |
 | FCA API compatibility | In progress |
 | OmegA-integrating bot integration | Pending acceptance tests |
 | Authorized Facebook live login | Not yet verified |
-| Native E2EE | Not implemented |
+| Native E2EE | Offline source/fixture scope complete; live interoperability unverified |
 
 </div>
 
-**OmegA-FCA 0.2.2 is a stable package release**, while compatibility with every FCA fork is not guaranteed. Automated CI validates dependency audit, build/tests, typecheck, lint, and package dry-run on Node.js 20. Authorized live Facebook login and full integrating bot acceptance testing remain separate validation items; native Messenger E2EE is not implemented.
+**OmegA-FCA 0.2.3-beta.5 is a beta pre-release, not a stable production release.** Compatibility with every FCA fork is not guaranteed. The beta.5 release commit must pass dependency/security audit, build and full tests, TypeScript, lint, and package dry-run on Node.js 20 and 22. Authorized live Facebook login, integrating-bot acceptance, and native Messenger E2EE interoperability remain separate validation items.
 
 ## <img src="https://img.shields.io/badge/10-SOURCE%20%26%20CREDITS-7B2FF7?style=flat-square" /> Source & attribution
 

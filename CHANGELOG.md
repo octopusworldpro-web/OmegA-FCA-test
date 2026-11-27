@@ -15,6 +15,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [0.2.3-beta.5] - 2026-11-28
+
+### Added
+
+- Complete the four-step native Messenger E2EE implementation for the documented offline source, integration, deterministic-fixture, and CI scope.
+- Add authenticated Messenger Noise/WA-binary transport, peer-device discovery, direct and group encrypted text, durable encrypted outbox recovery, acknowledgement/retry handling, and Sender Key rotation.
+- Add native encrypted image, video, audio/voice, and document media crypto, upload, message payload, receive, and integrity-checked download paths.
+
+### Changed
+
+- Synchronize package and lockfile versions for the beta.5 candidate.
+- Correct README release status, license metadata, and E2EE implementation boundaries.
+- Expand CI validation to Node.js 20 and 22 and document the beta.5 release gates.
+
+### Validation notes
+
+- The preceding branch head passed the configured CI pipeline; the exact beta.5 release commit must pass the expanded Node.js 20/22 matrix before tagging or publishing.
+- Live Facebook/Messenger device, message, and media-CDN interoperability remains deferred and unverified. This beta does not claim production readiness.
+
+## [0.2.3-beta.4] - 2026-11-26
+
+### Changed
+
+- Synchronize beta.4 package metadata, README release information, and project documentation.
+- Add the beta.4 pre-release checklist and restore the release documentation set.
+
+### Validation notes
+
+- The beta.4 release record reports passing dependency/security audit, build/tests, TypeScript, lint, and package dry run.
+- Live Facebook/Messenger interoperability remains a separate authorized runtime check.
+
+## [0.2.3-beta.3] - 2026-11-25
+
+### Added / Changed
+
+- Improve Humanizer command-only detection, command-prefix and alias handling, and admin-only no-prefix commands.
+- Improve automatic seen/read receipts and per-thread queue/cooldown behavior.
+- Synchronize beta.3 package metadata and release documentation.
+
+---
+
 ## [0.2.3-beta.2] - 2026-11-25
 
 ### Fixed
