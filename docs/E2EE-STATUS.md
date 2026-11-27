@@ -8,26 +8,26 @@ This file records source-level implementation evidence and its limits. The four-
 
 ## Overall
 
-**Step 1 is verified complete for local Signal runtime and FCA login lifecycle integration. Step 2 is verified complete for the user-approved offline source/fixture scope. Steps 3–4 remain in progress. Live Facebook/Messenger interoperability is not established or claimed.**
+**Step 1 is verified complete for local Signal runtime and FCA login lifecycle integration. Step 2 is verified complete for the user-approved offline source/fixture scope. Step 3's offline implementation now includes persistent outbox recovery and automatic group member/device-change key rotation; CI verification and authorized live acceptance remain distinct gates. Step 4 remains in progress. Live Facebook/Messenger interoperability is not established or claimed.**
 
 | Step | Status | Implemented evidence | Main remaining work |
 |---|---|---|---|
 | 1. E2EE Engine & Login Integration | Verified complete (local boundary) | Pinned libsignal 0.70.0; authenticated UID validation; account-local bootstrap and encrypted store; automatic identity/device metadata; restart support; fail-open login integration | No remaining work within the stated local-engine/login boundary. Do not interpret this as server registration or native Messenger support |
 | 2. Facebook Device Registration & Key Sync | Verified complete — offline scope | Automatic CAT retrieval; default ICDC registration/reuse; authenticated Noise XX WebSocket key-sync transport; strict certificate verifier; encrypted frames and IQ correlation; persisted acknowledgements; monotonic prekey IDs; replenishment/rotation; bounded retries and restart recovery; offline fixtures and CI pass | Live Facebook acceptance was explicitly waived and is not claimed; no captured valid live certificate chain; long-lived encrypted message events/MQTT belong to Step 3; no verified Kyber upload format |
-| 3. E2EE Messaging & Group System | Source implementation complete — offline scope; live acceptance pending | Native Noise WA-binary dispatcher; Messenger device/prekey discovery; libsignal direct text fanout/receive; Sender Key/SKDM group text send/receive; ack/retry/dedup; CAT-refresh reconnect and in-memory encrypted outbox replay; FCA API exposure | Authorized live cross-device acceptance; automatic membership-change notifications; process-restart outbox; real receipts/order/replay validation |
+| 3. E2EE Messaging & Group System | Offline implementation updated; CI/live acceptance pending | Native Noise WA-binary dispatcher; Messenger device/prekey discovery; direct/group encrypted text; ACK/retry/dedup; CAT-refresh reconnect; encrypted outbox persisted before send and replayed after restart until ACK; persisted group member/device snapshots and automatic Sender Key rotation on change during group send/reconnect; FCA API exposure | Current CI verification; authorized live cross-device acceptance; real receipts/order/replay validation |
 | 4. Encrypted Media & Full Compatibility Test | In progress | Direct/group media crypto helpers and application-level group-media orchestration | Native Messenger media upload/download, real media interoperability, EryXen comparison, authorized real-account acceptance |
 
 ## Implemented components and boundaries
 
 - `src/domains/e2ee/bootstrap.ts`: creates account-scoped local identity metadata and automatically generates/reuses a local encryption key and device ID. No E2EE environment variable or manual key setup is required for the default local bootstrap.
-- `src/domains/e2ee/signal-key-store.ts`: encrypted persistence for Signal identity/session/prekey/group state and device metadata.
+- `src/domains/e2ee/signal-key-store.ts`: encrypted persistence for Signal identity/session/prekey/group state, device metadata, pending Messenger ciphertext stanzas, and group member/device snapshots.
 - `src/domains/e2ee/libsignal-adapter.ts`: adapter boundary for the selected libsignal implementation.
 - `src/domains/e2ee/runtime.ts`: initializes local Signal identity, signed prekey, one-time EC prekeys, and Kyber prekeys when the installed libsignal module supports KEM generation. Runtime comments explicitly limit this to local identity/prekey initialization.
 - `src/domains/e2ee/messenger-cat.ts`: obtains CAT from the authenticated FCA GraphQL session; the unofficial document ID is version-sensitive and CAT is refreshed before transient connection retries.
 - `src/domains/e2ee/messenger-noise.ts` and `messenger-noise-socket.ts`: Noise XX handshake, pinned certificate-chain verification, X25519/HKDF/AES-GCM framing, Messenger WebSocket setup, full WA-binary decoding, long-lived node dispatch, IQ response correlation, and reconnect-safe frame reads.
 - `src/domains/e2ee/messenger-binary/`: attributed WA-binary token tables, recursive decoder, encoder, and marshal/unmarshal helpers.
 - `src/domains/e2ee/messenger-peer-directory.ts`: native Messenger device-directory and encrypt-IQ bundle retrieval, libsignal PreKeyBundle conversion, and reusable peer manager.
-- `src/domains/e2ee/messenger-e2ee-service.ts`: direct text fanout/receive, group Sender Key/SKDM text flow, stanza acknowledgements, retry receipts, duplicate suppression, group membership rotation hook, Noise reconnect, and in-memory encrypted stanza replay.
+- `src/domains/e2ee/messenger-e2ee-service.ts`: direct text fanout/receive, group Sender Key/SKDM text flow, stanza acknowledgements, retry receipts, duplicate suppression, durable encrypted outbox replay across process restart, and automatic group member/device-change snapshot checks with Sender Key rotation on group sends/reconnect.
 - `src/domains/e2ee/login-integration.ts`: opt-in login lifecycle. It initializes local Signal state, automatically obtains CAT, performs ICDC registration/reuse, opens the default Noise key-sync socket, and publishes pending prekeys. An explicit `facebook.sendIQ` override remains available for tests/custom transports.
 - `src/core/login-helper.impl.ts`: invokes E2EE after authenticated UID validation and ordinary FCA/MQTT setup, passing active cookies, user agent, and fb_dtsg to the CAT request adapter. E2EE failures remain fail-open for ordinary FCA login.
 - `src/core/state.ts`: exposes opt-in E2EE configuration. Facebook `appId` and `fbCat` are optional overrides; standard login uses the audited default app ID and automatically fetches CAT.
@@ -401,3 +401,13 @@ GitHub Actions runs [45990589918](https://github.com/octopusworldpro-web/OmegA-F
 - Offline tests added: `e2ee-messenger-binary.test.cjs`, `e2ee-messenger-peer-directory.test.cjs`, `e2ee-messenger-reconnect.test.cjs`, and `e2ee-messenger-send.test.cjs` (direct/group send and inbound decrypt event).
 - CI run [46039184482](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46039184482) for source head `1a5b461ad41be89db50c8c41d9fd2383cbb4559d` passed dependency/security audit, build and tests, TypeScript check, lint, and package dry run.
 - **Limitations:** no authorized live Messenger account or cross-device round-trip was available; membership rotation is currently explicitly invoked through `syncGroupMembership`; outbox persistence across process restart and media remain unimplemented (media belongs to Step 4). Step 3 is therefore **not marked Verified complete**.
+
+
+## 2026-11-27 — Step 3 durable recovery and automatic group rotation update
+
+- Added backward-compatible optional fields to the encrypted Signal store for pending Messenger stanzas and group member/device snapshots.
+- The service persists each encrypted stanza before network transmission, restores unacknowledged stanzas after process restart/reconnect, and removes durable entries after matching ACKs.
+- Group sends and reconnect recovery re-discover group participants and their devices. A changed member/device snapshot triggers Sender Key rotation and SKDM redistribution; snapshots are saved for subsequent comparisons.
+- Added focused persistence, process-restart replay, and device-change rotation tests.
+- CI run [46042120567](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46042120567) was pending at documentation time. Validation must be updated after it completes.
+- No authorized live Messenger account or cross-device acceptance test was available/performed. No live interoperability claim is made; media remains Step 4.
