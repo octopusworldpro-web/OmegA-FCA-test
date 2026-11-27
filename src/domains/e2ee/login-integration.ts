@@ -117,7 +117,7 @@ export async function initializeE2EEForLogin(
         noiseSocket = connectedNoiseSocket;
         preKeyPublication = await publishFacebookPreKeys(runtime, connectedNoiseSocket.sendIQ.bind(connectedNoiseSocket));
       }
-      if (noiseSocket && deviceRegistration) {
+      if (noiseSocket && deviceRegistration && typeof noiseSocket.onNode === "function" && typeof noiseSocket.onClose === "function") {
         messenger = new MessengerE2EEService({
           accountId,
           localDeviceId: deviceRegistration.waDeviceId,
