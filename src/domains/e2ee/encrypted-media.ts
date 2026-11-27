@@ -30,13 +30,30 @@ function decode(value: string, label: string): Buffer {
   if (typeof value !== "string" || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) throw new TypeError(`${label} must be valid base64`);
   return Buffer.from(value, "base64");
 }
+export interface SignalMediaKeyWrapper {
+  encrypt(remote: SignalPeerAddress, plaintext: Uint8Array): Promise<SignalCiphertext>;
+  decrypt(remote: SignalPeerAddress, ciphertext: SignalCiphertext): Promise<Uint8Array>;
+}
+export type SignalMediaCrypto = SignalDirectMessageDeps | SignalMediaKeyWrapper;
+
+async function encryptMediaKey(deps: SignalMediaCrypto, remote: SignalPeerAddress, key: Buffer): Promise<SignalCiphertext> {
+  return "stores" in deps
+    ? encryptSignalDirectMessage(deps, remote, key)
+    : deps.encrypt(remote, key);
+}
+async function decryptMediaKey(deps: SignalMediaCrypto, remote: SignalPeerAddress, key: SignalCiphertext): Promise<Uint8Array> {
+  return "stores" in deps
+    ? decryptSignalDirectMessage(deps, remote, key)
+    : deps.decrypt(remote, key);
+}
+
 function attachmentMac(macKey: Buffer, iv: Buffer, ciphertext: Buffer): Buffer {
   return createHmac("sha256", macKey).update(iv).update(ciphertext).digest().subarray(0, MAC_LENGTH);
 }
 
 /** Encrypts binary media locally and wraps the random attachment key in the peer's Signal session. */
 export async function encryptSignalMedia(
-  deps: SignalDirectMessageDeps,
+  deps: SignalMediaCrypto,
   remote: SignalPeerAddress,
   media: Uint8Array | Buffer,
   metadata: { fileName?: string; contentType?: string } = {}
@@ -49,7 +66,7 @@ export async function encryptSignalMedia(
   const cipher = createCipheriv("aes-256-cbc", key.subarray(0, 32), iv);
   const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   const mac = attachmentMac(key.subarray(32), iv, ciphertext);
-  const encryptedKey = await encryptSignalDirectMessage(deps, remote, key);
+  const encryptedKey = await encryptMediaKey(deps, remote, key);
   return {
     version: 1,
     algorithm: "AES-256-CBC-HMAC-SHA256",
@@ -80,7 +97,7 @@ export async function decryptSignalMedia(
       descriptor.ciphertextSize !== ciphertext.length || typeof descriptor.digest !== "string" ||
       !/^[a-f0-9]{64}$/i.test(descriptor.digest) ||
       createHash("sha256").update(ciphertext).digest("hex") !== descriptor.digest) throw new Error("Encrypted media digest or size mismatch");
-  const keyBytes = await decryptSignalDirectMessage(deps, remote, descriptor.encryptedKey);
+  const keyBytes = await decryptMediaKey(deps, remote, descriptor.encryptedKey);
   const key = Buffer.from(keyBytes);
   if (key.length !== KEY_LENGTH) throw new Error("Invalid decrypted media key length");
   const expectedMac = attachmentMac(key.subarray(32), iv, ciphertext);
