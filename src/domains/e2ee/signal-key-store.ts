@@ -46,6 +46,10 @@ interface SignalStoreState {
   senderKeys?: Record<string, string>;
   senderKeyDistributions?: Record<string, string[]>;
   device?: SignalDeviceRecord;
+  /** Facebook IQ result acknowledgements, persisted across process restarts. */
+  publishedPreKeys?: Record<string, number>;
+  publishedSignedPreKeyId?: number;
+  signedPreKeyPublishedAt?: number;
 }
 
 interface EncryptedEnvelope {
@@ -66,7 +70,8 @@ const emptyState = (accountId: string): SignalStoreState => ({
   sessions: {},
   trustedIdentities: {},
   senderKeys: {},
-  senderKeyDistributions: {}
+  senderKeyDistributions: {},
+  publishedPreKeys: {}
 });
 
 function requireText(value: unknown, label: string): string {
@@ -160,6 +165,10 @@ export interface SignalKeyStore {
   storePreKey(keyId: number, record: SignalKeyPairRecord): Promise<void>;
   loadPreKey(keyId: number): SignalKeyPairRecord | undefined;
   listPreKeyIds(): number[];
+  listUnpublishedPreKeyIds(): number[];
+  markPreKeysPublished(keyIds: number[], publishedAt?: number): Promise<void>;
+  isSignedPreKeyPublished(keyId: number): boolean;
+  markSignedPreKeyPublished(keyId: number, publishedAt?: number): Promise<void>;
   removePreKey(keyId: number): Promise<void>;
   storeKyberPreKey(keyId: number, serializedRecord: string): Promise<void>;
   loadKyberPreKey(keyId: number): string | undefined;
@@ -286,6 +295,30 @@ export async function createSignalKeyStore(options: SignalStoreOptions): Promise
     }),
     loadPreKey: (keyId) => snapshot().oneTimePreKeys[String(requireId(keyId, "keyId"))],
     listPreKeyIds: () => Object.keys(snapshot().oneTimePreKeys).map(Number).sort((a, b) => a - b),
+    listUnpublishedPreKeyIds: () => {
+      const current = snapshot();
+      const published = current.publishedPreKeys || {};
+      return Object.keys(current.oneTimePreKeys).map(Number).filter((keyId) => published[String(keyId)] === undefined).sort((a, b) => a - b);
+    },
+    markPreKeysPublished: (keyIds, publishedAt = Date.now()) => mutate((draft) => {
+      if (!Array.isArray(keyIds) || !Number.isSafeInteger(publishedAt) || publishedAt < 0) {
+        throw new TypeError("PreKey publication acknowledgement is invalid");
+      }
+      draft.publishedPreKeys ||= {};
+      for (const rawId of keyIds) {
+        const keyId = requireId(rawId, "preKeyId");
+        if (!draft.oneTimePreKeys[String(keyId)]) throw new Error(`Cannot acknowledge unknown one-time prekey ${keyId}`);
+        draft.publishedPreKeys[String(keyId)] = publishedAt;
+      }
+    }),
+    isSignedPreKeyPublished: (keyId) => snapshot().publishedSignedPreKeyId === requireId(keyId, "signedPreKeyId"),
+    markSignedPreKeyPublished: (keyId, publishedAt = Date.now()) => mutate((draft) => {
+      const normalizedId = requireId(keyId, "signedPreKeyId");
+      if (!draft.signedPreKeys[String(normalizedId)]) throw new Error(`Cannot acknowledge unknown signed prekey ${normalizedId}`);
+      if (!Number.isSafeInteger(publishedAt) || publishedAt < 0) throw new TypeError("Signed PreKey publication timestamp is invalid");
+      draft.publishedSignedPreKeyId = normalizedId;
+      draft.signedPreKeyPublishedAt = publishedAt;
+    }),
     removePreKey: (keyId) => mutate((draft) => { delete draft.oneTimePreKeys[String(requireId(keyId, "keyId"))]; }),
     storeKyberPreKey: (keyId, serializedRecord) => mutate((draft) => {
       draft.kyberPreKeys[String(requireId(keyId, "kyberPreKeyId"))] = requireBytes(serializedRecord, "Kyber pre-key record");
