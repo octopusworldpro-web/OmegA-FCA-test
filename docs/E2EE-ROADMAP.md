@@ -135,7 +135,7 @@ await api.e2ee.syncGroupMembership("GROUP_JID@g.us");
 - Added direct media upload/download/decrypt fixtures and included them in the full package test command. Existing group-media tests continue to cover ciphertext-only upload, receive/decrypt, and sender/group validation.
 
 **Still required**
-- Direct-media sends currently wrap the attachment key for one selected peer device; implement multi-device key fanout and test delivery to every peer device.
+- Direct-media send now discovers every peer device and independently wraps the media key in each device's Signal session. Delivery continues when one device fails; successful device deliveries are returned, while partial failures emit `direct_media_partial_delivery` and per-device `e2ee_error`. Each device currently receives its own encrypted upload (correct but not bandwidth-optimal). Source commit: `d43411fc03451daab0c5553f87682ead064b9bc6`.
 - Confirm native Messenger E2EE media stanza interoperability and supported video/file lifecycle details against captured protocol fixtures; the current attachment blob is ciphertext sent through the legacy attachment channel while its key/descriptor travels in the native Signal-encrypted envelope.
 - Verify direct and group media interoperability with compatible Facebook E2EE devices.
 - Complete the EryXen protocol/reference comparison and document observed differences; do not copy unverified assumptions.
@@ -413,3 +413,12 @@ This directive governs the remaining implementation work for Steps 2–4. It sup
 - GitHub Actions [run 46044369909](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46044369909) completed successfully. Dependency/security audit, build/full tests, TypeScript check, lint, and package dry run all passed.
 - The full test suite includes direct media key wrapping/upload/download integrity coverage and existing group media encryption/messaging coverage.
 - EryXen attachment-path comparison is documented above. This CI pass validates source and fixtures, not live Messenger media interoperability.
+
+
+### 2026-11-27 — Step 4 direct-media device fanout
+
+- Updated `messenger-e2ee-service.ts` so `sendDirectMedia` discovers all peer devices and independently sends a device-bound encrypted media envelope to each device.
+- Per-device failures no longer prevent attempts to the remaining devices. Successful envelopes are returned; partial delivery emits `direct_media_partial_delivery` and each device failure emits `e2ee_error`. If every device fails, the call rejects with an `AggregateError`.
+- Each device currently receives a separate encrypted media upload. This favors clear device/session key isolation over bandwidth efficiency; a shared ciphertext with separately wrapped keys remains a possible optimization.
+- Source commit: `d43411fc03451daab0c5553f87682ead064b9bc6`.
+- No CI status was returned for this commit at the time of this update. No runtime tests were executed by this GitHub-only edit session. Native Messenger media stanza fixtures, video/file lifecycle verification, EryXen evidence review, and authorized live-device acceptance remain outstanding. Step 4 remains **In progress**.
