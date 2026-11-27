@@ -185,3 +185,26 @@ See [E2EE-ROADMAP.md](E2EE-ROADMAP.md) for the only approved four-Step checklist
 5. Authorized live-server acceptance evidence for registration and signed/one-time prekey publication.
 
 **Status: In progress — NOT complete.** This is an explicit implementation blocker report, not a completion claim. E2EE remains fail-open for ordinary FCA login; no fake success path was added.
+
+
+## 2026-11-27 — Step 2 implementation update (source changes)
+
+**Branch:** `feature/release-0.2.3-beta.3`  
+**Reference implementations reviewed:** [bhhoang/fbapi-unofficial (MIT)](https://github.com/bhhoang/fbapi-unofficial), [WhiskeySockets/Baileys (MIT)](https://github.com/WhiskeySockets/Baileys), and [HerokeyVN/FB-Messenger-E2EE](https://github.com/HerokeyVN/FB-Messenger-E2EE). The MIT implementation was used to cross-check the ICDC request fields and the WA-binary `encrypt` IQ structure. The Noise reference confirms that the server certificate chain must be verified; a handshake that merely decrypts and ignores the certificate is not acceptable. The AGPL-3.0 FME implementation was inspected as a secondary reference, not copied.
+
+### Source changes made
+
+- `signal-key-store.ts`: added encrypted-at-rest, backward-compatible persistence for Facebook one-time-prekey publication acknowledgements and the currently acknowledged signed-prekey ID/timestamp.
+- `prekey-publisher.ts`: now selects only locally stored EC prekeys without a persisted IQ-result acknowledgement. It does not blindly upload the full local prekey store on every restart. A matching `iq` response with the same request ID and `type=result` is required before acknowledgement state is persisted.
+- Signed-prekey-only publication is supported when the current signed-prekey ID has not yet been acknowledged, without re-uploading previously acknowledged one-time prekeys.
+- Failed, missing, mismatched, or error IQ responses do not mark keys as published.
+- Added tests for acknowledgement persistence across restart, duplicate-upload suppression, and signed-prekey-only publication.
+
+### Verification and remaining Step 2 work
+
+- The source/test changes were pushed to this existing branch. GitHub Actions runs triggered by intermediate commits were cancelled by later pushes; the final documentation commit will trigger the definitive CI run. No passing result is claimed until that run completes.
+- The normal FCA login still does not create an authenticated Messenger Noise socket or inject its `sendIQ` adapter. The existing ICDC helper still requires configured `facebook.appId` and `facebook.fbCat`; automatic CAT retrieval and default login wiring are not implemented yet.
+- No server-side prekey-count query, automatic refill scheduler, or signed-prekey rotation/retirement policy has been integrated.
+- No authorized live Facebook account was used. ICDC acceptance and server IQ acknowledgement remain unverified against Facebook.
+
+**Step 2 status: In progress — NOT complete.** The acknowledgement/retry groundwork is now implemented and tested in source-level tests, but the missing authenticated Noise transport and automatic login integration still prevent the full Step 2 acceptance criteria from being met.
