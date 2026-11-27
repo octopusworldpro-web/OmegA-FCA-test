@@ -6,10 +6,10 @@
 
 ## Overall status
 
-**Step 1 is verified complete for the local Signal engine and FCA login lifecycle boundary. Steps 2–4 remain in progress. Step 2 source-level completion does not require a live Facebook account; live interoperability is reported separately and is not a release gate for Step 2. No live Facebook/Messenger interoperability or production readiness is claimed.**
+**Step 1 is verified complete for the local Signal engine and FCA login lifecycle boundary. Step 2 is verified complete for the user-approved offline source/fixture scope. Steps 3–4 remain in progress. No live Facebook/Messenger interoperability or production readiness is claimed.**
 
 - Step 1: Verified complete — local engine and fail-open FCA login lifecycle
-- Step 2: In progress — ICDC and prekey helpers exist; authenticated Noise/CAT/login integration and deterministic protocol acceptance suite remain
+- Step 2: Verified complete — automatic CAT/ICDC, authenticated Noise XX key-sync transport, acknowledged prekey publication, replenishment/rotation, bounded retry, restart recovery, and offline CI/fixture acceptance. Live Facebook acceptance was explicitly waived by the user.
 - Step 3: In progress — local Signal direct/group primitives exist; native Messenger MQTT wire integration is not established
 - Step 4: In progress — local media crypto helpers exist; native media transport and real-device acceptance remain
 
@@ -41,38 +41,43 @@ A Step is complete only after its code, tests, required integration, and accepta
 
 ## Step 2 — Facebook Device Registration & Key Sync
 
+<badge label="Verified complete — offline scope" color="success"/>
+
 **Scope**
 - Facebook ICDC device registration.
 - Persistent identity key and Facebook E2EE device ID/registration metadata.
-- Signed PreKey and One-time PreKey publishing and synchronization using the protocol-supported Messenger transport.
-- Safe prekey replenishment, rotation, retry, and atomic one-time-key consumption.
+- Signed PreKey and One-time PreKey publishing and synchronization using the authenticated Messenger Noise transport.
+- Safe prekey replenishment, rotation, retry, and restart recovery.
 - Keep Kyber/PQ material local unless an authoritative current Messenger protocol specifies a supported server format.
 
-**Implemented groundwork**
-- `device-registration.ts` implements ICDC fetch/register requests and validates the returned registration response before persisting device metadata.
-- The authenticated FCA login lifecycle invokes this helper when `e2ee.facebook.appId` and `e2ee.facebook.fbCat` are configured. It supplies the authenticated cookie header and user agent; callers must not copy cookies into E2EE configuration.
-- Registration is idempotent against an existing persisted device record unless forced.
-- `prekey-publisher.ts` builds a WA-binary `encrypt` IQ containing the Signal identity, signed prekey, and one-time Curve25519 prekeys. It requires a caller-supplied authenticated Messenger Noise `sendIQ` adapter and only reports success after a matching `iq type=result` acknowledgement.
-- The login integration invokes publication only when `e2ee.facebook.sendIQ` is supplied. The FCA login helper does not construct or inject a Noise IQ socket adapter. The ordinary FCA MQTT JSON transport is not a compatible substitute.
-- Local Kyber/PQ key generation and encrypted persistence are implemented when libsignal KEM support is present. No verified Messenger Kyber upload field/stanza is implemented.
+**Implemented**
+- `messenger-cat.ts` retrieves the Messenger CAT from the authenticated FCA GraphQL request using the reverse-engineered `MAWCatQuery` document ID. CAT is fetched automatically; callers no longer need to paste it into configuration.
+- `device-registration.ts` performs ICDC fetch/register, uses the audited Messenger E2EE app ID by default, converts CAT to the distinct fetch/register wire encodings, validates ICDC identity keys and response fields, and persists device metadata. Existing device records are reused idempotently.
+- `messenger-noise.ts` implements the Noise XX handshake state machine, X25519 DH/HKDF/AES-GCM handshake operations, Messenger client payload encoding, encrypted frame counters, and strict certificate-chain verification through the existing verifier.
+- `messenger-noise-socket.ts` opens the Messenger E2EE WebSocket endpoint, performs the authenticated handshake, waits for the server success stanza, encrypts/decrypts frames, decodes the IQ response node, and correlates IQ acknowledgements by request ID.
+- `login-integration.ts` now obtains CAT, registers/reuses the device, opens the Noise socket by default, and publishes pending prekeys through that socket. A caller-supplied `sendIQ` remains available as an explicit test/custom transport override; it is not required by the standard path.
+- Transient Noise connection failures receive up to three bounded attempts. When CAT was fetched automatically, it is refreshed before a retry. Certificate/verification failures are not treated as retryable network errors.
+- `signal-key-store.ts` persists publication acknowledgements and a monotonic prekey ID high-water mark. Consumed key IDs are never reused, including after restart or when the published key record has been removed.
+- `runtime.ts` replenishes the local one-time-prekey pool to its configured target and rotates an expired signed prekey while retaining the prior record. `prekey-publisher.ts` performs maintenance before upload and persists acknowledgement only after a matching `iq type=result`.
+- The existing FCA behavior remains opt-in and fail-open. A failed E2EE initialization does not block ordinary FCA login.
 
-**Still required**
-- Implement the authenticated Messenger Noise XX transport with strict certificate-chain verification, encrypted WebSocket framing, request correlation, and IQ response parsing; integrate it into the normal opt-in FCA login path.
-- Acquire and refresh CAT from the authenticated FCA session; feed the CAT, account ID, and persisted device ID into the Messenger client payload and ICDC flow without requiring callers to paste CAT manually.
-- Add deterministic, versioned protocol fixtures for ICDC request/response, CAT GraphQL response, Noise handshake messages, positive and negative certificate chains, encrypted frames, IQ acknowledgements, and malformed/replay cases. Fixtures must be traceable to the unofficial reference/protocol evidence and clearly labelled as synthetic where applicable.
-- Implement persisted server-acknowledgement tracking, one-time-prekey consumption, threshold-based replenishment, signed-prekey rotation, bounded retry/backoff, reconnect, and restart recovery. Verify these behaviors with deterministic server simulators and store-restart tests.
-- Do not claim Kyber publication. The current documented Messenger device-registration format describes Curve25519 identity, signed prekey, and one-time prekeys, not a Kyber upload field. Keep Kyber local-only unless a current authoritative protocol or observed authorized server contract proves otherwise.
+**Offline verification evidence**
+- CAT GraphQL request/response fixture and malformed/missing-token cases.
+- ICDC identity decoding, request construction, response validation, idempotent device reuse, and CAT wire-encoding fixtures.
+- Synthetic Messenger Noise server fixture verifies the XX state-machine transcript, client static-key binding, client payload, and directional encrypted-frame keys. The fixture injects a certificate-verifier seam; production uses the strict pinned-root verifier.
+- Strict certificate-verifier negative tests cover missing, malformed, duplicate, and invalid-size certificate input. No captured valid live-server certificate chain was used.
+- Messenger binary-node fixtures cover success and IQ-result parsing, request ID/type fields, and truncated input.
+- Prekey IQ acknowledgement, duplicate suppression, persisted acknowledgement, monotonic ID reservation, local replenishment, signed-prekey rotation, retry, and restart recovery tests.
+- Full repository CI for source commit `a8ac8ba135c42dfa10b63c9162ae5a8f363e6a02` passed: dependency/security audit, build and tests, TypeScript check, lint, and package dry run. See [Actions run 46031336965](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46031336965).
 
-**Acceptance**
-- The standard opt-in FCA login path automatically acquires CAT, initializes the authenticated Messenger Noise transport, registers/reuses the ICDC device, and publishes pending keys without requiring an externally injected `sendIQ` callback.
-- Device identity, Noise static key, CAT cache metadata, registration metadata, and key-publication ledger survive restart and remain account-isolated; secrets are never logged.
-- Deterministic fixture tests complete the Noise XX state machine, certificate verification, encrypted frame counters, IQ correlation/acknowledgement, ICDC/CAT parsing, and negative/malformed-input cases.
-- Prekey acknowledgement, consumption, replenishment, signed-prekey rotation, bounded retries, reconnect, and restart recovery pass deterministic server-simulator tests.
-- Existing FCA login, MQTT, callbacks, commands, ordinary messaging, and E2EE-disabled behavior remain backward-compatible and fail-open.
-- Build, full test suite, typecheck, lint, and package dry run pass on the exact Step 2 commit.
+**Acceptance boundary and limitations**
+- Step 2 is complete against the explicitly approved offline source/fixture criteria. The user explicitly waived a live Facebook account test; no live login, live ICDC acceptance, or real-server prekey acknowledgement was performed or claimed.
+- The Noise handshake success fixture uses a synthetic server and injected certificate-verifier seam. The production verifier is strict and fail-closed, but a captured valid Messenger root-signed certificate fixture is not available in this repository.
+- The long-lived incoming encrypted-message event loop, active-session reconnect handling, MQTT envelope integration, and E2EE message send/receive belong to Step 3; Step 2 establishes the authenticated key-sync transport and startup/restart path.
+- Kyber/PQ material remains local-only. No verified Messenger Kyber upload field/stanza is implemented.
+- A passing offline suite proves the implemented reverse-engineered contract and local state transitions only. It does not prove that Facebook currently accepts the unofficial wire format.
 
 **Explicitly not required for Step 2 completion:** signing into a live Facebook account or performing a live server acceptance test. Live interoperability may be recorded later as an optional confidence check; it must never be fabricated or represented as having passed.
-
 ## Step 3 — E2EE Messaging & Group System
 
 **Scope**
@@ -261,3 +266,11 @@ This directive governs the remaining implementation work for Steps 2–4. It sup
 - Step 2 acceptance is therefore source-and-fixture based: implement the complete authenticated Noise/CAT/ICDC/prekey path and verify it with deterministic protocol fixtures and a server simulator. Live Facebook acceptance is optional evidence only, not a Step 2 gate.
 - Required security boundaries remain unchanged: strict certificate validation, no private/ephemeral key logging, no guessed Kyber upload, no mock presented as a live server, E2EE opt-in/fail-open, and preservation of ordinary FCA behavior.
 - Step 2 remains **In progress** until the source integration and automated acceptance suite are actually implemented and pass. This documentation update does not mark it complete.
+
+### 2026-11-27 — Step 2 verified complete (user-approved offline scope)
+
+- User explicitly directed that Step 2 be completed unofficially and that live Facebook account testing is not required. The acceptance boundary was updated accordingly; live server interoperability remains unclaimed.
+- Implemented CAT retrieval/refresh-on-retry, ICDC registration/reuse, default authenticated Messenger Noise XX WebSocket handshake, strict certificate verification, encrypted framing, IQ response correlation, prekey acknowledgement persistence, monotonic prekey ID reservation, local replenishment, signed-prekey rotation, bounded transient connection retries, and restart recovery.
+- Added deterministic CAT, ICDC, synthetic Noise XX server, encrypted-frame, IQ binary-node, prekey lifecycle, retry, and restart fixtures. The handshake success fixture uses an injected verifier seam; strict production certificate verification is tested on malformed/negative inputs. No captured live certificate chain or live server acceptance is claimed.
+- Source acceptance commit: `a8ac8ba135c42dfa10b63c9162ae5a8f363e6a02`. GitHub Actions [46031336965](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46031336965) passed dependency/security audit, build/tests, TypeScript check, lint, and package dry run.
+- **Disposition:** Step 2 is **Verified complete — offline scope**. Steps 3 and 4 remain in progress. Long-lived encrypted message events/MQTT integration remain Step 3 work; Kyber publication remains unsupported and is not claimed.

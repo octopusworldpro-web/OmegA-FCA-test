@@ -8,12 +8,12 @@ This file records source-level implementation evidence and its limits. The four-
 
 ## Overall
 
-**Step 1 is verified complete for local Signal runtime and FCA login lifecycle integration. Steps 2–4 remain in progress. Live Facebook/Messenger interoperability is not established.**
+**Step 1 is verified complete for local Signal runtime and FCA login lifecycle integration. Step 2 is verified complete for the user-approved offline source/fixture scope. Steps 3–4 remain in progress. Live Facebook/Messenger interoperability is not established or claimed.**
 
 | Step | Status | Implemented evidence | Main remaining work |
 |---|---|---|---|
 | 1. E2EE Engine & Login Integration | Verified complete (local boundary) | Pinned libsignal 0.70.0; authenticated UID validation; account-local bootstrap and encrypted store; automatic identity/device metadata; restart support; fail-open login integration | No remaining work within the stated local-engine/login boundary. Do not interpret this as server registration or native Messenger support |
-| 2. Facebook Device Registration & Key Sync | In progress — transport/acceptance blocked | Conditional ICDC registration; encrypted persistent EC-prekey publication acknowledgements; duplicate-upload suppression; signed-prekey-only upload; matching IQ-result validation; focused source tests | No default authenticated Messenger Noise XX transport with certificate-chain validation; CAT auto-retrieval/login wiring and deterministic server-aware replenishment/rotation tests remain open; live ICDC/IQ acceptance is optional and not a Step 2 gate; no verified Kyber upload format |
+| 2. Facebook Device Registration & Key Sync | Verified complete — offline scope | Automatic CAT retrieval; default ICDC registration/reuse; authenticated Noise XX WebSocket key-sync transport; strict certificate verifier; encrypted frames and IQ correlation; persisted acknowledgements; monotonic prekey IDs; replenishment/rotation; bounded retries and restart recovery; offline fixtures and CI pass | Live Facebook acceptance was explicitly waived and is not claimed; no captured valid live certificate chain; long-lived encrypted message events/MQTT belong to Step 3; no verified Kyber upload format |
 | 3. E2EE Messaging & Group System | In progress | Signal direct-message primitives; injected peer/bundle interfaces; Sender Key/SKDM persistence/retry; application-level group envelope orchestration | Native peer discovery/bundle exchange and direct/group Messenger MQTT wire integration; real compatible-device tests |
 | 4. Encrypted Media & Full Compatibility Test | In progress | Direct/group media crypto helpers and application-level group-media orchestration | Native Messenger media upload/download, real media interoperability, EryXen comparison, authorized real-account acceptance |
 
@@ -23,11 +23,13 @@ This file records source-level implementation evidence and its limits. The four-
 - `src/domains/e2ee/signal-key-store.ts`: encrypted persistence for Signal identity/session/prekey/group state and device metadata.
 - `src/domains/e2ee/libsignal-adapter.ts`: adapter boundary for the selected libsignal implementation.
 - `src/domains/e2ee/runtime.ts`: initializes local Signal identity, signed prekey, one-time EC prekeys, and Kyber prekeys when the installed libsignal module supports KEM generation. Runtime comments explicitly limit this to local identity/prekey initialization.
-- `src/domains/e2ee/login-integration.ts`: opt-in login lifecycle. It initializes the local runtime; if `facebook.appId` and `facebook.fbCat` are configured, it calls the ICDC helper using the authenticated session cookie header and user agent. If `facebook.sendIQ` is also supplied, it invokes the prekey publisher. Errors close the partial runtime and return a failed E2EE result.
-- `src/core/login-helper.impl.ts`: invokes `initializeE2EEForLogin` after authenticated UID validation and ordinary FCA/MQTT setup. It passes the active cookie header and configured user agent. It passes an empty factory-dependency object; it does not create a Messenger Noise IQ adapter. E2EE failures are logged and normal FCA login still succeeds.
-- `src/core/state.ts`: exposes the opt-in `e2ee` option and optional `facebook.sendIQ` callback. The callback contract explicitly requires an already-authenticated Messenger Noise IQ transport; ordinary MQTT JSON is incompatible.
-- `src/domains/e2ee/device-registration.ts`: ICDC request construction, response validation, and persisted device metadata. Its tests use a mocked fetcher; they do not demonstrate Facebook server acceptance.
-- `src/domains/e2ee/prekey-publisher.ts`: builds the WA-binary `encrypt` IQ for identity, signed prekey, and one-time Curve25519 prekeys. It requires an injected `sendIQ` function and checks the matching IQ result acknowledgement. Tests use a simulated adapter response, not a live Noise socket.
+- `src/domains/e2ee/messenger-cat.ts`: obtains CAT from the authenticated FCA GraphQL session; the unofficial document ID is version-sensitive and CAT is refreshed before transient connection retries.
+- `src/domains/e2ee/messenger-noise.ts` and `messenger-noise-socket.ts`: Noise XX handshake, pinned certificate-chain verification, X25519/HKDF/AES-GCM framing, Messenger WebSocket setup, binary-node parsing, and IQ response correlation.
+- `src/domains/e2ee/login-integration.ts`: opt-in login lifecycle. It initializes local Signal state, automatically obtains CAT, performs ICDC registration/reuse, opens the default Noise key-sync socket, and publishes pending prekeys. An explicit `facebook.sendIQ` override remains available for tests/custom transports.
+- `src/core/login-helper.impl.ts`: invokes E2EE after authenticated UID validation and ordinary FCA/MQTT setup, passing active cookies, user agent, and fb_dtsg to the CAT request adapter. E2EE failures remain fail-open for ordinary FCA login.
+- `src/core/state.ts`: exposes opt-in E2EE configuration. Facebook `appId` and `fbCat` are optional overrides; standard login uses the audited default app ID and automatically fetches CAT.
+- `src/domains/e2ee/device-registration.ts`: ICDC fetch/register, CAT wire encoding, response validation, and persisted device metadata. Tests use deterministic fetch fixtures, not live Facebook acceptance.
+- `src/domains/e2ee/prekey-publisher.ts`: builds the WA-binary `encrypt` IQ and publishes through the authenticated Noise socket by default. It requires a matching IQ-result acknowledgement before persisting publication state.
 - `src/domains/e2ee/direct-messages.ts` and `src/domains/e2ee/peer-manager.ts`: Signal direct-message primitives and transport-neutral peer/bundle interfaces. No native Facebook peer discovery or MQTT envelope integration is established.
 - `src/domains/e2ee/group-key-manager.ts` and `src/domains/e2ee/sender-keys.ts`: group Sender Key/SKDM handling and delivery state.
 - `src/domains/e2ee/group-messaging.ts`: application-level encrypted group-message envelope orchestration over an injected authenticated transport.
@@ -43,23 +45,20 @@ Reference: [Meta Messenger E2EE Overview — Device Registration](https://engine
 
 ## ICDC and prekey configuration
 
-Enable the local runtime and optionally configure ICDC registration through login options:
+Enable the local runtime and optionally override Messenger ICDC parameters through login options:
 
 ```js
 {
   e2ee: {
     enabled: true,
-    facebook: {
-      appId: "<verified Messenger app ID>",
-      fbCat: "<verified Facebook category>"
-    }
+    facebook: {} // appId and fbCat are fetched/defaulted automatically
   }
 }
 ```
 
-When the Facebook parameters are present, the authenticated FCA login supplies its active cookie header and user agent internally. Do not copy session cookies into configuration. If the Facebook parameters are omitted, OmegA initializes only the local Signal runtime and does not attempt ICDC registration.
+When `e2ee.facebook` is enabled, the authenticated FCA login supplies its active cookie header, user agent, and fb_dtsg internally. CAT is acquired automatically and the default Messenger E2EE app ID is used unless explicitly overridden. Do not copy session cookies or CAT into configuration. If `e2ee.facebook` is omitted, OmegA initializes only the local Signal runtime and does not attempt ICDC registration.
 
-Prekey publication is a separate conditional operation. Supply `facebook.sendIQ` only if the caller has a real, already-authenticated Messenger Noise IQ transport. The ordinary FCA MQTT JSON client is not a valid implementation of that callback. A successful mocked IQ test proves only the publisher's local contract, not server publication.
+The standard path opens the Messenger Noise key-sync socket and publishes pending prekeys after ICDC registration. An explicit `facebook.sendIQ` callback remains an advanced test/custom transport override; ordinary FCA MQTT JSON is not a valid substitute.
 
 ## Local storage security note
 
@@ -76,7 +75,7 @@ The generated store key is persisted in the account's local `identity.json` so i
 
 ## Validation record
 
-The previously recorded CI run [45860381188](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/45860381188) covered baseline commit `55d02c7044938e68db9de87aee319831f68c8950` and reported success. This historical result is not validation of the current branch head, and it does not establish live Facebook/Messenger interoperability.
+CI run [46031336965](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46031336965) passed for source commit `a8ac8ba135c42dfa10b63c9162ae5a8f363e6a02`: dependency/security audit, build and tests, TypeScript check, lint, and package dry run. This validates the offline source/fixture contract only; it does not establish live Facebook/Messenger interoperability.
 
 See [E2EE-ROADMAP.md](E2EE-ROADMAP.md) for the only approved four-Step checklist and progress rules.
 
@@ -319,3 +318,16 @@ GitHub Actions runs [45990589918](https://github.com/octopusworldpro-web/OmegA-F
 - Step 2 must instead include the full source integration plus deterministic, versioned protocol fixtures and a simulated Messenger server covering CAT, ICDC, Noise XX, certificate validation, encrypted framing, IQ acknowledgements, prekey lifecycle, retry/reconnect, and restart recovery.
 - A successful fixture suite and CI run prove the implemented offline protocol contract only. They do not prove that Facebook currently accepts the unofficial wire format. Live interoperability remains an optional, separately reported check.
 - Step 2 is still **In progress**; this policy/documentation change alone does not complete it.
+
+## 2026-11-27 — Step 2 verified complete (offline scope)
+
+**Source commit:** `a8ac8ba135c42dfa10b63c9162ae5a8f363e6a02`  
+**CI:** [run 46031336965](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46031336965) — all configured jobs passed.
+
+- CAT is fetched automatically from the authenticated FCA GraphQL session and refreshed before bounded retries after transient Noise connection failures.
+- ICDC device registration/reuse is integrated into the opt-in FCA login path, with the default Messenger E2EE app ID and correct CAT encoding for fetch/register requests.
+- The normal path opens the Messenger Noise XX WebSocket transport, validates the server certificate chain with the strict pinned-root verifier, waits for login success, encrypts/decrypts frames, parses IQ responses, and publishes pending EC prekeys.
+- The encrypted key store persists acknowledgement state and monotonic prekey ID allocation. Consumed IDs are not reused; the local pool is replenished, expired signed prekeys rotate while old records are retained, and retries/restart recovery are covered by fixtures.
+- Deterministic tests cover CAT, ICDC, synthetic Noise XX handshake, frame cipher direction, IQ result parsing, prekey lifecycle, CAT refresh/retry, and restart behavior. Certificate negative/malformed inputs are covered; the successful handshake fixture uses an injected verifier seam because no captured valid live Messenger certificate chain is available.
+- No live Facebook login, ICDC server acceptance, or real-server IQ acknowledgement was run. This was explicitly waived by the user and is not claimed.
+- Step 2 is **Verified complete — offline scope**. Step 3 remains responsible for long-lived incoming encrypted-message events and MQTT envelope integration; Step 4 remains responsible for native encrypted media transport. Kyber publication is not implemented or claimed.
