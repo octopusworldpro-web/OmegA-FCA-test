@@ -125,6 +125,7 @@ export async function initializeE2EEForLogin(
           socket: noiseSocket,
           signal: bootstrap.signal
         });
+        await messenger.ready;
       }
     }
     return { status: "ready", runtime, deviceRegistration, preKeyPublication, noiseSocket: noiseSocket || undefined, messenger: messenger || undefined };
