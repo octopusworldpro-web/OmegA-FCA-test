@@ -4,7 +4,7 @@ const fca = require("../dist/index.js");
 
 (async () => {
   for (const kind of ["image", "video", "audio", "document"]) {
-    const data = Buffer.alloc(8193);
+    const data = Buffer.alloc(kind === "video" ? 256 * 1024 : 8193);
     for (let i = 0; i < data.length; i++) data[i] = (i * 19) & 255;
     const encrypted = fca.encryptMessengerMedia(data, kind);
     assert.equal(encrypted.fields.mediaKey.length, 32);
@@ -27,6 +27,10 @@ const fca = require("../dist/index.js");
     tampered[0] ^= 1;
     assert.throws(() => fca.decryptMessengerMedia(tampered, encrypted.fields), /SHA-256 mismatch|HMAC mismatch/);
   }
+
+  const empty = fca.encryptMessengerMedia(Buffer.alloc(0), "document");
+  assert.equal(empty.fields.fileLength, 0);
+  assert.deepEqual(fca.decryptMessengerMedia(empty.uploadBytes, empty.fields), Buffer.alloc(0));
 
   const originalFetch = global.fetch;
   let requestedUrl = "";
