@@ -87,6 +87,13 @@ See [E2EE-ROADMAP.md](E2EE-ROADMAP.md) for the only approved four-Step checklist
 - Updated `e2ee-device-registration.test.cjs` to exercise an unpadded Base64URL identity from the fetch response.
 - This is a source/test hardening change only. It does not establish live ICDC acceptance or satisfy Step 2's authenticated Messenger Noise transport, CAT acquisition, server-aware prekey rotation/recovery, or live acceptance criteria. Step 2 remains **In progress**.
 
+## 2026-11-27 — Current branch CI verification
+
+- Commit: `a02542b93b097d99c7ac99f15cf862c7f0162e1d`.
+- GitHub Actions run [46002835606](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46002835606) completed successfully on this exact commit.
+- Verified job steps: dependency/security audit, build and test, TypeScript check, lint, and package dry run all passed.
+- This verifies repository checks only. It does not verify live Facebook ICDC acceptance, Messenger Noise handshake/socket authentication, CAT acquisition, server-side prekey lifecycle, or cross-device interoperability. Step 2 remains **In progress**.
+
 ## Progress log
 
 ### 2026-11-27 — Initial documentation baseline review
