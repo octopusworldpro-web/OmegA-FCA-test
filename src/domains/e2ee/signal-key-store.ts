@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 
 export interface SignalKeyPairRecord {
   publicKey: string;
@@ -214,7 +214,16 @@ export interface SignalKeyStore {
 
 export async function createSignalKeyStore(options: SignalStoreOptions): Promise<SignalKeyStore> {
   const accountId = requireText(options?.accountId, "accountId");
-  const storagePath = resolve(requireText(options?.storagePath, "storagePath"));
+  const requestedStoragePath = resolve(requireText(options?.storagePath, "storagePath"));
+  // Existing directories are store roots; file paths retain their exact location.
+  let storagePath = requestedStoragePath;
+  try {
+    const pathInfo = await stat(requestedStoragePath);
+    if (pathInfo.isDirectory()) storagePath = join(requestedStoragePath, "signal.store");
+    else if (!pathInfo.isFile()) throw new TypeError("storagePath must point to a regular file or directory");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") throw error;
+  }
   const secret = options?.encryptionKey;
   if (!Buffer.isBuffer(secret) && typeof secret !== "string") {
     throw new TypeError("encryptionKey must be a string or Buffer");
