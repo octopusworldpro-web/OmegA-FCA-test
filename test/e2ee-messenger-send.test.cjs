@@ -176,12 +176,14 @@ const runtime = {
     content: [{ tag: "enc", attrs: { type: "skmsg" }, content: Buffer.from("group-cipher") }]
   });
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(received.length, 2);
+  assert.equal(received.length, 3);
   assert.equal(received[0].threadId, "987654321.17@msgr");
-  assert.equal(received[0].text, "decrypted inbound");
-  assert.equal(received[1].threadId, "123-456@g.us");
-  assert.equal(received[1].senderId, "987654321");
-  assert.equal(received[1].isGroup, true, "native group events are explicitly marked as groups");
+  assert.equal(received[0].text, "queued before listen");
+  assert.equal(received[1].threadId, "987654321.17@msgr");
+  assert.equal(received[1].text, "decrypted inbound");
+  assert.equal(received[2].threadId, "123-456@g.us");
+  assert.equal(received[2].senderId, "987654321");
+  assert.equal(received[2].isGroup, true, "native group events are explicitly marked as groups");
 
   // The same inbound stanza delivered concurrently must decrypt and dispatch once.
   const duplicateStanza = {
