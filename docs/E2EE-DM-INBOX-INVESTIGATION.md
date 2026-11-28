@@ -196,6 +196,7 @@ The FCA service now emits privacy-safe `inbox_diagnostic` stages without message
 - Runtime implementation has started with explicit user approval. All changes are isolated to `investigation/e2ee-dm-inbox`.
 - The bridge is owned by the FCA realtime listener and feeds the existing middleware-wrapped callback; no second GoatBot-side listener is introduced.
 - The normalized event includes `type: "message"`, `threadID`, `messageID`, `senderID`, `body`, `timestamp`, `isGroup: false`, and `isE2EE: true`.
+- Native E2EE message events now carry an explicit `isGroup` marker; the FCA Inbox bridge ignores group events even if a group JID happens to look numeric.
 - Inbound processing now suppresses same-ID concurrent/replayed stanzas; identical app payloads across participant and main envelopes are dispatched once.
 - App dispatch is deferred until all present encrypted envelopes decrypt successfully, avoiding partial callback delivery followed by a later envelope failure.
 - If an E2EE DM arrives after login but before `listenMqtt()` has attached a consumer, the decrypted message is retained in a bounded in-memory queue and flushed when the FCA bridge attaches; the bridge also retries flushing pending items before dispatching a newer event.
@@ -225,7 +226,7 @@ The FCA service now emits privacy-safe `inbox_diagnostic` stages without message
 - `08051b9`: trace inbound node-processing failures without exposing payload data.
 - `3a8832e`: log FCA callback invocation after dispatch returns.
 - `5c015e0`: correct report line breaks and refresh the implementation record.
-- Latest source commits: `800eb22` (queue pre-listener DMs until FCA callback attaches), `ed0e45f` (flush pending DMs from the FCA bridge), `ad9e444` (test pre-listener queue delivery), `1723915` (in-flight dedupe and DM thread mapping), `4edead1` (defer application dispatch until stanza decrypt completes), `bf8865f` (duplicate/replay/dual-envelope tests), `ff72462` (partial-decrypt retry test), `dd65efc` (participant ACK addressing), `ce8f132` (remember processed messages before ACK), `e93858f` (propagate FCA callback failures), `7fa807f` (bridge error-propagation test), `da2ef6c` (recipient/participant decode diagnostics), and `a51960e` (DSM-vs-thread mapping fixture).
+- Latest source commits: `21f5803` (mark native text event direct/group scope), `0cf3905` (exclude group messages from DM bridge), `9bb3584` and `3f5f9a5` (group-scope regression fixtures), `d5e9aa6` (clear queued payloads on service close), `95c69b4` (correct startup queue test expectations), `800eb22` (queue pre-listener DMs until FCA callback attaches), `ed0e45f` (flush pending DMs from the FCA bridge), `ad9e444` (test pre-listener queue delivery), `1723915` (in-flight dedupe and DM thread mapping), `4edead1` (defer application dispatch until stanza decrypt completes), `bf8865f` (duplicate/replay/dual-envelope tests), `ff72462` (partial-decrypt retry test), `dd65efc` (participant ACK addressing), `ce8f132` (remember processed messages before ACK), `e93858f` (propagate FCA callback failures), `7fa807f` (bridge error-propagation test), `da2ef6c` (recipient/participant decode diagnostics), and `a51960e` (DSM-vs-thread mapping fixture).
 
 ## 11. Source references
 
