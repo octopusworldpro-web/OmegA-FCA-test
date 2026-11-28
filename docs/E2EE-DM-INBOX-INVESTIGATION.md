@@ -309,5 +309,6 @@ This is a stronger, source-confirmed explanation for the observed group-versus-D
 - `test/e2ee-login-integration.test.cjs` now verifies that `enabled: true` with no `facebook` override fetches CAT, registers the device, retries a transient Noise connection failure with refreshed CAT, and returns the connected Noise transport.
 - The local-Signal-only fixture now opts out explicitly with `facebook: false`.
 - Existing custom Facebook override, missing-session failure, and fail-open tests remain in place.
-- Source commit: `6ab5459`; regression-test commit: `f2879de`.
-- CI has not yet been verified for these latest commits. Do not claim this follow-up fix CI-passed or live-DM accepted until the new branch workflow passes and a controlled Railway Inbox test confirms `native Messenger Signal transport and messaging service ready`, followed by `FCA_INBOX_CALLBACK_DELIVERED` and exactly one GoatBot reply.
+- Source commits: `6ab5459` (default Messenger activation) and `7125367` (TypeScript option narrowing); regression-test commit: `f2879de`.
+- CI run `46127665364` passed on Node.js 20 and 22 for source/test head `712536729fbad663e575127b1943ab38b294437f`, including dependency/security audit, build, full test suite, TypeScript check, lint, and package dry-run.
+- Live-DM acceptance is still pending. A controlled Railway Inbox test must confirm `native Messenger Signal transport and messaging service ready`, followed by `FCA_INBOX_CALLBACK_DELIVERED` and exactly one GoatBot reply.
