@@ -33,6 +33,8 @@ function textTransport(text) {
   return new ProtoWriter().bytes(1, app).bytes(2, protocol).build();
 }
 let incomingTransport = textTransport("decrypted inbound");
+let decryptCallCount = 0;
+let failDecryptAtCall = 0;
 class FakeSocket {
   constructor() { this.nodes = new Set(); this.closes = new Set(); this.frames = []; this.remoteDeviceId = 17; this.remoteDeviceIds = null; }
   onNode(fn) { this.nodes.add(fn); return () => this.nodes.delete(fn); }
@@ -97,7 +99,11 @@ const runtime = {
   directMessages: {
     establishSession: async () => {},
     encrypt: async (remote) => { encryptedForDevices.push(remote.deviceId); return { type: 2, body: Buffer.from("ciphertext").toString("base64") }; },
-    decrypt: async () => incomingTransport
+    decrypt: async () => {
+      decryptCallCount++;
+      if (failDecryptAtCall && decryptCallCount === failDecryptAtCall) throw new Error("fixture decrypt failure");
+      return incomingTransport;
+    }
   },
   groups: {
     createDistribution: async () => ({ groupId: "123-456@g.us", sender: { name: "123456789", deviceId: 42 }, body: Buffer.from("skdm").toString("base64") }),
@@ -201,6 +207,31 @@ const runtime = {
   socket.emit(duplicateEnvelope);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(received.length, receivedBeforeDual + 1, "identical participant and main app payloads are deduplicated");
+
+  // Do not emit a participant payload if a second envelope in the same stanza fails to decrypt.
+  const failedDualEnvelope = {
+    tag: "message",
+    attrs: { from: "987654321.17@msgr", id: "incoming-failed-dual", t: "1700000012" },
+    content: [
+      { tag: "participants", attrs: {}, content: [{
+        tag: "to", attrs: { jid: "123456789.42@msgr" }, content: [{
+          tag: "enc", attrs: { type: "msg" }, content: Buffer.from("participant-cipher")
+        }]
+      }] },
+      { tag: "enc", attrs: { type: "msg" }, content: Buffer.from("main-cipher") }
+    ]
+  };
+  const receivedBeforeFailedDual = received.length;
+  decryptCallCount = 0;
+  failDecryptAtCall = 2;
+  socket.emit(failedDualEnvelope);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(received.length, receivedBeforeFailedDual, "partial participant payload is not dispatched before the whole stanza validates");
+  failDecryptAtCall = 0;
+  decryptCallCount = 0;
+  socket.emit(failedDualEnvelope);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(received.length, receivedBeforeFailedDual + 1, "retry after a decrypt failure dispatches the message once");
 
   // Native Messenger media is uploaded once, then Signal-fanned out to peer and self devices.
   const originalFetch = global.fetch;
