@@ -9,7 +9,7 @@ import { MessengerE2EEService } from "./messenger-e2ee-service";
 export interface E2EELoginOptions extends E2EEBootstrapOptions {
   enabled?: boolean;
   signedPreKeyId?: number;
-  facebook?: { appId?: string; fbCat?: string; deviceId?: string; force?: boolean; sendIQ?: FacebookE2EESendIQ };
+  facebook?: { appId?: string; fbCat?: string; deviceId?: string; force?: boolean; sendIQ?: FacebookE2EESendIQ } | false;
 }
 export type E2EELoginResult =
   | { status: "disabled"; runtime: null }
@@ -62,7 +62,10 @@ export async function initializeE2EEForLogin(
     initializedRuntime = runtime;
     let deviceRegistration: FacebookE2EERegistrationResult | undefined;
     let preKeyPublication: { id: string; uploaded: number } | undefined;
-    if (options.facebook) {
+    // E2EE opt-in enables the authenticated Messenger transport by default.
+    // Set facebook: false only for callers that explicitly need local Signal storage without Messenger.
+    const facebookOptions = options.facebook === false ? undefined : (options.facebook || {});
+    if (facebookOptions) {
       const registerDevice = factories.registerDevice || registerFacebookE2EEDevice;
       if (!session.cookies?.trim() || !session.userAgent?.trim()) {
         throw new Error("Facebook ICDC registration requires the authenticated cookie header and user agent");
@@ -75,21 +78,21 @@ export async function initializeE2EEForLogin(
         userAgent: session.userAgent,
         request: session.requestCAT || (async () => { throw new Error("Authenticated FCA CAT request adapter is unavailable"); })
       };
-      let fbCat = options.facebook.fbCat || await fetchCAT(catOptions);
+      let fbCat = facebookOptions.fbCat || await fetchCAT(catOptions);
       deviceRegistration = await registerDevice({
         fbid: accountId,
         fbCat,
-        appId: options.facebook.appId || FACEBOOK_E2EE_APP_ID,
+        appId: facebookOptions.appId || FACEBOOK_E2EE_APP_ID,
         cookies: session.cookies,
         userAgent: session.userAgent,
         signal: bootstrap.signal,
         store: runtime.store,
         signedPreKeyId: runtime.signedPreKey.keyId,
-        deviceId: options.facebook.deviceId,
-        force: options.facebook.force
+        deviceId: facebookOptions.deviceId,
+        force: facebookOptions.force
       });
       runtime.setLocalDeviceId(deviceRegistration.waDeviceId);
-      if (options.facebook.sendIQ) {
+      if (facebookOptions.sendIQ) {
         preKeyPublication = await publishFacebookPreKeys(runtime, options.facebook.sendIQ);
       } else {
         const persistedNoiseKey = runtime.store.getNoiseKeyPair();
@@ -121,7 +124,7 @@ export async function initializeE2EEForLogin(
           let refreshedCAT: string;
           try { refreshedCAT = await fetchCAT(catOptions); }
           catch (error) {
-            if (!options.facebook?.fbCat) throw error;
+            if (!facebookOptions?.fbCat) throw error;
             refreshedCAT = options.facebook.fbCat;
           }
           const replacement = await connectNoise({
