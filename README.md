@@ -255,7 +255,7 @@ The test suite contains synthetic checks and an optional live-login test that is
 | Area | Status |
 |:--|:--:|
 | Core source integration | Implemented; live acceptance pending |
-| Build & automated validation | CI passed on Node 20 and 22 for beta.5 candidate |
+| Build & automated validation | CI passed on Node 20 and 22 for beta.6 candidate |
 | FCA API compatibility | In progress |
 | OmegA-integrating bot integration | Pending acceptance tests |
 | Authorized Facebook live login | Not yet verified |
@@ -263,7 +263,7 @@ The test suite contains synthetic checks and an optional live-login test that is
 
 </div>
 
-**OmegA-FCA 0.2.3-beta.6 is a beta pre-release, not a stable production release.** Compatibility with every FCA fork is not guaranteed. The beta.5 release commit must pass dependency/security audit, build and full tests, TypeScript, lint, and package dry-run on Node.js 20 and 22. Authorized live Facebook login, integrating-bot acceptance, and native Messenger E2EE interoperability remain separate validation items.
+**OmegA-FCA 0.2.3-beta.6 is an unpublished beta candidate, not a stable production release.** Compatibility with every FCA fork is not guaranteed. Candidate CI passed dependency/security audit, build and full tests, TypeScript, lint, and package dry-run on Node.js 20 and 22 ([run 46115370942](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46115370942)). The E2EE storage-directory compatibility fix is included. Authorized live Facebook login, GoatBot runtime acceptance, and native Messenger Inbox DM/reply interoperability remain unverified and require separate live testing.
 
 ## <img src="https://img.shields.io/badge/10-SOURCE%20%26%20CREDITS-7B2FF7?style=flat-square" /> Source & attribution
 
