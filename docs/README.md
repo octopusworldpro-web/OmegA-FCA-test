@@ -9,7 +9,7 @@ Current source baseline: **0.2.3-beta.5** (Node.js >= 20).
 - [Authentication and sessions](AUTHENTICATION.md) — accepted session inputs and safety behavior.
 - [E2EE status](E2EE-STATUS.md) — offline implementation evidence and live interoperability boundaries.
 - [E2EE implementation roadmap](E2EE-ROADMAP.md) — the four-step completion plan and acceptance checks.
-- [E2EE DM inbox investigation](E2EE-DM-INBOX-INVESTIGATION.md) — Railway evidence, FCA callback bridge, privacy-safe stage diagnostics, and live validation plan.
+- [E2EE DM inbox investigation](E2EE-DM-INBOX-INVESTIGATION.md) — Railway evidence, FCA callback bridge, privacy-safe stage diagnostics, inbound dedupe/retry hardening, thread-ID verification, and live validation plan.
 - [Reference comparison](REFERENCE-COMPATIBILITY.md) — comparison against the public `@eryxenx/fca` 1.3.5 package documentation and Bot-by-Nirzon integration.
 - [Beta.5 pre-release checklist](PRE-RELEASE-0.2.3-beta.5.md) — release gates and publish safety.
 
