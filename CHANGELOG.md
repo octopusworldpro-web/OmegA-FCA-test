@@ -8,6 +8,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.3-beta.7] - 2026-11-28
+
+### Changed
+
+- Prepare the next beta candidate with synchronized package and lockfile metadata.
+- Carry forward the beta.6 source-level E2EE Inbox callback bridge, bounded pre-listener DM queue, duplicate/retry handling, sender-thread mapping, and FCA storage-directory compatibility fix.
+
+### Validation notes
+
+- No new runtime source changes are introduced by this version-only candidate update; the included source fixes are the same ones previously validated for beta.6.
+- Source/test CI passed on Node.js 20 and 22 in [run 46115370942](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46115370942). The beta.7 metadata commit requires its own fresh CI run and package dry-run.
+- GoatBot runtime integration and real Messenger Inbox DM/reply acceptance remain pending. This candidate does not claim live Messenger interoperability or production readiness.
+- Not published to npm and not deployed to Railway.
+
+---
+
 ## [0.2.3-beta.6] - 2026-11-28
 
 ### Added
