@@ -453,7 +453,14 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
       const messenger = api.e2ee && api.e2ee.messenger;
       detachE2EEInbox = attachE2EEInboxBridge(
         messenger,
-        (event) => globalCallback(null, event),
+        (event) => {
+          // Match the ordinary NewMessage self-listen guard before dispatch.
+          if (!ctx.globalOptions?.selfListen && String(event.senderID) === String(ctx.userID)) return;
+          if (typeof ctx._updateThreadFromMessage === "function") {
+            try { void ctx._updateThreadFromMessage(event); } catch { }
+          }
+          globalCallback(null, event);
+        },
         logger
       );
       ctx._e2eeInboxDetach = detachE2EEInbox;
