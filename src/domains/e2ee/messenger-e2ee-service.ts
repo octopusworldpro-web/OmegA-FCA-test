@@ -999,6 +999,7 @@ export class MessengerE2EEService extends EventEmitter {
     this.reconnectTimer = null;
     this.unsubscribe();
     this.unsubscribeClose();
+    this.pendingInboxMessages.length = 0;
     for (const [id, pending] of this.pendingMessageAcks) {
       clearTimeout(pending.timer);
       pending.reject(new Error("Messenger E2EE service closed"));
