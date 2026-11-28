@@ -255,7 +255,7 @@ The test suite contains synthetic checks and an optional live-login test that is
 | Area | Status |
 |:--|:--:|
 | Core source integration | Implemented; live acceptance pending |
-| Build & automated validation | Latest release commit CI passed on Node 20 and 22 |
+| Build & automated validation | Latest source-code commit CI passed on Node 20 and 22; release-metadata CI is running |
 | FCA API compatibility | In progress |
 | OmegA-integrating bot integration | Pending acceptance tests |
 | Authorized Facebook live login | Not yet verified |
@@ -263,7 +263,7 @@ The test suite contains synthetic checks and an optional live-login test that is
 
 </div>
 
-**OmegA-FCA 0.2.3 is the initial stable-channel package release.** Compatibility with every FCA fork is not guaranteed. The latest release commit passed dependency/security audit, build and full tests, TypeScript check, lint, and package dry-run on Node.js 20 and 22 ([run 46138729592](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46138729592)). The release includes the E2EE Inbox transport activation and Humanizer timing configuration fixes. Important: authorized live Facebook login, GoatBot runtime acceptance, and native Messenger Inbox DM/reply interoperability have not yet been verified; these checks remain explicitly pending and will be tested after this package release.
+**OmegA-FCA 0.2.3 is the initial stable-channel package release.** Compatibility with every FCA fork is not guaranteed. The latest source-code commit passed dependency/security audit, build and full tests, TypeScript check, lint, and package dry-run on Node.js 20 and 22 ([run 46138729592](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46138729592)). CI for the release metadata/version update is running separately. The release includes the E2EE Inbox transport activation and Humanizer timing configuration fixes. Important: authorized live Facebook login, GoatBot runtime acceptance, and native Messenger Inbox DM/reply interoperability have not yet been verified; these checks remain explicitly pending and will be tested after this package release.
 
 ## <img src="https://img.shields.io/badge/10-SOURCE%20%26%20CREDITS-7B2FF7?style=flat-square" /> Source & attribution
 
