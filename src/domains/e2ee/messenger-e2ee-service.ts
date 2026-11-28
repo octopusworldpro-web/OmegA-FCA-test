@@ -845,10 +845,12 @@ export class MessengerE2EEService extends EventEmitter {
       context: { id: string; threadId: string; senderJid: string; sender: SignalPeerAddress; timestampMs: number };
       group: boolean;
     }> = [];
+    let localRecipientMatched = false;
     for (const recipientNode of list(participantNode)) {
       if (recipientNode.tag !== "to" || typeof recipientNode.attrs.jid !== "string") continue;
       const target = jidAddress(String(recipientNode.attrs.jid));
       if (target.name !== this.local.name || target.deviceId !== this.local.deviceId) continue;
+      localRecipientMatched = true;
       this.emit("inbox_diagnostic", { stage: "E2EE_RECIPIENT_MATCHED" });
       const participantEnc = list(recipientNode).find((child) => child.tag === "enc");
       if (!participantEnc || !Buffer.isBuffer(participantEnc.content)) continue;
@@ -860,6 +862,7 @@ export class MessengerE2EEService extends EventEmitter {
       });
       this.emit("inbox_diagnostic", { stage: "E2EE_DECRYPT_SUCCEEDED" });
       const participantPayload = decodeTransport(Buffer.from(dm));
+      this.emit("inbox_diagnostic", { stage: "E2EE_PARTICIPANT_TRANSPORT_DECODED" });
       if (participantPayload.skdm) {
         await this.options.runtime.groups.processDistribution({
           groupId: participantPayload.skdm.groupId, sender, body: participantPayload.skdm.bytes.toString("base64")
@@ -880,6 +883,9 @@ export class MessengerE2EEService extends EventEmitter {
         });
         participantProcessed = true;
       }
+    }
+    if (participantNode && !localRecipientMatched) {
+      this.emit("inbox_diagnostic", { stage: "E2EE_RECIPIENT_NOT_MATCHED" });
     }
     const mainEnc = list(node).find((child) => child.tag === "enc");
     if (!mainEnc || !Buffer.isBuffer(mainEnc.content)) {
