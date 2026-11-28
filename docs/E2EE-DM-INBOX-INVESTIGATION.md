@@ -93,7 +93,7 @@ The statuses below track this Inbox-specific investigation/fix. They do not chan
 | 3 | Trace native E2EE inbound message handling | **Source reviewed** | Noise node → recipient match → Signal decrypt → application dispatch → EventEmitter `message` |
 | 4 | Check E2EE-to-FCA callback integration | **Gap identified** | No bridge found in the inspected login integration |
 | 5 | Check GoatBot listener/handler compatibility | **Source reviewed** | Existing handler has E2EE-aware handling, but inspected login listener does not subscribe to the E2EE EventEmitter |
-| 6 | Verify exact active FCA callback contract and listener lifecycle | **Pending** | Confirm callback signature, listener registration/stop/restart, reconnect and self-device semantics before implementation |
+| 6 | Verify exact active FCA callback contract and listener lifecycle | **Complete (source audit)** | `createRealtimeListener` owns the active callback; `api.e2ee.messenger` is an EventEmitter; stop/replacement lifecycle and middleware wrapping are confirmed |
 | 7 | Implement one lifecycle-managed E2EE → FCA callback bridge | **In progress — code committed** | New normalizer/bridge attaches to the active FCA callback; stop/replacement disposes the listener |
 | 8 | Add normalization, dedupe, ACK and lifecycle regression tests | **In progress — unit test added** | Covers mapping, invalid payload rejection, delivery and detach; service-level retry/dedupe and reconnect still need verification |
 | 9 | Run GoatBot integration and regression tests | **Pending CI** | Node 20/22 CI run started; GoatBot integration/live bot tests remain outstanding |
@@ -196,7 +196,7 @@ Do not mark the Inbox fix complete based only on compilation, unit tests, CI, E2
 - Listener stop and replacement detach the E2EE event listener. Existing service-level stanza dedupe and acknowledgement remain in the E2EE service.
 - E2EE events skip the MQTT automatic receipt helper because the native Noise service already acknowledges inbound stanzas.
 - No production Railway variables, session files, E2EE identity files, or database state have been modified.
-- CI is running on Node 20 and 22. Do not claim live E2EE DM compatibility or production readiness until CI, GoatBot integration, and authorized live Inbox acceptance pass.
+- The first CI attempt on Node 20/22 exposed a TypeScript union-narrowing error in the receipt guard; the guard was corrected with an explicit property check. A follow-up CI run for the corrected commit is pending. Do not claim live E2EE DM compatibility or production readiness until CI, GoatBot integration, and authorized live Inbox acceptance pass.
 
 ## 9. Implementation commits
 
@@ -205,7 +205,7 @@ Do not mark the Inbox fix complete based only on compilation, unit tests, CI, E2
 - `2fb39cb`: extend FCA message event typing with `isE2EE` / `isGroup`.
 - `034f2db`: export the bridge utilities.
 - `8bfa155`: add Inbox bridge unit tests and include them in `npm test`.
-- `07927c7`: enable CI on `investigation/**` branches; Node 20 and 22 jobs have started.
+- `07927c7`: enable CI on `investigation/**` branches.\n- `f43eaa8`: correct the event-union type guard identified by the first CI attempt.
 
 ## 10. Source references
 
