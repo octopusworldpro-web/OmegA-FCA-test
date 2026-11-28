@@ -85,6 +85,18 @@ const fca = require("../dist/index.js");
     await store.flush();
     await store.close();
 
+    // GoatBot supplies an existing account directory; FCA must resolve its store file inside it.
+    const accountDirectory = path.join(directory, "goatbot-account-e2ee");
+    await fs.mkdir(accountDirectory, { recursive: true });
+    const directoryStore = await fca.createSignalKeyStore({ accountId: "directory-account", storagePath: accountDirectory, encryptionKey });
+    await directoryStore.setRegistrationId(9876);
+    await directoryStore.close();
+    const directoryStoreFile = path.join(accountDirectory, "signal.store");
+    assert.equal((await fs.stat(directoryStoreFile)).isFile(), true, "directory storagePath must create signal.store inside the directory");
+    const reopenedDirectoryStore = await fca.createSignalKeyStore({ accountId: "directory-account", storagePath: accountDirectory, encryptionKey });
+    assert.equal(reopenedDirectoryStore.getRegistrationId(), 9876, "directory storagePath must reopen the existing store");
+    await reopenedDirectoryStore.close();
+
     const encrypted = await fs.readFile(storagePath, "utf8");
     assert.equal(encrypted.includes("serialized-session"), false);
     const reopened = await fca.createSignalKeyStore({ accountId: "account-123", storagePath, encryptionKey });
