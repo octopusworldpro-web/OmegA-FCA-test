@@ -4,17 +4,17 @@
 **Branch:** `investigation/e2ee-dm-inbox`  
 **Base branch:** `feature/release-0.2.3-beta.3`  
 **Base commit:** `d4c6acfefc4baad8ec54f8408d7a4db3a24e0f46`  
-**Package candidate:** `@nirzon-islam/omega-fca@0.2.3-beta.6` (unpublished; metadata/CI validation pending)  
+**Package candidate:** `@nirzon-islam/omega-fca@0.2.3-beta.7` (unpublished; beta.7 CI pending)  
 **Last documentation review:** 2026-11-28
 
-## 1. Beta.6 candidate status
+## 1. Beta.7 candidate status
 
-- Candidate version: `0.2.3-beta.6`.
+- Candidate version: `0.2.3-beta.7`.
 - The candidate includes the source-level FCA E2EE Inbox callback bridge and regression tests on this branch.
 - GoatBot runtime integration and live Messenger Inbox acceptance remain pending.
-- The previous Node.js 20/22 CI success applies to source/test commit `b1882b6`, not the beta.6 metadata update. A fresh CI run and NPM package dry-run are required before considering the candidate validated.
+- The carried-forward source/test changes passed Node.js 20/22 CI, including dependency/security audit, build, full tests, TypeScript, lint, and package dry-run in run `46115370942`. The beta.7 version/metadata update requires its own fresh CI run and package dry-run.
 - The candidate has not been published to npm or deployed to Railway.
-- Candidate metadata commit: `f60169f`; branch update is in place. A fresh push-triggered CI run is still required to validate the versioned candidate.
+- Beta.7 is a version-only candidate update over the beta.6 source scope; no new runtime code changes are claimed.
 
 ## 2. Reported symptom
 
@@ -279,6 +279,6 @@ Railway deployment `f1072b34-3c9d-45f0-9525-a005aa12c56f` logged `EISDIR: illega
 ### Validation status
 
 - Source and regression-test changes have been committed to `investigation/e2ee-dm-inbox`.
-- A fresh branch CI run is required to validate build, full test suite, typecheck, lint, and Node.js 20/22 compatibility. Do not treat this fix as CI-verified until that run completes successfully.
+- The source and regression-test changes passed Node.js 20/22 CI in run `46115370942`, including build, full test suite, typecheck, lint, dependency/security audit, and package dry-run. The beta.7 metadata update still requires a fresh candidate CI run.
 - The earlier Railway EISDIR failure is directly addressed at its FCA path boundary, but successful E2EE startup, Noise ingress, DM callback delivery, GoatBot command handling, and one-reply behavior still require a new deployment and authorized live Messenger Inbox acceptance test.
 - No NPM publish, Railway deploy, session/identity mutation, or GoatBot code change is included in this fix.
