@@ -19,7 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Validation
 
-- GitHub Actions run [46138729592](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46138729592) passed on Node.js 20 and 22: dependency/security audit, build, full tests, TypeScript, lint, and package dry run.
+- Latest source-code commit passed GitHub Actions on Node.js 20 and 22 ([run 46138729592](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46138729592)): dependency/security audit, build, full tests, TypeScript, lint, and package dry run.
+- CI for the release metadata/version update is running separately; its result must be checked before publishing.
 - Live Messenger Inbox DM/reply and GoatBot runtime acceptance remain pending. This release does not claim live Facebook interoperability has been verified.
 - Not yet published to npm or deployed to Railway by this preparation.
 
