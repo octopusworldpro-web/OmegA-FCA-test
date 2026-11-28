@@ -60,6 +60,7 @@ export function attachE2EEInboxBridge(
       logger("E2EE inbox stage: FCA_INBOX_CALLBACK_INVOKED", "info");
     } catch (error) {
       logger("E2EE inbox callback dispatch failed: " + (error instanceof Error ? error.message : String(error)), "error");
+      throw error;
     }
   };
   messenger.on("message", onMessage);
