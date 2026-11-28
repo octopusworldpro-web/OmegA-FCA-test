@@ -246,6 +246,8 @@ export class MessengerE2EEService extends EventEmitter {
   private readonly retryCounts = new Map<string, number>();
   private readonly seenIncoming = new Set<string>();
   private readonly processingIncoming = new Set<string>();
+  private readonly pendingInboxMessages: MessengerE2EEMessageEvent[] = [];
+  private flushingPendingInboxMessages = false;
   constructor(private options: MessengerE2EEServiceOptions) {
     super();
     this.local = { name: options.accountId, deviceId: options.localDeviceId };
@@ -780,11 +782,10 @@ export class MessengerE2EEService extends EventEmitter {
         return;
       }
     }
-    this.emit("message", {
+    this.publishInboxMessage({
       id: context.id, threadId: context.threadId, senderJid: context.senderJid,
       senderId: context.sender.name, text, timestampMs: context.timestampMs
-    } satisfies MessengerE2EEMessageEvent);
-    this.emit("inbox_diagnostic", { stage: "E2EE_MESSAGE_EMITTED" });
+    });
   }
 
   private async handleNode(node: Node): Promise<void> {
@@ -951,6 +952,38 @@ export class MessengerE2EEService extends EventEmitter {
     } finally {
       if (incomingId) this.processingIncoming.delete(incomingId);
     }
+  }
+
+  private publishInboxMessage(message: MessengerE2EEMessageEvent): void {
+    if (this.listenerCount("message") === 0) {
+      if (this.pendingInboxMessages.length >= 1000) {
+        throw new Error("Messenger E2EE pending Inbox queue limit exceeded");
+      }
+      this.pendingInboxMessages.push(message);
+      this.emit("inbox_diagnostic", { stage: "E2EE_MESSAGE_QUEUED_NO_CONSUMER" });
+      return;
+    }
+    this.emit("message", message);
+    this.emit("inbox_diagnostic", { stage: "E2EE_MESSAGE_EMITTED" });
+  }
+
+  /** Deliver messages received before listenMqtt attached its FCA callback. */
+  flushPendingMessages(): number {
+    if (this.flushingPendingInboxMessages || this.listenerCount("message") === 0) return 0;
+    this.flushingPendingInboxMessages = true;
+    let delivered = 0;
+    try {
+      while (this.pendingInboxMessages.length > 0 && this.listenerCount("message") > 0) {
+        const message = this.pendingInboxMessages[0]!;
+        this.emit("message", message);
+        this.pendingInboxMessages.shift();
+        delivered++;
+        this.emit("inbox_diagnostic", { stage: "E2EE_MESSAGE_EMITTED" });
+      }
+    } finally {
+      this.flushingPendingInboxMessages = false;
+    }
+    return delivered;
   }
 
   private rememberIncoming(id: string): void {
