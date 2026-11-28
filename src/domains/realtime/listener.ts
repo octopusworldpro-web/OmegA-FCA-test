@@ -2,6 +2,7 @@ import type { ListenMqttError, MqttEvent } from "../../types/events";
 import { getMqttReconnectDelay } from "./reconnect-policy";
 import { detectFacebookCheckpoint } from "../../utils/request/checkpoint";
 import { dispatchAutomaticReceipts } from "./auto-receipts";
+import { attachE2EEInboxBridge } from "./e2ee-inbox-bridge";
 
 const CYCLE_MS_DEFAULT = 60 * 60 * 1000;
 const RECONNECT_DELAY_MS_DEFAULT = 2000;
@@ -344,6 +345,7 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
     }
 
     return function listenRealtime(callback?: ListenerCallback, opts?: Record<string, Loose>): RealtimeMessageEmitter {
+      let detachE2EEInbox: (() => void) | null = null;
       if (opts) conf = mqttConf(ctx, opts);
       ctx._stopRequested = false;
       ctx._getSeqRetryAttempts = 0;
@@ -355,6 +357,11 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
           return;
         }
         logger("mqtt stop requested", "info");
+        if (detachE2EEInbox) {
+          detachE2EEInbox();
+          if (ctx._e2eeInboxDetach === detachE2EEInbox) ctx._e2eeInboxDetach = null;
+          detachE2EEInbox = null;
+        }
         globalCallback = identity;
         ctx._stopRequested = true;
         if (ctx._autoCycleTimer) {
@@ -420,7 +427,7 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
       // Automatic receipts are dispatched only for actual incoming message
       // events. They are best-effort and never delay the user's callback.
       const originalCallback: ListenerCallback = function (error, message) {
-        if (!error && message && (message.type === "message" || message.type === "message_reply")) {
+        if (!error && message && !message.isE2EE && (message.type === "message" || message.type === "message_reply")) {
           dispatchAutomaticReceipts(
             api,
             {
@@ -438,6 +445,18 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
       // is configured after listenMqtt() returns and installs middleware directly;
       // without this wrapper, those later middleware additions never see MQTT events.
       globalCallback = middleware.wrapCallback(originalCallback);
+
+      // Native E2EE messages bypass MQTT; bridge decrypted DMs into this same
+      // callback so FCA consumers and GoatBot receive one normalized event path.
+      const previousE2EEBridge = ctx._e2eeInboxDetach;
+      if (typeof previousE2EEBridge === "function") previousE2EEBridge();
+      const messenger = api.e2ee && api.e2ee.messenger;
+      detachE2EEInbox = attachE2EEInboxBridge(
+        messenger,
+        (event) => globalCallback(null, event),
+        logger
+      );
+      ctx._e2eeInboxDetach = detachE2EEInbox;
 
       conf = mqttConf(ctx, conf);
       installPostGuard();
