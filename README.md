@@ -7,7 +7,7 @@
 </p>
 
 <p>
-  <img src="https://img.shields.io/badge/VERSION-0.2.3--beta.5-7C3AED?style=for-the-badge&logo=semver&logoColor=white" alt="Version 0.2.3-beta.5" />
+  <img src="https://img.shields.io/badge/VERSION-0.2.3--beta.6-7C3AED?style=for-the-badge&logo=semver&logoColor=white" alt="Version 0.2.3-beta.6" />
   <img src="https://img.shields.io/badge/NODE.JS-20%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js 20+" />
   <img src="https://img.shields.io/badge/LICENSE-AGPL--3.0--or--later-EA580C?style=for-the-badge" alt="AGPL-3.0-or-later" />
   <img src="https://img.shields.io/badge/STATUS-Beta%20Pre-release-F59E0B?style=for-the-badge&logo=githubactions&logoColor=white" alt="Beta pre-release" />
@@ -57,7 +57,7 @@
 | | Details |
 |:--|:--|
 | **Package** | `@nirzon-islam/omega-fca` |
-| **Current version** | `0.2.3-beta.5` |
+| **Current version** | `0.2.3-beta.6` |
 | **Runtime** | Node.js 20+ |
 | **License** | AGPL-3.0-or-later |
 | **Target bot** | the integrating bot |
@@ -263,7 +263,7 @@ The test suite contains synthetic checks and an optional live-login test that is
 
 </div>
 
-**OmegA-FCA 0.2.3-beta.5 is a beta pre-release, not a stable production release.** Compatibility with every FCA fork is not guaranteed. The beta.5 release commit must pass dependency/security audit, build and full tests, TypeScript, lint, and package dry-run on Node.js 20 and 22. Authorized live Facebook login, integrating-bot acceptance, and native Messenger E2EE interoperability remain separate validation items.
+**OmegA-FCA 0.2.3-beta.6 is a beta pre-release, not a stable production release.** Compatibility with every FCA fork is not guaranteed. The beta.5 release commit must pass dependency/security audit, build and full tests, TypeScript, lint, and package dry-run on Node.js 20 and 22. Authorized live Facebook login, integrating-bot acceptance, and native Messenger E2EE interoperability remain separate validation items.
 
 ## <img src="https://img.shields.io/badge/10-SOURCE%20%26%20CREDITS-7B2FF7?style=flat-square" /> Source & attribution
 

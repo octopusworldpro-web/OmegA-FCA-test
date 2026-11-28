@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.3-beta.6] - 2026-11-28
+
+### Added
+
+- Bridge decrypted native Messenger E2EE direct messages into the existing middleware-wrapped FCA `listenMqtt` callback.
+- Buffer early inbound DMs until a callback is attached; add bounded queue flushing, stanza/payload deduplication, sender-thread mapping, group exclusion, and privacy-safe inbox diagnostics.
+- Add regression coverage for callback lifecycle, duplicate/retry handling, pre-listener delivery, and direct-message routing.
+
+### Validation notes
+
+- Candidate includes the source-level Inbox bridge changes from the investigation branch. GoatBot runtime integration and real Messenger Inbox DM/reply acceptance remain pending.
+- The previously passing Node.js 20/22 CI run validates source/test commit `b1882b6`; the beta.6 version/metadata update itself still requires a fresh CI run and package dry-run.
+- This is an unpublished beta candidate; no live Messenger interoperability or production readiness is claimed.
+
+
 ### Documentation
 
 - Add a four-step Messenger E2EE implementation roadmap with acceptance checks, safety constraints, and explicit integration status.

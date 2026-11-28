@@ -4,10 +4,18 @@
 **Branch:** `investigation/e2ee-dm-inbox`  
 **Base branch:** `feature/release-0.2.3-beta.3`  
 **Base commit:** `d4c6acfefc4baad8ec54f8408d7a4db3a24e0f46`  
-**Package under test:** `@nirzon-islam/omega-fca@0.2.3-beta.5`  
+**Package candidate:** `@nirzon-islam/omega-fca@0.2.3-beta.6` (unpublished; metadata/CI validation pending)  
 **Last documentation review:** 2026-11-28
 
-## 1. Reported symptom
+## 1. Beta.6 candidate status
+
+- Candidate version: `0.2.3-beta.6`.
+- The candidate includes the source-level FCA E2EE Inbox callback bridge and regression tests on this branch.
+- GoatBot runtime integration and live Messenger Inbox acceptance remain pending.
+- The previous Node.js 20/22 CI success applies to source/test commit `b1882b6`, not the beta.6 metadata update. A fresh CI run and NPM package dry-run are required before considering the candidate validated.
+- The candidate has not been published to npm or deployed to Railway.
+
+## 2. Reported symptom
 
 - E2EE reports as connected/ready on Railway.
 - Group-chat traffic reaches GoatBot and produces normal reply-handler activity.
@@ -33,7 +41,7 @@ Observed log behaviour:
 - In the inspected DM test window (`2026-11-27T19:28:00Z`–`19:34:00Z`), no matching DM `MESSAGE_REPLY`/`onReply` event was found. The window contained group-message activity earlier and session-guard snapshot saves later.
 - This proves that the inspected logs did not show the DM reaching the normal reply pipeline. It does **not**, by itself, prove that Facebook failed to deliver the packet or that the Noise socket received nothing.
 
-## 3. Source-level findings
+## 4. Source-level findings
 
 ### 3.1 MQTT subscriptions and message routing
 
