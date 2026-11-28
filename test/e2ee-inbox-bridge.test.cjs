@@ -23,6 +23,7 @@ assert.equal(normalized.isGroup, false);
 assert.equal(normalized.isE2EE, true);
 assert.equal(normalizeMessengerE2EEInboxMessage({ ...source, threadId: "not-a-user" }), null);
 assert.equal(normalizeMessengerE2EEInboxMessage({ ...source, text: "" }), null);
+assert.equal(normalizeMessengerE2EEInboxMessage({ ...source, isGroup: true }), null);
 
 const messenger = new EventEmitter();
 const delivered = [];
@@ -31,6 +32,9 @@ const detach = attachE2EEInboxBridge(messenger, event => delivered.push(event), 
 messenger.emit("inbox_diagnostic", { stage: "NOISE_MESSAGE_RECEIVED" });
 assert.equal(diagnostics.some(item => item.message.includes("NOISE_MESSAGE_RECEIVED")), true);
 messenger.emit("message", source);
+messenger.emit("message", { ...source, id: "group-event", isGroup: true });
+assert.equal(delivered.length, 1, "native group messages are not routed through the DM bridge");
+assert.equal(diagnostics.some(item => item.message.includes("invalid or unsupported")), false);
 assert.equal(diagnostics.some(item => item.message.includes("FCA_INBOX_CALLBACK_INVOKED")), true);
 assert.equal(delivered.length, 1);
 assert.equal(delivered[0].messageID, source.id);
