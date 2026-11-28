@@ -28,10 +28,14 @@ assert.equal(normalizeMessengerE2EEInboxMessage({ ...source, isGroup: true }), n
 const messenger = new EventEmitter();
 const delivered = [];
 const diagnostics = [];
+let flushCalls = 0;
+messenger.flushPendingMessages = () => { flushCalls++; };
 const detach = attachE2EEInboxBridge(messenger, event => delivered.push(event), (message, level) => diagnostics.push({ message, level }));
+assert.equal(flushCalls, 1, "bridge flushes queued messages when it attaches");
 messenger.emit("inbox_diagnostic", { stage: "NOISE_MESSAGE_RECEIVED" });
 assert.equal(diagnostics.some(item => item.message.includes("NOISE_MESSAGE_RECEIVED")), true);
 messenger.emit("message", source);
+assert.equal(flushCalls, 2, "bridge retries queued delivery before dispatching a newer message");
 messenger.emit("message", { ...source, id: "group-event", isGroup: true });
 assert.equal(delivered.length, 1, "native group messages are not routed through the DM bridge");
 assert.equal(diagnostics.some(item => item.message.includes("invalid or unsupported")), false);
