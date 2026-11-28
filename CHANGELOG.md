@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-28
+
+### Added
+
+- Enable authenticated Messenger Noise transport by default when E2EE is explicitly enabled, allowing the native Messenger Inbox path to initialize without a separate `options.facebook` object. An explicit `facebook: false` retains local-only Signal runtime behavior.
+- Add regression coverage for default Messenger transport activation and the explicit local-only opt-out.
+- Honor GoatBot `config.json` Humanizer timing: `humanizer.delayMs` maps to FCA `reactDelayMs`, and `humanizer.cooldownMs` controls per-thread minimum spacing.
+- Document the Humanizer timing contract and E2EE Inbox investigation findings.
+
+### Validation
+
+- GitHub Actions run [46138729592](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46138729592) passed on Node.js 20 and 22: dependency/security audit, build, full tests, TypeScript, lint, and package dry run.
+- Live Messenger Inbox DM/reply and GoatBot runtime acceptance remain pending. This release does not claim live Facebook interoperability has been verified.
+- Not yet published to npm or deployed to Railway by this preparation.
+
+---
+
 ## [0.2.3-beta.7] - 2026-11-28
 
 ### Changed
