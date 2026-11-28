@@ -38,28 +38,34 @@ export function createE2EESendMessageRouter(
       return sendLegacy(message, threadID, callback, replyToMessage);
     }
 
-    const body = typeof message === "string"
-      ? message
-      : message && typeof message === "object" && typeof message.body === "string"
-        ? message.body
-        : undefined;
-    if (body === undefined) {
-      throw new Error("E2EE direct-message transport currently supports text payloads only; plaintext fallback is disabled");
-    }
-
-    if (typeof message === "object" && message !== null) {
-      const unsupported = ["attachment", "sticker", "emoji", "location", "forwardAttachmentIds", "mentions"]
-        .some((key) => {
-          const value = message[key];
-          return Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== false;
-        });
-      if (unsupported) {
-        throw new Error("This E2EE reply contains unsupported media or metadata; plaintext fallback is disabled");
+    let result: { body: string; messageID: string; threadID: string; isE2EE: true };
+    try {
+      const body = typeof message === "string"
+        ? message
+        : message && typeof message === "object" && typeof message.body === "string"
+          ? message.body
+          : undefined;
+      if (body === undefined) {
+        throw new Error("E2EE direct-message transport currently supports text payloads only; plaintext fallback is disabled");
       }
-    }
 
-    const messageID = await options.sendDirectText(peerID, body);
-    const result = { body, messageID, threadID: peerID, isE2EE: true };
+      if (typeof message === "object" && message !== null) {
+        const unsupported = ["attachment", "sticker", "emoji", "location", "forwardAttachmentIds", "mentions"]
+          .some((key) => {
+            const value = message[key];
+            return Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== false;
+          });
+        if (unsupported) {
+          throw new Error("This E2EE reply contains unsupported media or metadata; plaintext fallback is disabled");
+        }
+      }
+
+      const messageID = await options.sendDirectText(peerID, body);
+      result = { body, messageID, threadID: peerID, isE2EE: true };
+    } catch (error) {
+      if (typeof callback === "function") callback(error);
+      throw error;
+    }
     if (typeof callback === "function") callback(undefined, result);
     return result;
   };
