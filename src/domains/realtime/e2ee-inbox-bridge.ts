@@ -56,6 +56,7 @@ export function attachE2EEInboxBridge(
       return;
     }
     try {
+      if (typeof messenger.flushPendingMessages === "function") messenger.flushPendingMessages();
       dispatch(event);
       logger("E2EE inbox stage: FCA_INBOX_CALLBACK_INVOKED", "info");
     } catch (error) {
@@ -64,6 +65,12 @@ export function attachE2EEInboxBridge(
     }
   };
   messenger.on("message", onMessage);
+  if (typeof messenger.flushPendingMessages === "function") {
+    try { messenger.flushPendingMessages(); }
+    catch (error) {
+      logger("E2EE pending Inbox delivery deferred: " + (error instanceof Error ? error.message : String(error)), "warn");
+    }
+  }
   let attached = true;
   return () => {
     if (!attached) return;
