@@ -296,6 +296,7 @@ export class MessengerE2EEService extends EventEmitter {
 
   private attachSocket(socket: MessengerNoiseSocket): void {
     this.unsubscribe = socket.onNode((node) => {
+      if (node.tag === "message") this.emit("inbox_diagnostic", { stage: "NOISE_MESSAGE_RECEIVED" });
       void this.handleNode(node).catch(async (error) => {
         if (node.tag === "message") await this.sendRetryReceipt(node).catch((retryError) => this.emit("e2ee_error", retryError));
         this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error)));
@@ -781,6 +782,7 @@ export class MessengerE2EEService extends EventEmitter {
       id: context.id, threadId: context.threadId, senderJid: context.senderJid,
       senderId: context.sender.name, text, timestampMs: context.timestampMs
     } satisfies MessengerE2EEMessageEvent);
+    this.emit("inbox_diagnostic", { stage: "E2EE_MESSAGE_EMITTED" });
   }
 
   private async handleNode(node: Node): Promise<void> {
@@ -822,6 +824,7 @@ export class MessengerE2EEService extends EventEmitter {
     const sender = jidAddress(senderJid);
     const incomingId = String(node.attrs.id || "");
     if (incomingId && this.seenIncoming.has(incomingId)) {
+      this.emit("inbox_diagnostic", { stage: "DUPLICATE_STANZA_SUPPRESSED" });
       await this.options.socket.sendFrame(marshal(encodeNode("ack", { class: "message", id: incomingId, to: from })));
       return;
     }
@@ -831,6 +834,7 @@ export class MessengerE2EEService extends EventEmitter {
       if (recipientNode.tag !== "to" || typeof recipientNode.attrs.jid !== "string") continue;
       const target = jidAddress(String(recipientNode.attrs.jid));
       if (target.name !== this.local.name || target.deviceId !== this.local.deviceId) continue;
+      this.emit("inbox_diagnostic", { stage: "E2EE_RECIPIENT_MATCHED" });
       const participantEnc = list(recipientNode).find((child) => child.tag === "enc");
       if (!participantEnc || !Buffer.isBuffer(participantEnc.content)) continue;
       const type = participantEnc.attrs.type === "pkmsg"
@@ -839,6 +843,7 @@ export class MessengerE2EEService extends EventEmitter {
       const dm = await this.options.runtime.directMessages.decrypt(sender, {
         type, body: Buffer.from(participantEnc.content).toString("base64")
       });
+      this.emit("inbox_diagnostic", { stage: "E2EE_DECRYPT_SUCCEEDED" });
       const participantPayload = decodeTransport(Buffer.from(dm));
       if (participantPayload.skdm) {
         await this.options.runtime.groups.processDistribution({
@@ -874,8 +879,10 @@ export class MessengerE2EEService extends EventEmitter {
       plaintext = Buffer.from(await this.options.runtime.directMessages.decrypt(sender, {
         type, body: Buffer.from(mainEnc.content).toString("base64")
       }));
+      this.emit("inbox_diagnostic", { stage: "E2EE_DECRYPT_SUCCEEDED" });
     } else return;
     const decoded = decodeTransport(plaintext);
+    this.emit("inbox_diagnostic", { stage: "E2EE_TRANSPORT_DECODED" });
     if (decoded.skdm) {
       await this.options.runtime.groups.processDistribution({
         groupId: decoded.skdm.groupId, sender, body: decoded.skdm.bytes.toString("base64")
