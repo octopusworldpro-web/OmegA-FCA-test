@@ -1,6 +1,6 @@
 # E2EE Direct-Message Inbox Investigation
 
-**Status:** Investigation documented; runtime fix not started  
+**Status:** FCA callback bridge implemented; stage diagnostics added; GoatBot integration and live Inbox acceptance pending  
 **Branch:** `investigation/e2ee-dm-inbox`  
 **Base branch:** `feature/release-0.2.3-beta.3`  
 **Base commit:** `d4c6acfefc4baad8ec54f8408d7a4db3a24e0f46`  
@@ -84,7 +84,7 @@ That gap is a strong explanation for “E2EE connected, group bot works, E2EE DM
 
 ## 4. Work progress
 
-The statuses below track this Inbox-specific investigation/fix. They do not change the separate four-step E2EE implementation roadmap or claim live Messenger compatibility.
+The statuses below track this Inbox-specific investigation/fix. They do not change the separate four-step E2EE implementation roadmap or claim live Messenger compatibility. The current branch contains the FCA bridge and privacy-safe stage diagnostics; these diagnostics are not yet live-runtime evidence.
 
 | # | Work item | Status | Evidence / remaining work |
 |---|---|---|---|
@@ -95,7 +95,7 @@ The statuses below track this Inbox-specific investigation/fix. They do not chan
 | 5 | Check GoatBot listener/handler compatibility | **Source reviewed** | Existing handler has E2EE-aware handling, but inspected login listener does not subscribe to the E2EE EventEmitter |
 | 6 | Verify exact active FCA callback contract and listener lifecycle | **Complete (source audit)** | `createRealtimeListener` owns the active callback; `api.e2ee.messenger` is an EventEmitter; stop/replacement lifecycle and middleware wrapping are confirmed |
 | 7 | Implement one lifecycle-managed E2EE → FCA callback bridge | **Implemented — CI verified** | One bridge feeds the active middleware-wrapped FCA callback; stop/replacement detaches it; `selfListen` behavior is preserved |
-| 8 | Add normalization, dedupe, ACK and lifecycle regression tests | **Partial — unit test and CI passed** | Mapping, invalid payload rejection, delivery and detach pass; service-level replay/reconnect behavior still needs targeted coverage |
+| 8 | Add normalization, dedupe, ACK and lifecycle regression tests | **Partial — bridge unit test and CI passed** | Mapping, invalid payload rejection, delivery and detach pass; service-level replay/reconnect and participant/main-envelope duplicate behavior still need targeted coverage |
 | 9 | Run GoatBot integration and regression tests | **FCA CI passed; GoatBot integration pending** | Node 20 and 22 build, full npm test, typecheck, lint and package dry-run all passed; end-to-end GoatBot handler validation remains |
 | 10 | Perform authorized live Messenger Inbox acceptance test | **Not started** | Verify a real DM is received, handled and answered exactly once |
 
@@ -188,7 +188,7 @@ GoatBot runtime files should remain unchanged unless tests prove the FCA callbac
 
 Do not mark the Inbox fix complete based only on compilation, unit tests, CI, E2EE connection status, or group-chat replies. Live acceptance requires the end-to-end DM and reply.
 
-## 8. Current disposition
+## 8. Diagnostic instrumentation added (source-level; not yet live-verified)\n\nThe FCA service now emits privacy-safe `inbox_diagnostic` stages without message bodies, JIDs, message IDs, ciphertext, cookies, or key material. The bridge forwards stage names to the configured logger and records when the normal FCA callback is invoked. Stages currently instrumented: `NOISE_MESSAGE_RECEIVED`, `DUPLICATE_STANZA_SUPPRESSED`, `E2EE_RECIPIENT_MATCHED`, `E2EE_DECRYPT_SUCCEEDED`, `E2EE_TRANSPORT_DECODED`, `E2EE_MESSAGE_EMITTED`, and `FCA_INBOX_CALLBACK_INVOKED`. These indicate code-path progress only; absence/presence must be observed during an authorized live DM test to localize the runtime failure. `GOATBOT_HANDLER_RECEIVED` and reply confirmation require GoatBot-side/runtime evidence and are not claimed by FCA logs.\n\n**Additional source-level risk retained for verification:** participant-device payload handling can dispatch an application payload before the stanza-level `seenIncoming` ID is added; if a stanza also contains a main `enc` payload, both paths may dispatch. The exact Messenger envelope semantics and whether these are distinct logical payloads are not proven by current fixtures. Participant-path `threadId` is taken from `destinationJid || from`; its direct-thread meaning also needs a fixture/live observation. No speculative behavior change is made until that contract is established.\n\n## 9. Current disposition
 
 - Runtime implementation has started with explicit user approval. All changes are isolated to `investigation/e2ee-dm-inbox`.
 - The bridge is owned by the FCA realtime listener and feeds the existing middleware-wrapped callback; no second GoatBot-side listener is introduced.
@@ -198,7 +198,7 @@ Do not mark the Inbox fix complete based only on compilation, unit tests, CI, E2
 - No production Railway variables, session files, E2EE identity files, or database state have been modified.
 - The first CI attempt exposed a TypeScript union-narrowing error in the receipt guard; this was corrected. Final CI run `46107206071` passed on both Node 20 and Node 22, including build, full `npm test`, typecheck, lint and package dry-run. GoatBot integration and authorized live Inbox acceptance are still pending; do not claim live E2EE DM compatibility or production readiness yet.
 
-## 9. Implementation commits
+## 10. Implementation commits
 
 - `9d3a660`: add E2EE Inbox event normalizer and lifecycle bridge helper.
 - `aef16b7`: attach the bridge to the active FCA realtime callback and detach it on listener stop/replacement.
@@ -206,9 +206,9 @@ Do not mark the Inbox fix complete based only on compilation, unit tests, CI, E2
 - `034f2db`: export the bridge utilities.
 - `8bfa155`: add Inbox bridge unit tests and include them in `npm test`.
 - `07927c7`: enable CI on `investigation/**` branches.
-- `f43eaa8`: correct the event-union type guard identified by the first CI attempt.\n- `6862da2`: preserve ordinary FCA `selfListen` filtering and thread-count update behavior for E2EE DMs.\n- `1e48fc6`: update this investigation report with callback audit and CI correction status.
+- `f43eaa8`: correct the event-union type guard identified by the first CI attempt.\n- `6862da2`: preserve ordinary FCA `selfListen` filtering and thread-count update behavior for E2EE DMs.\n- `1e48fc6`: update this investigation report with callback audit and CI correction status.\n- Pending commit: add privacy-safe inbound E2EE stage diagnostics and update this report with unresolved envelope risks.
 
-## 10. Source references
+## 11. Source references
 
 OmegA-FCA-test, branch `investigation/e2ee-dm-inbox`:
 
