@@ -1,0 +1,36 @@
+const assert = require("node:assert/strict");
+const { EventEmitter } = require("node:events");
+const {
+  attachE2EEInboxBridge,
+  normalizeMessengerE2EEInboxMessage
+} = require("../dist/cjs.cjs");
+
+const source = {
+  id: "e2ee-message-1",
+  threadId: "123456789.0@msgr",
+  senderId: "123456789",
+  text: "hello from inbox",
+  timestampMs: 1795860000000
+};
+const normalized = normalizeMessengerE2EEInboxMessage(source);
+assert.equal(normalized.type, "message");
+assert.equal(normalized.messageID, source.id);
+assert.equal(normalized.threadID, "123456789");
+assert.equal(normalized.senderID, "123456789");
+assert.equal(normalized.body, source.text);
+assert.equal(normalized.timestamp, source.timestampMs);
+assert.equal(normalized.isGroup, false);
+assert.equal(normalized.isE2EE, true);
+assert.equal(normalizeMessengerE2EEInboxMessage({ ...source, threadId: "not-a-user" }), null);
+assert.equal(normalizeMessengerE2EEInboxMessage({ ...source, text: "" }), null);
+
+const messenger = new EventEmitter();
+const delivered = [];
+const detach = attachE2EEInboxBridge(messenger, event => delivered.push(event));
+messenger.emit("message", source);
+assert.equal(delivered.length, 1);
+assert.equal(delivered[0].messageID, source.id);
+detach();
+messenger.emit("message", { ...source, id: "after-detach" });
+assert.equal(delivered.length, 1);
+console.log("E2EE Inbox bridge tests passed");
