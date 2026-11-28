@@ -11,6 +11,7 @@ import { createThreadsDomain } from "../domains/threads";
 import { createUsersDomain } from "../domains/users";
 import { createSocialDomain } from "../domains/social";
 import type { FcaClientNamespace, FcaClientNamespaces } from "../types/client";
+import { createE2EESendMessageRouter } from "../domains/e2ee/send-routing";
 
 import { EventEmitter } from "node:events";
 import mqtt from "mqtt";
@@ -210,6 +211,22 @@ export function attachLegacyApiSurface(
       logError
     }
   }) as Record<string, Loose>;
+
+  const legacySendMessage = messages.send as (...args: Loose[]) => Loose;
+  messages.send = createE2EESendMessageRouter(
+    (...args: Loose[]) => legacySendMessage(...args),
+    {
+      isE2EEThread: (threadID) =>
+        ctx._e2eeInboxThreadIds instanceof Set && ctx._e2eeInboxThreadIds.has(threadID),
+      sendDirectText: (peerID, text) => {
+        const sendDirectText = api.e2ee && api.e2ee.sendDirectText;
+        if (typeof sendDirectText !== "function") {
+          throw new Error("Native Messenger E2EE transport is not ready for this Inbox reply");
+        }
+        return sendDirectText(peerID, text);
+      }
+    }
+  );
 
   const mediaShortcuts = createMediaShortcuts({ sendMessage: messages.send as Loose });
 
