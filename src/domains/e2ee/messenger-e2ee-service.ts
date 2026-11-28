@@ -838,7 +838,11 @@ export class MessengerE2EEService extends EventEmitter {
     try {
     const participantNode = list(node).find((child) => child.tag === "participants");
     let participantProcessed = false;
-    let participantApplicationHash: string | undefined;
+    const pendingApplications: Array<{
+      messageApp: Buffer;
+      context: { id: string; threadId: string; senderJid: string; sender: SignalPeerAddress; timestampMs: number };
+      group: boolean;
+    }> = [];
     for (const recipientNode of list(participantNode)) {
       if (recipientNode.tag !== "to" || typeof recipientNode.attrs.jid !== "string") continue;
       const target = jidAddress(String(recipientNode.attrs.jid));
@@ -861,20 +865,29 @@ export class MessengerE2EEService extends EventEmitter {
         participantProcessed = true;
       }
       if (participantPayload.messageApp) {
-        participantApplicationHash = createHash("sha256").update(participantPayload.messageApp).digest("hex");
-        this.dispatchApplicationPayload(participantPayload.messageApp, {
-          id: String(node.attrs.id || ""),
-          // A one-to-one conversation is keyed by the remote sender JID.
-          // DSM destination metadata may describe a fanout route, not the DM thread.
-          threadId: from,
-          senderJid, sender,
-          timestampMs: Number(node.attrs.t || Date.now()) * 1000
-        }, false);
+        pendingApplications.push({
+          messageApp: participantPayload.messageApp,
+          context: {
+            id: String(node.attrs.id || ""),
+            // A one-to-one conversation is keyed by the remote sender JID.
+            // DSM destination metadata may describe a fanout route, not the DM thread.
+            threadId: from, senderJid, sender,
+            timestampMs: Number(node.attrs.t || Date.now()) * 1000
+          },
+          group: false
+        });
         participantProcessed = true;
       }
     }
     const mainEnc = list(node).find((child) => child.tag === "enc");
     if (!mainEnc || !Buffer.isBuffer(mainEnc.content)) {
+      const dispatched = new Set<string>();
+      for (const item of pendingApplications) {
+        const hash = createHash("sha256").update(item.messageApp).digest("hex");
+        if (dispatched.has(hash)) continue;
+        dispatched.add(hash);
+        this.dispatchApplicationPayload(item.messageApp, item.context, item.group);
+      }
       if (participantProcessed && incomingId) {
         await this.options.socket.sendFrame(marshal(encodeNode("ack", { class: "message", id: incomingId, to: from })));
         this.rememberIncoming(incomingId);
@@ -902,15 +915,24 @@ export class MessengerE2EEService extends EventEmitter {
       });
     }
     if (decoded.messageApp) {
-      const mainApplicationHash = createHash("sha256").update(decoded.messageApp).digest("hex");
-      if (mainApplicationHash !== participantApplicationHash) {
-        this.dispatchApplicationPayload(decoded.messageApp, {
+      pendingApplications.push({
+        messageApp: decoded.messageApp,
+        context: {
           id: String(node.attrs.id || ""), threadId: from, senderJid, sender,
           timestampMs: Number(node.attrs.t || Date.now()) * 1000
-        }, mainEnc.attrs.type === "skmsg");
-      } else {
+        },
+        group: mainEnc.attrs.type === "skmsg"
+      });
+    }
+    const dispatched = new Set<string>();
+    for (const item of pendingApplications) {
+      const hash = createHash("sha256").update(item.messageApp).digest("hex");
+      if (dispatched.has(hash)) {
         this.emit("inbox_diagnostic", { stage: "DUPLICATE_APPLICATION_PAYLOAD_SUPPRESSED" });
+        continue;
       }
+      dispatched.add(hash);
+      this.dispatchApplicationPayload(item.messageApp, item.context, item.group);
     }
     const ackAttrs: Record<string, string> = { class: "message", id: String(node.attrs.id || ""), to: from };
     if (node.attrs.participant) ackAttrs.participant = String(node.attrs.participant);
