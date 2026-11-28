@@ -59,28 +59,23 @@ In `src/domains/e2ee/messenger-e2ee-service.ts`:
 
 This is a separate event shape from the normal FCA MQTT callback event.
 
-### 3.3 Login integration exposes the service but no callback bridge was found
+### 3.3 Login integration exposes the service; the original callback gap is now bridged
 
-In `src/core/login-helper.impl.ts` around the E2EE login integration (approximately lines 1020–1090):
+In `src/core/login-helper.impl.ts`, `initializeE2EEForLogin()` initializes the E2EE service after authenticated user identity validation and exposes `api.e2ee.messenger`. The initial audit found no bridge from this EventEmitter into the ordinary FCA callback. That gap is now addressed in `src/domains/realtime/listener.ts`: when `listenMqtt()` starts, the listener attaches the E2EE bridge to the same middleware-wrapped callback used by MQTT events, and detaches it on listener stop/replacement.
 
-- `initializeE2EEForLogin()` initializes the E2EE service after authenticated user identity validation.
-- The result is exposed as `api.e2ee`, including `messenger` and send/receive helper methods.
-- In the inspected integration block, no `messenger.on("message", ...)` bridge into the standard `listenMqtt`/global callback was found.
-
-### 3.4 GoatBot adapter does not currently attach an E2EE message listener
+### 3.4 GoatBot consumes the ordinary FCA callback; no separate GoatBot listener is intended
 
 In `nirzon-islam/OmegA-Goatbot`, branch `agent-fca-compat-fix`:
 
-- `bot/login/fcaProvider.js` builds FCA login options and provisions local E2EE identity material; it does not attach a listener to `api.e2ee.messenger`.
-- `bot/login/login.js` starts the ordinary `api.listenMqtt(...)` callback path. The inspected listener setup does not attach a separate `api.e2ee.messenger.on("message", ...)` handler.
+- `bot/login/fcaProvider.js` builds FCA login options and provisions local E2EE identity material.
+- `bot/login/login.js` starts `api.listenMqtt(...)`; this is the callback path the FCA bridge now feeds.
 - `bot/handler/handlerAction.js` exempts `event.isE2EE` events from anti-inbox filtering.
-- `bot/handler/handlerEvents.js` has safe handling for `event.isE2EE` thread/user data, but that code only helps after an E2EE event reaches the handler.
+- `bot/handler/handlerEvents.js` contains E2EE-aware thread/user handling.
+- A separate GoatBot-side `api.e2ee.messenger` listener is intentionally not added: the FCA bridge should preserve a single callback/event pipeline. Actual GoatBot handler execution remains unverified until its branch is tested with the updated FCA build.
 
 ### 3.5 Most likely failure boundary
 
-**High-confidence source-level lead:** the native E2EE service can emit a decrypted `message` event, but the inspected login integration and GoatBot adapter do not bridge that EventEmitter event into the callback consumed by GoatBot's existing `listenMqtt` pipeline.
-
-That gap is a strong explanation for “E2EE connected, group bot works, E2EE DM does not reply.” It is not yet live packet-level proof: the next validation must establish whether a DM stanza arrives at `handleNode()`, is decrypted, emits `message`, and then reaches the normal FCA callback exactly once.
+**Original failure boundary:** the native E2EE EventEmitter was not connected to the FCA callback. The branch now contains that lifecycle-managed bridge, so the original source-level gap is addressed. Remaining uncertainty is upstream of and downstream from that bridge: whether a real Inbox DM is routed to the local device and decrypted, and whether the updated package is accepted by the GoatBot handler path. These require test evidence; they are not assumed.
 
 ## 4. Work progress
 
@@ -95,11 +90,11 @@ The statuses below track this Inbox-specific investigation/fix. They do not chan
 | 5 | Check GoatBot listener/handler compatibility | **Source reviewed** | Existing handler has E2EE-aware handling, but inspected login listener does not subscribe to the E2EE EventEmitter |
 | 6 | Verify exact active FCA callback contract and listener lifecycle | **Complete (source audit)** | `createRealtimeListener` owns the active callback; `api.e2ee.messenger` is an EventEmitter; stop/replacement lifecycle and middleware wrapping are confirmed |
 | 7 | Implement one lifecycle-managed E2EE → FCA callback bridge | **Implemented — CI verified** | One bridge feeds the active middleware-wrapped FCA callback; stop/replacement detaches it; `selfListen` behavior is preserved |
-| 8 | Add normalization, dedupe, ACK and lifecycle regression tests | **Partial — bridge unit test and CI passed** | Mapping, invalid payload rejection, delivery, diagnostic forwarding and detach are covered by the bridge test; service-level replay/reconnect and participant/main-envelope duplicate behavior still need targeted coverage |
-| 9 | Run GoatBot integration and regression tests | **FCA CI passed; GoatBot integration pending** | Node 20 and 22 build, full npm test, typecheck, lint and package dry-run all passed; end-to-end GoatBot handler validation remains |
+| 8 | Add normalization, dedupe, ACK and lifecycle regression tests | **Expanded tests added; fresh CI pending** | Added service fixtures for concurrent/replayed stanza dedupe, participant/main-envelope identical-payload suppression, decrypt-failure retry, and DSM destination vs DM sender thread mapping; bridge tests cover callback error propagation and detach |
+| 9 | Run GoatBot integration and regression tests | **Pending** | FCA callback contract is wired to the existing GoatBot `listenMqtt` path; need fresh FCA CI and compatibility validation against `agent-fca-compat-fix` |
 | 10 | Perform authorized live Messenger Inbox acceptance test | **Not started** | Verify a real DM is received, handled and answered exactly once |
 
-**Progress summary:** 7/10 work items are complete or source-verified; bridge unit coverage is passing but replay/reconnect-specific coverage remains; FCA CI is green on Node 20/22; GoatBot integration and live Inbox acceptance remain outstanding. This is a work-item status, not a percentage-complete claim. The Inbox fix is not live-accepted yet.
+**Progress summary:** callback contract audit, bridge implementation, and diagnostics are source-complete. Expanded inbound dedupe/envelope/thread/retry regression fixtures have been added, but fresh CI for the latest changes is pending. GoatBot integration and live Inbox acceptance remain outstanding. This is a work-item status, not a percentage-complete claim. The Inbox fix is not live-accepted yet.
 
 ## 5. Implementation details (current branch changes)
 
@@ -166,7 +161,7 @@ The following files were changed for the bridge and its verification:
 | `src/domains/realtime/listener.ts` | Connect E2EE event bridge to the active, middleware-wrapped FCA callback; detach on stop/replacement; skip MQTT receipts for E2EE ACKed messages |
 | `src/domains/e2ee/messenger-e2ee-service.ts` | Unchanged; its existing `message` event is consumed as the bridge source |
 | `src/types/events.ts` and `src/index.ts` | Add typed E2EE metadata and export the bridge utility |
-| `test/e2ee-inbox-bridge.test.cjs` and `package.json` | Add normalizer/attach/detach regression coverage to the test suite |
+| `test/e2ee-inbox-bridge.test.cjs`, `test/e2ee-messenger-send.test.cjs`, and `package.json` | Add bridge lifecycle/error-propagation plus service-level duplicate, retry, envelope, and thread-mapping regression coverage |
 | `.github/workflows/ci.yml` | Include `investigation/**` branches in CI push/PR triggers so this branch is validated on Node 20 and 22 |
 
 GoatBot runtime files should remain unchanged unless tests prove the FCA callback bridge alone is insufficient and a separate adapter change is explicitly approved.
@@ -190,15 +185,21 @@ Do not mark the Inbox fix complete based only on compilation, unit tests, CI, E2
 
 ## 8. Diagnostic instrumentation added (source-level; not yet live-verified)
 
-The FCA service now emits privacy-safe `inbox_diagnostic` stages without message bodies, JIDs, message IDs, ciphertext, cookies, or key material. The bridge forwards stage names to the configured logger and records when the normal FCA callback is invoked. Stages currently instrumented: `NOISE_MESSAGE_RECEIVED`, `DUPLICATE_STANZA_SUPPRESSED`, `E2EE_RECIPIENT_MATCHED`, `E2EE_DECRYPT_SUCCEEDED`, `E2EE_TRANSPORT_DECODED`, `E2EE_MESSAGE_EMITTED`, `E2EE_NODE_PROCESSING_FAILED`, and `FCA_INBOX_CALLBACK_INVOKED`. These indicate code-path progress only; absence/presence must be observed during an authorized live DM test to localize the runtime failure. `GOATBOT_HANDLER_RECEIVED` and reply confirmation require GoatBot-side/runtime evidence and are not claimed by FCA logs.
+The FCA service now emits privacy-safe `inbox_diagnostic` stages without message bodies, JIDs, message IDs, ciphertext, cookies, or key material. The bridge forwards stage names to the configured logger and records when the normal FCA callback is invoked. Stages currently instrumented: `NOISE_MESSAGE_RECEIVED`, `DUPLICATE_STANZA_SUPPRESSED`, `DUPLICATE_STANZA_IN_FLIGHT_SUPPRESSED`, `E2EE_RECIPIENT_MATCHED`, `E2EE_RECIPIENT_NOT_MATCHED`, `E2EE_DECRYPT_SUCCEEDED`, `E2EE_PARTICIPANT_TRANSPORT_DECODED`, `E2EE_TRANSPORT_DECODED`, `DUPLICATE_APPLICATION_PAYLOAD_SUPPRESSED`, `E2EE_MESSAGE_EMITTED`, `E2EE_NODE_PROCESSING_FAILED`, and `FCA_INBOX_CALLBACK_INVOKED`. These indicate code-path progress only; absence/presence must be observed during an authorized live DM test to localize the runtime failure. `GOATBOT_HANDLER_RECEIVED` and reply confirmation require GoatBot-side/runtime evidence and are not claimed by FCA logs.
 
-**Additional source-level risk retained for verification:** participant-device payload handling can dispatch an application payload before the stanza-level `seenIncoming` ID is added; if a stanza also contains a main `enc` payload, both paths may dispatch. The exact Messenger envelope semantics and whether these are distinct logical payloads are not proven by current fixtures. Participant-path `threadId` is taken from `destinationJid || from`; its direct-thread meaning also needs a fixture/live observation. No speculative behavior change is made until that contract is established.
+**Source-level risks addressed in this pass:** incoming stanza IDs are now tracked while processing as well as after successful dispatch, preventing concurrent duplicate decrypt/dispatch. Decrypted application payloads are staged until every present envelope has decrypted successfully; identical participant/main application payload bytes are dispatched once. The direct-message thread ID uses the remote sender JID (`from`), not DSM destination metadata, and tests deliberately provide a different DSM destination. Successfully dispatched stanza IDs are remembered before ACK transmission so an ACK-send failure can be retried without re-running the bot callback. A repeated processed stanza is re-ACKed, preserving the stanza participant attribute when present.
+
+**Remaining protocol uncertainty:** if a stanza contains two *different* application payloads in participant and main envelopes, both are currently dispatched after successful decryption. The exact Messenger semantics of that uncommon envelope combination are not established by the available fixtures; no content is discarded merely because it differs. Real Messenger envelope capture is still required to confirm the expected wire shape.
 
 ## 9. Current disposition
 
 - Runtime implementation has started with explicit user approval. All changes are isolated to `investigation/e2ee-dm-inbox`.
 - The bridge is owned by the FCA realtime listener and feeds the existing middleware-wrapped callback; no second GoatBot-side listener is introduced.
 - The normalized event includes `type: "message"`, `threadID`, `messageID`, `senderID`, `body`, `timestamp`, `isGroup: false`, and `isE2EE: true`.
+- Inbound processing now suppresses same-ID concurrent/replayed stanzas; identical app payloads across participant and main envelopes are dispatched once.
+- App dispatch is deferred until all present encrypted envelopes decrypt successfully, avoiding partial callback delivery followed by a later envelope failure.
+- The direct-message thread is derived from the remote sender JID; regression fixtures set a conflicting DSM destination to guard against routing a DM to the wrong thread.
+- FCA callback dispatch errors propagate back into the native E2EE processing path so retry handling can run; the bridge unit test covers this behavior.
 - Listener stop and replacement detach the E2EE event listener. Existing service-level stanza dedupe and acknowledgement remain in the E2EE service.
 - E2EE events skip the MQTT automatic receipt helper because the native Noise service already acknowledges inbound stanzas.
 - No production Railway variables, session files, E2EE identity files, or database state have been modified.
@@ -223,6 +224,7 @@ The FCA service now emits privacy-safe `inbox_diagnostic` stages without message
 - `08051b9`: trace inbound node-processing failures without exposing payload data.
 - `3a8832e`: log FCA callback invocation after dispatch returns.
 - `5c015e0`: correct report line breaks and refresh the implementation record.
+- Latest source commits: `1723915` (in-flight dedupe and DM thread mapping), `4edead1` (defer application dispatch until stanza decrypt completes), `bf8865f` (duplicate/replay/dual-envelope tests), `ff72462` (partial-decrypt retry test), `dd65efc` (participant ACK addressing), `ce8f132` (remember processed messages before ACK), `e93858f` (propagate FCA callback failures), `7fa807f` (bridge error-propagation test), `da2ef6c` (recipient/participant decode diagnostics), and `a51960e` (DSM-vs-thread mapping fixture).
 
 ## 11. Source references
 
