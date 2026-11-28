@@ -39,6 +39,7 @@ export { createAccountDomain } from "./domains/account";
 export { createHttpDomain } from "./domains/http";
 export { createSchedulerDomain } from "./domains/scheduler";
 export { createRealtimeListener } from "./domains/realtime/listener";
+export { attachE2EEInboxBridge, normalizeMessengerE2EEInboxMessage, type MessengerE2EEInboxMessage } from "./domains/realtime/e2ee-inbox-bridge";
 export { createSendTypingIndicatorCommand, type SendTypingIndicatorCommandDeps } from "./domains/messages/commands/send-typing-indicator";
 export { createRealtimeMiddlewareSystem, type RealtimeMiddlewareSystem } from "./domains/realtime/middleware";
 export { createHumanizerController, type HumanizerController, type HumanizerOptions } from "./domains/realtime/humanizer";
