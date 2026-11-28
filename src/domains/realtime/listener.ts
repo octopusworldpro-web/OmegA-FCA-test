@@ -456,6 +456,8 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
         (event) => {
           // Match the ordinary NewMessage self-listen guard before dispatch.
           if (!ctx.globalOptions?.selfListen && String(event.senderID) === String(ctx.userID)) return;
+          if (!(ctx._e2eeInboxThreadIds instanceof Set)) ctx._e2eeInboxThreadIds = new Set<string>();
+          ctx._e2eeInboxThreadIds.add(String(event.threadID));
           if (typeof ctx._updateThreadFromMessage === "function") {
             try { void ctx._updateThreadFromMessage(event); } catch { }
           }
