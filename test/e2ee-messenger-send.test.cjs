@@ -38,13 +38,17 @@ let incomingTransport = textTransport("decrypted inbound");
 let decryptCallCount = 0;
 let failDecryptAtCall = 0;
 class FakeSocket {
-  constructor() { this.nodes = new Set(); this.closes = new Set(); this.frames = []; this.remoteDeviceId = 17; this.remoteDeviceIds = null; }
+  constructor() { this.nodes = new Set(); this.closes = new Set(); this.frames = []; this.remoteDeviceId = 17; this.remoteDeviceIds = null; this.failNextAck = false; }
   onNode(fn) { this.nodes.add(fn); return () => this.nodes.delete(fn); }
   onClose(fn) { this.closes.add(fn); return () => this.closes.delete(fn); }
   async sendFrame(frame) {
     const bytes = Buffer.from(frame);
-    this.frames.push(bytes);
     const node = fca.decodeMessengerNode(bytes);
+    if (node.tag === "ack" && this.failNextAck) {
+      this.failNextAck = false;
+      throw new Error("fixture ACK send failure");
+    }
+    this.frames.push(bytes);
     if (node.tag === "message" && node.attrs.id) {
       queueMicrotask(() => { for (const fn of [...this.nodes]) fn({ tag: "ack", attrs: { id: node.attrs.id } }); });
     }
@@ -253,6 +257,26 @@ const runtime = {
   socket.emit(failedDualEnvelope);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(received.length, receivedBeforeFailedDual + 1, "retry after a decrypt failure dispatches the message once");
+
+  // Once dispatched, an ACK transport failure must not make the bot process the same DM again.
+  incomingTransport = textTransport("ack retry message");
+  const ackRetryStanza = {
+    tag: "message",
+    attrs: { from: "987654321.17@msgr", id: "incoming-ack-retry", t: "1700000013" },
+    content: [{ tag: "participants", attrs: {}, content: [{
+      tag: "to", attrs: { jid: "123456789.42@msgr" }, content: [{
+        tag: "enc", attrs: { type: "msg" }, content: Buffer.from("ack-retry-cipher")
+      }]
+    }] }]
+  };
+  const receivedBeforeAckRetry = received.length;
+  socket.failNextAck = true;
+  socket.emit(ackRetryStanza);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(received.length, receivedBeforeAckRetry + 1);
+  socket.emit(ackRetryStanza);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(received.length, receivedBeforeAckRetry + 1, "ACK retry does not dispatch the already-processed message again");
 
   // Native Messenger media is uploaded once, then Signal-fanned out to peer and self devices.
   const originalFetch = global.fetch;
