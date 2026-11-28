@@ -245,6 +245,7 @@ export class MessengerE2EEService extends EventEmitter {
   private closed = false;
   private readonly retryCounts = new Map<string, number>();
   private readonly seenIncoming = new Set<string>();
+  private readonly processingIncoming = new Set<string>();
   constructor(private options: MessengerE2EEServiceOptions) {
     super();
     this.local = { name: options.accountId, deviceId: options.localDeviceId };
@@ -829,8 +830,15 @@ export class MessengerE2EEService extends EventEmitter {
       await this.options.socket.sendFrame(marshal(encodeNode("ack", { class: "message", id: incomingId, to: from })));
       return;
     }
+    if (incomingId && this.processingIncoming.has(incomingId)) {
+      this.emit("inbox_diagnostic", { stage: "DUPLICATE_STANZA_IN_FLIGHT_SUPPRESSED" });
+      return;
+    }
+    if (incomingId) this.processingIncoming.add(incomingId);
+    try {
     const participantNode = list(node).find((child) => child.tag === "participants");
     let participantProcessed = false;
+    let participantApplicationHash: string | undefined;
     for (const recipientNode of list(participantNode)) {
       if (recipientNode.tag !== "to" || typeof recipientNode.attrs.jid !== "string") continue;
       const target = jidAddress(String(recipientNode.attrs.jid));
@@ -853,9 +861,12 @@ export class MessengerE2EEService extends EventEmitter {
         participantProcessed = true;
       }
       if (participantPayload.messageApp) {
+        participantApplicationHash = createHash("sha256").update(participantPayload.messageApp).digest("hex");
         this.dispatchApplicationPayload(participantPayload.messageApp, {
           id: String(node.attrs.id || ""),
-          threadId: participantPayload.destinationJid || from,
+          // A one-to-one conversation is keyed by the remote sender JID.
+          // DSM destination metadata may describe a fanout route, not the DM thread.
+          threadId: from,
           senderJid, sender,
           timestampMs: Number(node.attrs.t || Date.now()) * 1000
         }, false);
@@ -864,8 +875,9 @@ export class MessengerE2EEService extends EventEmitter {
     }
     const mainEnc = list(node).find((child) => child.tag === "enc");
     if (!mainEnc || !Buffer.isBuffer(mainEnc.content)) {
-      if (participantProcessed && node.attrs.id) {
-        await this.options.socket.sendFrame(marshal(encodeNode("ack", { class: "message", id: String(node.attrs.id), to: from })));
+      if (participantProcessed && incomingId) {
+        await this.options.socket.sendFrame(marshal(encodeNode("ack", { class: "message", id: incomingId, to: from })));
+        this.rememberIncoming(incomingId);
       }
       return;
     }
@@ -890,18 +902,28 @@ export class MessengerE2EEService extends EventEmitter {
       });
     }
     if (decoded.messageApp) {
-      this.dispatchApplicationPayload(decoded.messageApp, {
-        id: String(node.attrs.id || ""), threadId: from, senderJid, sender,
-        timestampMs: Number(node.attrs.t || Date.now()) * 1000
-      }, mainEnc.attrs.type === "skmsg");
+      const mainApplicationHash = createHash("sha256").update(decoded.messageApp).digest("hex");
+      if (mainApplicationHash !== participantApplicationHash) {
+        this.dispatchApplicationPayload(decoded.messageApp, {
+          id: String(node.attrs.id || ""), threadId: from, senderJid, sender,
+          timestampMs: Number(node.attrs.t || Date.now()) * 1000
+        }, mainEnc.attrs.type === "skmsg");
+      } else {
+        this.emit("inbox_diagnostic", { stage: "DUPLICATE_APPLICATION_PAYLOAD_SUPPRESSED" });
+      }
     }
     const ackAttrs: Record<string, string> = { class: "message", id: String(node.attrs.id || ""), to: from };
     if (node.attrs.participant) ackAttrs.participant = String(node.attrs.participant);
     await this.options.socket.sendFrame(marshal(encodeNode("ack", ackAttrs)));
-    if (incomingId) {
-      this.seenIncoming.add(incomingId);
-      if (this.seenIncoming.size > 5000) this.seenIncoming.delete(this.seenIncoming.values().next().value as string);
+    if (incomingId) this.rememberIncoming(incomingId);
+    } finally {
+      if (incomingId) this.processingIncoming.delete(incomingId);
     }
+  }
+
+  private rememberIncoming(id: string): void {
+    this.seenIncoming.add(id);
+    if (this.seenIncoming.size > 5000) this.seenIncoming.delete(this.seenIncoming.values().next().value as string);
   }
 
   close(): void {
