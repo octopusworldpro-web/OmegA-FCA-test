@@ -11,6 +11,9 @@ export interface MessageEvent extends EventBase {
   messageID: string;
   body?: string;
   attachments?: Loose[];
+  /** Message arrived through the authenticated native Messenger E2EE transport. */
+  isE2EE?: boolean;
+  isGroup?: boolean;
 }
 
 export interface ReactionEvent extends EventBase {
