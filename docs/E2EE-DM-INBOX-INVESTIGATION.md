@@ -14,6 +14,7 @@
 - GoatBot runtime integration and live Messenger Inbox acceptance remain pending.
 - The previous Node.js 20/22 CI success applies to source/test commit `b1882b6`, not the beta.6 metadata update. A fresh CI run and NPM package dry-run are required before considering the candidate validated.
 - The candidate has not been published to npm or deployed to Railway.
+- Candidate metadata commit: `f60169f`; branch update is in place. A fresh push-triggered CI run is still required to validate the versioned candidate.
 
 ## 2. Reported symptom
 
