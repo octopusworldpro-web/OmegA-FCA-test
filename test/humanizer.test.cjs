@@ -118,6 +118,31 @@ async function run() {
   assert.deepStrictEqual(order, ["first", "second"], "same-thread commands should continue in FIFO order");
   assert(Date.now() - started >= 40, "same-thread cooldown should space queued commands");
 
+  // delayMs (mapped by GoatBot to reactDelayMs) and cooldownMs are independent
+  // config controls: delay sets the reaction wait; cooldown enforces the minimum
+  // spacing between accepted commands on the same thread.
+  humanizer.setOptions({ enabled: true, reactDelayMs: 0, cooldownMs: 35, maxPerMinute: 10, commandPrefixes: ["!"], commandNames: [] });
+  assert.strictEqual(humanizer.getOptions().reactDelayMs, 0);
+  assert.strictEqual(humanizer.getOptions().cooldownMs, 35);
+  const cooldownOrder = [];
+  handler({ type: "message", body: "!cooldown-first", threadID: "config-cooldown" }, () => cooldownOrder.push("first"));
+  handler({ type: "message", body: "!cooldown-second", threadID: "config-cooldown" }, () => cooldownOrder.push("second"));
+  assert.deepStrictEqual(cooldownOrder, ["first"], "cooldownMs from config should hold the next same-thread command");
+  await new Promise((resolve) => setTimeout(resolve, 55));
+  assert.deepStrictEqual(cooldownOrder, ["first", "second"], "configured cooldown should release the queued command");
+
+  // Updating the options at runtime must replace the previous config values.
+  humanizer.setOptions({ enabled: true, reactDelayMs: 30, cooldownMs: 0, commandPrefixes: ["!"] });
+  assert.strictEqual(humanizer.getOptions().reactDelayMs, 30);
+  assert.strictEqual(humanizer.getOptions().cooldownMs, 0);
+  let configDelayReleased = false;
+  const configDelayStarted = Date.now();
+  handler({ type: "message", body: "!configured-delay", threadID: "config-delay" }, () => { configDelayReleased = true; });
+  assert.strictEqual(configDelayReleased, false, "configured delayMs should delay command processing");
+  await new Promise((resolve) => setTimeout(resolve, 45));
+  assert.strictEqual(configDelayReleased, true);
+  assert(Date.now() - configDelayStarted >= 25, "configured delayMs should determine the reaction wait when cooldownMs is zero");
+
   // Reset must release pending middleware callbacks rather than leaving the
   // realtime middleware pipeline waiting for an obsolete timer.
   let releasedByReset = false;
