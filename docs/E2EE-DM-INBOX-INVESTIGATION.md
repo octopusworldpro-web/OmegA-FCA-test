@@ -212,7 +212,9 @@ The FCA service now emits privacy-safe `inbox_diagnostic` stages without message
 - `034f2db`: export the bridge utilities.
 - `8bfa155`: add Inbox bridge unit tests and include them in `npm test`.
 - `07927c7`: enable CI on `investigation/**` branches.
-- `f43eaa8`: correct the event-union type guard identified by the first CI attempt.\n- `6862da2`: preserve ordinary FCA `selfListen` filtering and thread-count update behavior for E2EE DMs.\n- `1e48fc6`: update this investigation report with callback audit and CI correction status.\n- `d11df94`: add privacy-safe inbound E2EE service-stage diagnostics.\n- `b5fdf6d`: forward diagnostic stages through the FCA inbox bridge and log callback invocation.\n- `fc5b40c`: update investigation status, unresolved envelope risks, and diagnostic-stage documentation.\n- `90809b8`: refresh documentation index.\n- `e952280`: test diagnostic logging and bridge listener cleanup.\n- `08051b9`: trace inbound node-processing failures without exposing payload data.\n- Pending commit: finalize callback-invocation log ordering and report formatting.
+- `f43eaa8`: correct the event-union type guard identified by the first CI attempt.
+- `6862da2`: preserve ordinary FCA `selfListen` filtering and thread-count update behavior for E2EE DMs.\n- `1e48fc6`: update this investigation report with callback audit and CI correction status.\n- `d11df94`: add privacy-safe inbound E2EE service-stage diagnostics.\n- `b5fdf6d`: forward diagnostic stages through the FCA inbox bridge and log callback invocation.\n- `fc5b40c`: update investigation status, unresolved envelope risks, and diagnostic-stage documentation.\n- `90809b8`: refresh documentation index.\n- `e952280`: test diagnostic logging and bridge listener cleanup.\n- `08051b9`: trace inbound node-processing failures without exposing payload data.\n- `3a8832e`: log FCA callback invocation after dispatch returns.
+- `5c015e0`: correct report line breaks and refresh the implementation record.
 
 ## 11. Source references
 
