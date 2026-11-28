@@ -12,7 +12,8 @@
 - Release version: `0.2.3`.
 - The release includes the source-level FCA E2EE Inbox callback bridge, default Messenger transport activation when E2EE is enabled, and regression tests on this branch.
 - GoatBot runtime integration and live Messenger Inbox acceptance remain pending; this release intentionally exposes the candidate for operator testing before those acceptance checks are completed.
-- Latest commit `c12af4b94ef88560872d7af0dde04fed2a639c0a` passed Node.js 20/22 CI, including dependency/security audit, build, full tests, TypeScript, lint, and package dry-run in run `46138729592`.
+- Latest source-code commit `c12af4b94ef88560872d7af0dde04fed2a639c0a` passed Node.js 20/22 CI, including dependency/security audit, build, full tests, TypeScript, lint, and package dry-run in run `46138729592`.
+- CI for the release metadata/version update is running separately and must pass before publishing.
 - This preparation updates source repository release metadata only; it does not publish to npm or deploy to Railway.
 - This release includes the E2EE transport activation and Humanizer timing fixes documented on this branch.
 
