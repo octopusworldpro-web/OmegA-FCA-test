@@ -215,6 +215,7 @@ export interface MessengerE2EEMessageEvent {
   senderId: string;
   text: string;
   timestampMs: number;
+  isGroup?: boolean;
 }
 export interface MessengerE2EEServiceOptions {
   accountId: string;
@@ -784,7 +785,7 @@ export class MessengerE2EEService extends EventEmitter {
     }
     this.publishInboxMessage({
       id: context.id, threadId: context.threadId, senderJid: context.senderJid,
-      senderId: context.sender.name, text, timestampMs: context.timestampMs
+      senderId: context.sender.name, text, timestampMs: context.timestampMs, isGroup: group
     });
   }
 
