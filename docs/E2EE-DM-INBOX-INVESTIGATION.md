@@ -256,3 +256,29 @@ GoatBot, branch `agent-fca-compat-fix`:
 - `bot/login/login.js`
 - `bot/handler/handlerAction.js`
 - `bot/handler/handlerEvents.js`
+
+## 13. Follow-up fix: GoatBot directory path compatibility
+
+### Confirmed startup failure
+
+Railway deployment `f1072b34-3c9d-45f0-9525-a005aa12c56f` logged `EISDIR: illegal operation, read` while FCA E2EE initialization was starting. Source inspection confirmed the contract mismatch: GoatBot creates and passes an existing account-specific directory as `options.e2ee.storagePath`, while `createSignalKeyStore()` previously passed that value directly to `readFile()` as though it were a file.
+
+### FCA-only correction
+
+- `src/domains/e2ee/signal-key-store.ts` now checks the supplied path with `stat()` before opening the store.
+- If the supplied path exists and is a directory, FCA resolves the store file to `<directory>/signal.store`.
+- If the supplied path is an existing regular file, FCA preserves that exact file path.
+- If the supplied path does not exist, FCA preserves the previous file-path behavior; this avoids guessing whether a missing path was intended to be a directory.
+- Other existing filesystem errors are propagated, and existing store contents are not deleted or overwritten by path normalization.
+- GoatBot source and Railway configuration are intentionally unchanged.
+
+### Regression coverage
+
+`test/signal-key-store.test.cjs` now covers the directory contract by creating a store from an existing account directory, verifying that `signal.store` is created inside it, and reopening the same store to verify persisted data. The existing file-path tests continue to cover the original file-path behavior.
+
+### Validation status
+
+- Source and regression-test changes have been committed to `investigation/e2ee-dm-inbox`.
+- A fresh branch CI run is required to validate build, full test suite, typecheck, lint, and Node.js 20/22 compatibility. Do not treat this fix as CI-verified until that run completes successfully.
+- The earlier Railway EISDIR failure is directly addressed at its FCA path boundary, but successful E2EE startup, Noise ingress, DM callback delivery, GoatBot command handling, and one-reply behavior still require a new deployment and authorized live Messenger Inbox acceptance test.
+- No NPM publish, Railway deploy, session/identity mutation, or GoatBot code change is included in this fix.
