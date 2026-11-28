@@ -45,6 +45,10 @@ export function attachE2EEInboxBridge(
   logger: (text: string, type?: string) => void = () => undefined
 ): () => void {
   if (!messenger || typeof messenger.on !== "function") return () => undefined;
+  const onDiagnostic = (diagnostic: { stage?: unknown }) => {
+    if (typeof diagnostic?.stage === "string") logger("E2EE inbox stage: " + diagnostic.stage, "info");
+  };
+  if (typeof messenger.on === "function") messenger.on("inbox_diagnostic", onDiagnostic);
   const onMessage = (message: MessengerE2EEInboxMessage) => {
     const event = normalizeMessengerE2EEInboxMessage(message);
     if (!event) {
@@ -52,6 +56,7 @@ export function attachE2EEInboxBridge(
       return;
     }
     try {
+      logger("E2EE inbox stage: FCA_INBOX_CALLBACK_INVOKED", "info");
       dispatch(event);
     } catch (error) {
       logger("E2EE inbox callback dispatch failed: " + (error instanceof Error ? error.message : String(error)), "error");
@@ -62,7 +67,12 @@ export function attachE2EEInboxBridge(
   return () => {
     if (!attached) return;
     attached = false;
-    if (typeof messenger.off === "function") messenger.off("message", onMessage);
-    else if (typeof messenger.removeListener === "function") messenger.removeListener("message", onMessage);
+    if (typeof messenger.off === "function") {
+      messenger.off("message", onMessage);
+      messenger.off("inbox_diagnostic", onDiagnostic);
+    } else if (typeof messenger.removeListener === "function") {
+      messenger.removeListener("message", onMessage);
+      messenger.removeListener("inbox_diagnostic", onDiagnostic);
+    }
   };
 }
