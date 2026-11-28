@@ -56,8 +56,8 @@ export function attachE2EEInboxBridge(
       return;
     }
     try {
-      logger("E2EE inbox stage: FCA_INBOX_CALLBACK_INVOKED", "info");
       dispatch(event);
+      logger("E2EE inbox stage: FCA_INBOX_CALLBACK_INVOKED", "info");
     } catch (error) {
       logger("E2EE inbox callback dispatch failed: " + (error instanceof Error ? error.message : String(error)), "error");
     }
