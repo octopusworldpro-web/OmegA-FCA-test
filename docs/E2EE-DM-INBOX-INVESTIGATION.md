@@ -1,20 +1,20 @@
 # E2EE Direct-Message Inbox Investigation
 
-**Status:** FCA callback bridge implemented; stage diagnostics added; GoatBot integration and live Inbox acceptance pending  
+**Status:** FCA callback bridge and default Messenger transport activation implemented; CI passed; GoatBot integration and live Inbox acceptance pending  
 **Branch:** `investigation/e2ee-dm-inbox`  
 **Base branch:** `feature/release-0.2.3-beta.3`  
 **Base commit:** `d4c6acfefc4baad8ec54f8408d7a4db3a24e0f46`  
-**Package candidate:** `@nirzon-islam/omega-fca@0.2.3-beta.7` (unpublished; beta.7 CI pending)  
+**Release candidate:** `@nirzon-islam/omega-fca@0.2.3` (stable-channel package metadata prepared; live acceptance pending)  
 **Last documentation review:** 2026-11-28
 
-## 1. Beta.7 candidate status
+## 1. Version 0.2.3 release status
 
-- Candidate version: `0.2.3-beta.7`.
-- The candidate includes the source-level FCA E2EE Inbox callback bridge and regression tests on this branch.
-- GoatBot runtime integration and live Messenger Inbox acceptance remain pending.
-- The carried-forward source/test changes passed Node.js 20/22 CI, including dependency/security audit, build, full tests, TypeScript, lint, and package dry-run in run `46115370942`. The beta.7 version/metadata update requires its own fresh CI run and package dry-run.
-- The candidate has not been published to npm or deployed to Railway.
-- Beta.7 is a version-only candidate update over the beta.6 source scope; no new runtime code changes are claimed.
+- Release version: `0.2.3`.
+- The release includes the source-level FCA E2EE Inbox callback bridge, default Messenger transport activation when E2EE is enabled, and regression tests on this branch.
+- GoatBot runtime integration and live Messenger Inbox acceptance remain pending; this release intentionally exposes the candidate for operator testing before those acceptance checks are completed.
+- Latest commit `c12af4b94ef88560872d7af0dde04fed2a639c0a` passed Node.js 20/22 CI, including dependency/security audit, build, full tests, TypeScript, lint, and package dry-run in run `46138729592`.
+- This preparation updates source repository release metadata only; it does not publish to npm or deploy to Railway.
+- This release includes the E2EE transport activation and Humanizer timing fixes documented on this branch.
 
 ## 2. Reported symptom
 
