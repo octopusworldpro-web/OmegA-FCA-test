@@ -127,6 +127,7 @@ async function run() {
   const cooldownOrder = [];
   handler({ type: "message", body: "!cooldown-first", threadID: "config-cooldown" }, () => cooldownOrder.push("first"));
   handler({ type: "message", body: "!cooldown-second", threadID: "config-cooldown" }, () => cooldownOrder.push("second"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepStrictEqual(cooldownOrder, ["first"], "cooldownMs from config should hold the next same-thread command");
   await new Promise((resolve) => setTimeout(resolve, 55));
   assert.deepStrictEqual(cooldownOrder, ["first", "second"], "configured cooldown should release the queued command");
