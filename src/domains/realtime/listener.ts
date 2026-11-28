@@ -427,7 +427,7 @@ export function createRealtimeListener(deps: RealtimeListenerDeps) {
       // Automatic receipts are dispatched only for actual incoming message
       // events. They are best-effort and never delay the user's callback.
       const originalCallback: ListenerCallback = function (error, message) {
-        if (!error && message && !message.isE2EE && (message.type === "message" || message.type === "message_reply")) {
+        if (!error && message && !("isE2EE" in message && message.isE2EE) && (message.type === "message" || message.type === "message_reply")) {
           dispatchAutomaticReceipts(
             api,
             {
