@@ -141,7 +141,23 @@ const runtime = {
   assert.deepEqual(groupMemberships.get("123-456@g.us"), ["123456789.43", "987654321.18"]);
 
   const received = [];
+  // Login can finish before the consumer starts listenMqtt; preserve early DMs until its callback attaches.
+  incomingTransport = textTransport("queued before listen");
+  socket.emit({
+    tag: "message",
+    attrs: { from: "987654321.17@msgr", id: "incoming-before-listen", t: "1699999999" },
+    content: [{ tag: "participants", attrs: {}, content: [{
+      tag: "to", attrs: { jid: "123456789.42@msgr" }, content: [{
+        tag: "enc", attrs: { type: "msg" }, content: Buffer.from("pre-listen-cipher")
+      }]
+    }] }]
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(received.length, 0, "message is queued while no FCA consumer is attached");
   service.on("message", (message) => received.push(message));
+  assert.equal(service.flushPendingMessages(), 1, "queued message flushes when FCA consumer attaches");
+  assert.equal(received[0].text, "queued before listen");
+  incomingTransport = textTransport("decrypted inbound");
   socket.emit({
     tag: "message",
     attrs: { from: "987654321.17@msgr", id: "incoming-direct", t: "1700000000" },
