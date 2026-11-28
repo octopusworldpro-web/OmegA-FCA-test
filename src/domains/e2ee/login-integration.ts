@@ -93,7 +93,7 @@ export async function initializeE2EEForLogin(
       });
       runtime.setLocalDeviceId(deviceRegistration.waDeviceId);
       if (facebookOptions.sendIQ) {
-        preKeyPublication = await publishFacebookPreKeys(runtime, options.facebook.sendIQ);
+        preKeyPublication = await publishFacebookPreKeys(runtime, facebookOptions.sendIQ);
       } else {
         const persistedNoiseKey = runtime.store.getNoiseKeyPair();
         if (!persistedNoiseKey) throw new Error("Persisted Messenger Noise identity is missing");
@@ -113,7 +113,7 @@ export async function initializeE2EEForLogin(
             const message = connectError instanceof Error ? connectError.message : String(connectError);
             const retryable = /timed out|websocket|socket|econn|enotfound|network|temporar|http 5\d\d/i.test(message);
             if (!retryable || attempt === 2) throw connectError;
-            if (!options.facebook.fbCat) fbCat = await fetchCAT(catOptions);
+            if (!facebookOptions.fbCat) fbCat = await fetchCAT(catOptions);
             await wait(250 * (attempt + 1));
           }
         }
@@ -125,7 +125,7 @@ export async function initializeE2EEForLogin(
           try { refreshedCAT = await fetchCAT(catOptions); }
           catch (error) {
             if (!facebookOptions?.fbCat) throw error;
-            refreshedCAT = options.facebook.fbCat;
+            refreshedCAT = facebookOptions.fbCat;
           }
           const replacement = await connectNoise({
             staticPrivateKey: Buffer.from(persistedNoiseKey.privateKey, "base64"),
