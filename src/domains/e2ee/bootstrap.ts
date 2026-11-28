@@ -17,7 +17,7 @@ export interface E2EEBootstrap {
   signal: Dynamic;
 }
 interface IdentityMetadata { version: 1; accountIdHash: string; encryptionKey: string; localDeviceId: number; }
-const signalRequire = createRequire(path.join(process.cwd(), "package.json"));
+const signalRequire = createRequire(path.join(process.cwd(), "node_modules", "@nirzon-islam", "omega-fca", "package.json"));
 
 function loadSignalModule(override?: unknown): Dynamic {
   if (override) return override;
