@@ -827,7 +827,9 @@ export class MessengerE2EEService extends EventEmitter {
     const incomingId = String(node.attrs.id || "");
     if (incomingId && this.seenIncoming.has(incomingId)) {
       this.emit("inbox_diagnostic", { stage: "DUPLICATE_STANZA_SUPPRESSED" });
-      await this.options.socket.sendFrame(marshal(encodeNode("ack", { class: "message", id: incomingId, to: from })));
+      const duplicateAck: Record<string, string> = { class: "message", id: incomingId, to: from };
+      if (node.attrs.participant) duplicateAck.participant = String(node.attrs.participant);
+      await this.options.socket.sendFrame(marshal(encodeNode("ack", duplicateAck)));
       return;
     }
     if (incomingId && this.processingIncoming.has(incomingId)) {
@@ -889,7 +891,9 @@ export class MessengerE2EEService extends EventEmitter {
         this.dispatchApplicationPayload(item.messageApp, item.context, item.group);
       }
       if (participantProcessed && incomingId) {
-        await this.options.socket.sendFrame(marshal(encodeNode("ack", { class: "message", id: incomingId, to: from })));
+        const participantAck: Record<string, string> = { class: "message", id: incomingId, to: from };
+        if (node.attrs.participant) participantAck.participant = String(node.attrs.participant);
+        await this.options.socket.sendFrame(marshal(encodeNode("ack", participantAck)));
         this.rememberIncoming(incomingId);
       }
       return;
