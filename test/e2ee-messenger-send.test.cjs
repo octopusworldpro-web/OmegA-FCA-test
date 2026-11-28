@@ -181,6 +181,7 @@ const runtime = {
   assert.equal(received[0].text, "decrypted inbound");
   assert.equal(received[1].threadId, "123-456@g.us");
   assert.equal(received[1].senderId, "987654321");
+  assert.equal(received[1].isGroup, true, "native group events are explicitly marked as groups");
 
   // The same inbound stanza delivered concurrently must decrypt and dispatch once.
   const duplicateStanza = {
