@@ -149,6 +149,9 @@ export function createHumanizerController(
           return;
         }
         const cooldownRemaining = Math.max(0, options.cooldownMs - (Date.now() - (lastRun.get(key) || 0)));
+        // Both values are supplied by the caller (GoatBot config): delay is the
+        // reaction wait, while cooldown is the minimum per-thread spacing.
+        // Defaults apply only when the caller omits an option.
         const wait = Math.max(delay, cooldownRemaining);
         const threadID = event.threadID ?? event.threadId;
         if (wait > 0 && threadID != null && typeof sendTypingIndicator === "function") {
