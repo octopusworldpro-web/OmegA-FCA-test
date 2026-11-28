@@ -15,3 +15,6 @@ For example, `delayMs: 1200` and `cooldownMs: 0` produce an approximately 1.2-se
 FCA defaults (3,000 ms reaction delay and 5,500 ms cooldown) are fallbacks only when the caller omits those options; they do not override values passed by GoatBot. Calling `setOptions` again replaces the supplied timing values at runtime.
 
 Regression coverage: `test/humanizer.test.cjs` checks that both settings independently affect timing and that updated options replace previous values.
+
+
+The timing regression also waits for the middleware queue's asynchronous scheduling turn before asserting the first command's release, avoiding a synchronous-test assumption.
