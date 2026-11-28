@@ -40,4 +40,15 @@ messenger.emit("message", { ...source, id: "after-detach" });
 messenger.emit("inbox_diagnostic", { stage: "AFTER_DETACH" });
 assert.equal(delivered.length, 1);
 assert.equal(diagnostics.length, diagnosticCountBeforeDetach);
+
+const failingMessenger = new EventEmitter();
+const callbackErrors = [];
+const detachFailing = attachE2EEInboxBridge(
+  failingMessenger,
+  () => { throw new Error("fixture callback failure"); },
+  (message, level) => callbackErrors.push({ message, level })
+);
+assert.throws(() => failingMessenger.emit("message", source), /fixture callback failure/);
+assert.equal(callbackErrors.some(item => item.level === "error" && item.message.includes("callback dispatch failed")), true);
+detachFailing();
 console.log("E2EE Inbox bridge tests passed");
