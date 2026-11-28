@@ -24,7 +24,7 @@ const { initializeE2EEForLogin, FACEBOOK_E2EE_APP_ID } = require("../dist/index.
     preKeys: [{ keyId: 1, publicKey: Buffer.concat([Buffer.from([5]), Buffer.alloc(32, 4)]).toString("base64") }],
     close: async () => { runtimeClosed = true; }
   };
-  const ready = await initializeE2EEForLogin("123456789", { enabled: true }, {
+  const ready = await initializeE2EEForLogin("123456789", { enabled: true, facebook: false }, {
     bootstrap: async (accountId) => {
       bootstrapCalled = true;
       assert.equal(accountId, "123456789");
@@ -74,8 +74,7 @@ const { initializeE2EEForLogin, FACEBOOK_E2EE_APP_ID } = require("../dist/index.
     }
   };
   const retryResult = await initializeE2EEForLogin("123456789", {
-    enabled: true,
-    facebook: {}
+    enabled: true
   }, {
     bootstrap: async () => ({ storagePath: "/tmp/account.signal", encryptionKey: Buffer.alloc(32, 7), localDeviceId: 123, signal: { marker: true } }),
     runtime: async () => retryRuntime,
@@ -98,6 +97,7 @@ const { initializeE2EEForLogin, FACEBOOK_E2EE_APP_ID } = require("../dist/index.
   assert.equal(retryResult.status, "ready", retryResult.error);
   assert.equal(retryCATCalls, 2, "CAT is refreshed after a transient Noise connection failure");
   assert.equal(noiseConnectCalls, 2);
+  assert.ok(retryResult.noiseSocket, "enabled E2EE automatically starts the authenticated Messenger Noise transport when facebook overrides are omitted");
   assert.deepEqual(usedCATs, ["cat-1", "cat-2"]);
   assert.equal(retryResult.preKeyPublication.uploaded, 1);
 
