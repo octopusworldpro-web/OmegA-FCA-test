@@ -298,6 +298,7 @@ export class MessengerE2EEService extends EventEmitter {
     this.unsubscribe = socket.onNode((node) => {
       if (node.tag === "message") this.emit("inbox_diagnostic", { stage: "NOISE_MESSAGE_RECEIVED" });
       void this.handleNode(node).catch(async (error) => {
+        if (node.tag === "message") this.emit("inbox_diagnostic", { stage: "E2EE_NODE_PROCESSING_FAILED" });
         if (node.tag === "message") await this.sendRetryReceipt(node).catch((retryError) => this.emit("e2ee_error", retryError));
         this.emit("e2ee_error", error instanceof Error ? error : new Error(String(error)));
       });
