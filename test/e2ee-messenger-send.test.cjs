@@ -13,7 +13,8 @@ class ProtoWriter {
 function applicationTransport(messageApp) {
   const application = new ProtoWriter().bytes(1, messageApp).var(2, 2).build();
   const payload = new ProtoWriter().bytes(1, application).var(3, 0).build();
-  const integral = new ProtoWriter().bytes(1, Buffer.from([1, 2, 3])).build();
+  const dsm = new ProtoWriter().string(1, "111111111.0@msgr").string(2, "fixture-phash").build();
+  const integral = new ProtoWriter().bytes(1, Buffer.from([1, 2, 3])).bytes(2, dsm).build();
   const protocol = new ProtoWriter().bytes(1, integral).build();
   return new ProtoWriter().bytes(1, payload).bytes(2, protocol).build();
 }
