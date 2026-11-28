@@ -24,7 +24,7 @@
 
 A connected E2EE socket is not proof that inbound messages are bridged into the FCA/GoatBot event callback. This report separates observed runtime evidence, source findings, proposed work, and unverified acceptance criteria.
 
-## 2. Railway evidence observed
+## 3. Railway evidence observed
 
 Deployment/runtime details previously inspected:
 
@@ -86,7 +86,7 @@ In `nirzon-islam/OmegA-Goatbot`, branch `agent-fca-compat-fix`:
 
 **Original failure boundary:** the native E2EE EventEmitter was not connected to the FCA callback. The branch now contains that lifecycle-managed bridge, so the original source-level gap is addressed. Remaining uncertainty is upstream of and downstream from that bridge: whether a real Inbox DM is routed to the local device and decrypted, and whether the updated package is accepted by the GoatBot handler path. These require test evidence; they are not assumed.
 
-## 4. Work progress
+## 5. Work progress
 
 The statuses below track this Inbox-specific investigation/fix. They do not change the separate four-step E2EE implementation roadmap or claim live Messenger compatibility. The current branch contains the FCA bridge and privacy-safe stage diagnostics; these diagnostics are not yet live-runtime evidence.
 
@@ -105,7 +105,7 @@ The statuses below track this Inbox-specific investigation/fix. They do not chan
 
 **Progress summary:** FCA callback bridge, pre-listener queue, direct/group separation, stanza dedupe, staged decrypt/dispatch, thread mapping, and retry handling are implemented at source level. Expanded regression fixtures pass in CI on Node 20 and Node 22. GoatBot runtime integration and live Inbox acceptance remain outstanding. This is a work-item status, not a percentage-complete claim. The Inbox fix is not live-accepted yet.
 
-## 5. Implementation details (current branch changes)
+## 6. Implementation details (current branch changes)
 
 ### 5.1 Verify the callback boundary first
 
@@ -160,7 +160,7 @@ Do not replace or regress:
 
 No changes to production Railway variables, session files, E2EE identity files, or database state are part of this proposed source fix.
 
-## 6. Actual source/test scope
+## 7. Actual source/test scope
 
 The following files were changed for the bridge and its verification:
 
@@ -175,7 +175,7 @@ The following files were changed for the bridge and its verification:
 
 GoatBot runtime files should remain unchanged unless tests prove the FCA callback bridge alone is insufficient and a separate adapter change is explicitly approved.
 
-## 7. Validation and acceptance criteria
+## 8. Validation and acceptance criteria
 
 | Validation | Pass condition |
 |---|---|
@@ -192,7 +192,7 @@ GoatBot runtime files should remain unchanged unless tests prove the FCA callbac
 
 Do not mark the Inbox fix complete based only on compilation, unit tests, CI, E2EE connection status, or group-chat replies. Live acceptance requires the end-to-end DM and reply.
 
-## 8. Diagnostic instrumentation added (source-level; not yet live-verified)
+## 9. Diagnostic instrumentation added (source-level; not yet live-verified)
 
 The FCA service now emits privacy-safe `inbox_diagnostic` stages without message bodies, JIDs, message IDs, ciphertext, cookies, or key material. The bridge forwards stage names to the configured logger and records when the normal FCA callback is invoked. Stages currently instrumented: `NOISE_MESSAGE_RECEIVED`, `DUPLICATE_STANZA_SUPPRESSED`, `DUPLICATE_STANZA_IN_FLIGHT_SUPPRESSED`, `E2EE_RECIPIENT_MATCHED`, `E2EE_RECIPIENT_NOT_MATCHED`, `E2EE_DECRYPT_SUCCEEDED`, `E2EE_PARTICIPANT_TRANSPORT_DECODED`, `E2EE_TRANSPORT_DECODED`, `DUPLICATE_APPLICATION_PAYLOAD_SUPPRESSED`, `E2EE_MESSAGE_QUEUED_NO_CONSUMER`, `E2EE_MESSAGE_EMITTED`, `E2EE_NODE_PROCESSING_FAILED`, and `FCA_INBOX_CALLBACK_INVOKED`. These indicate code-path progress only; absence/presence must be observed during an authorized live DM test to localize the runtime failure. `GOATBOT_HANDLER_RECEIVED` and reply confirmation require GoatBot-side/runtime evidence and are not claimed by FCA logs.
 
@@ -200,7 +200,7 @@ The FCA service now emits privacy-safe `inbox_diagnostic` stages without message
 
 **Remaining protocol uncertainty:** if a stanza contains two *different* application payloads in participant and main envelopes, both are currently dispatched after successful decryption. The exact Messenger semantics of that uncommon envelope combination are not established by the available fixtures; no content is discarded merely because it differs. Real Messenger envelope capture is still required to confirm the expected wire shape.
 
-## 9. Current disposition
+## 10. Current disposition
 
 - Runtime implementation has started with explicit user approval. All changes are isolated to `investigation/e2ee-dm-inbox`.
 - The bridge is owned by the FCA realtime listener and feeds the existing middleware-wrapped callback; no second GoatBot-side listener is introduced.
@@ -217,7 +217,7 @@ The FCA service now emits privacy-safe `inbox_diagnostic` stages without message
 - No production Railway variables, session files, E2EE identity files, or database state have been modified.
 - The first CI attempt exposed a TypeScript union-narrowing error in the receipt guard; this was corrected. Latest CI run `46110035072` passed on both Node 20 and Node 22, including dependency audit, build, full `npm test`, TypeScript check, lint and package dry-run. Tested head: `b1882b67648f66aae474c3e25f2e82bc3e4e3034`. GoatBot runtime integration and authorized live Inbox acceptance are still pending; do not claim live E2EE DM compatibility or production readiness yet.
 
-## 10. Implementation commits
+## 11. Implementation commits
 
 - `9d3a660`: add E2EE Inbox event normalizer and lifecycle bridge helper.
 - `aef16b7`: attach the bridge to the active FCA realtime callback and detach it on listener stop/replacement.
@@ -239,7 +239,7 @@ The FCA service now emits privacy-safe `inbox_diagnostic` stages without message
 - CI validation: run `46110035072` passed Node 20 and Node 22 on tested head `b1882b6`.
 - Latest source/test commits: `b1882b6` (test FCA bridge flushes pending messages on attach and before dispatch), `839641b` (test ACK retry without duplicate dispatch), `44a3f55` (document group isolation/startup queue), `21f5803` (mark native text event direct/group scope), `0cf3905` (exclude group messages from DM bridge), `9bb3584` and `3f5f9a5` (group-scope regression fixtures), `d5e9aa6` (clear queued payloads on service close), `95c69b4` (correct startup queue test expectations), `800eb22` (queue pre-listener DMs until FCA callback attaches), `ed0e45f` (flush pending DMs from the FCA bridge), `ad9e444` (test pre-listener queue delivery), `1723915` (in-flight dedupe and DM thread mapping), `4edead1` (defer application dispatch until stanza decrypt completes), `bf8865f` (duplicate/replay/dual-envelope tests), `ff72462` (partial-decrypt retry test), `dd65efc` (participant ACK addressing), `ce8f132` (remember processed messages before ACK), `e93858f` (propagate FCA callback failures), `7fa807f` (bridge error-propagation test), `da2ef6c` (recipient/participant decode diagnostics), and `a51960e` (DSM-vs-thread mapping fixture).
 
-## 11. Source references
+## 12. Source references
 
 OmegA-FCA-test, branch `investigation/e2ee-dm-inbox`:
 
