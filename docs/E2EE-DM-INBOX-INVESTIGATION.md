@@ -313,3 +313,17 @@ This is a stronger, source-confirmed explanation for the observed group-versus-D
 - Source commits: `6ab5459` (default Messenger activation) and `7125367` (TypeScript option narrowing); regression-test commit: `f2879de`.
 - CI run `46127665364` passed on Node.js 20 and 22 for source/test head `712536729fbad663e575127b1943ab38b294437f`, including dependency/security audit, build, full test suite, TypeScript check, lint, and package dry-run.
 - Live-DM acceptance is still pending. A controlled Railway Inbox test must confirm `native Messenger Signal transport and messaging service ready`, followed by `FCA_INBOX_CALLBACK_DELIVERED` and exactly one GoatBot reply.
+
+
+## 2026-11-28 — Inbox receive/reply root-cause follow-up
+
+Repository cross-checks against `OmegA-Goatbot/main` and `OmegA-FCA-test/investigation/e2ee-dm-inbox` found two independent blockers:
+
+1. GoatBot's lockfile entry for `@nirzon-islam/omega-fca@0.2.3` did not include `@signalapp/libsignal-client`, although the FCA source manifest and FCA lockfile declare it. Railway runtime logs consequently reported that the Signal package was not installed and FCA failed open to ordinary MQTT. Group commands could still work while the native Inbox transport was absent.
+2. GoatBot's shared `utils.message().reply/send()` calls the legacy `api.sendMessage()` for every conversation. FCA exposes `api.e2ee.sendDirectText()`, but legacy sendMessage had no route for a thread first observed through native E2EE Inbox. Even a delivered Inbox event could therefore attempt a normal MQTT send instead of an encrypted Messenger reply.
+
+The Inbox bridge itself is attached by the realtime listener. The fix now records E2EE DM thread IDs at dispatch and routes legacy FCA `sendMessage` calls for those threads through `api.e2ee.sendDirectText`. Non-E2EE threads retain the existing MQTT path. Unsupported E2EE media/metadata is rejected explicitly; it is never silently downgraded to plaintext MQTT. The Signal module resolver is also anchored at the installed OmegA-FCA package location so nested dependencies can be resolved.
+
+Added regression coverage for E2EE text routing, callback results, ordinary MQTT fallback for non-E2EE threads, and refusal to plaintext-fallback unsupported payloads. Version prepared as `0.2.4-beta.1`; this is source preparation only, not an npm publish or live Facebook acceptance test.
+
+Remaining acceptance checks after publishing/installing the beta: confirm Signal runtime and Messenger transport initialize on Railway, observe `NOISE_MESSAGE_RECEIVED`, `E2EE_RECIPIENT_MATCHED`, `E2EE_DECRYPT_SUCCEEDED`, and `FCA_INBOX_CALLBACK_INVOKED`, then verify exactly one encrypted command reply reaches the Inbox.
