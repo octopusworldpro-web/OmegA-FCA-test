@@ -157,6 +157,51 @@ const runtime = {
   assert.equal(received[0].text, "decrypted inbound");
   assert.equal(received[1].threadId, "123-456@g.us");
   assert.equal(received[1].senderId, "987654321");
+
+  // The same inbound stanza delivered concurrently must decrypt and dispatch once.
+  const duplicateStanza = {
+    tag: "message",
+    attrs: { from: "987654321.17@msgr", id: "incoming-duplicate", t: "1700000010" },
+    content: [{ tag: "participants", attrs: {}, content: [{
+      tag: "to", attrs: { jid: "123456789.42@msgr" }, content: [{
+        tag: "enc", attrs: { type: "msg" }, content: Buffer.from("duplicate-cipher")
+      }]
+    }] }]
+  };
+  const receivedBeforeDuplicate = received.length;
+  socket.emit(duplicateStanza);
+  socket.emit(duplicateStanza);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(received.length, receivedBeforeDuplicate + 1, "concurrent duplicate stanza is dispatched once");
+  const duplicateAckCount = socket.frames.map((frame) => fca.decodeMessengerNode(frame))
+    .filter((node) => node.tag === "ack" && node.attrs.id === "incoming-duplicate").length;
+  assert.equal(duplicateAckCount, 1, "only the successfully processed original stanza is acknowledged");
+  socket.emit(duplicateStanza);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(received.length, receivedBeforeDuplicate + 1, "replayed processed stanza is not dispatched again");
+  const replayAckCount = socket.frames.map((frame) => fca.decodeMessengerNode(frame))
+    .filter((node) => node.tag === "ack" && node.attrs.id === "incoming-duplicate").length;
+  assert.equal(replayAckCount, 2, "processed replay is acknowledged without redispatch");
+
+  // If participant and stanza-level encrypted envelopes carry identical app payloads,
+  // dispatch the logical message once and acknowledge the stanza once.
+  const duplicateEnvelope = {
+    tag: "message",
+    attrs: { from: "987654321.17@msgr", id: "incoming-dual-envelope", t: "1700000011" },
+    content: [
+      { tag: "participants", attrs: {}, content: [{
+        tag: "to", attrs: { jid: "123456789.42@msgr" }, content: [{
+          tag: "enc", attrs: { type: "msg" }, content: Buffer.from("same-app-cipher")
+        }]
+      }] },
+      { tag: "enc", attrs: { type: "msg" }, content: Buffer.from("same-app-cipher") }
+    ]
+  };
+  const receivedBeforeDual = received.length;
+  socket.emit(duplicateEnvelope);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(received.length, receivedBeforeDual + 1, "identical participant and main app payloads are deduplicated");
+
   // Native Messenger media is uploaded once, then Signal-fanned out to peer and self devices.
   const originalFetch = global.fetch;
   let mediaUploads = 0;
