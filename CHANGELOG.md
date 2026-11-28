@@ -16,10 +16,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Buffer early inbound DMs until a callback is attached; add bounded queue flushing, stanza/payload deduplication, sender-thread mapping, group exclusion, and privacy-safe inbox diagnostics.
 - Add regression coverage for callback lifecycle, duplicate/retry handling, pre-listener delivery, and direct-message routing.
 
+### Fixed
+
+- Resolve an existing E2EE storage directory to its `signal.store` file while preserving explicit file-path behavior, fixing the GoatBot/FCA directory-versus-file contract mismatch that caused `EISDIR` during E2EE initialization.
+- Add regression coverage that creates and reopens a Signal store using an existing account directory.
+
 ### Validation notes
 
-- Candidate includes the source-level Inbox bridge changes from the investigation branch. GoatBot runtime integration and real Messenger Inbox DM/reply acceptance remain pending.
-- The previously passing Node.js 20/22 CI run validates source/test commit `b1882b6`; the beta.6 version/metadata update itself still requires a fresh CI run and package dry-run.
+- GitHub Actions run [46115370942](https://github.com/octopusworldpro-web/OmegA-FCA-test/actions/runs/46115370942) passed on Node.js 20 and 22 for the candidate commit: dependency/security audit, build and full tests, TypeScript check, lint, and package dry run.
+- Candidate includes the source-level Inbox bridge and FCA storage-path compatibility fix. GoatBot runtime integration and real Messenger Inbox DM/reply acceptance remain pending.
 - This is an unpublished beta candidate; no live Messenger interoperability or production readiness is claimed.
 
 
