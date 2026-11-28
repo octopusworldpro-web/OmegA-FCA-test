@@ -6,6 +6,7 @@ export interface MessengerE2EEInboxMessage {
   senderId?: unknown;
   text?: unknown;
   timestampMs?: unknown;
+  isGroup?: unknown;
 }
 
 function numericMessengerId(value: unknown): string | null {
@@ -17,7 +18,7 @@ function numericMessengerId(value: unknown): string | null {
 
 /** Convert a decrypted native Messenger DM into the legacy FCA callback shape. */
 export function normalizeMessengerE2EEInboxMessage(input: MessengerE2EEInboxMessage): MqttEvent | null {
-  if (!input || typeof input !== "object") return null;
+  if (!input || typeof input !== "object" || input.isGroup === true) return null;
   const messageID = typeof input.id === "string" ? input.id.trim() : "";
   const body = typeof input.text === "string" ? input.text : "";
   const threadID = numericMessengerId(input.threadId);
@@ -50,6 +51,7 @@ export function attachE2EEInboxBridge(
   };
   if (typeof messenger.on === "function") messenger.on("inbox_diagnostic", onDiagnostic);
   const onMessage = (message: MessengerE2EEInboxMessage) => {
+    if (message?.isGroup === true) return;
     const event = normalizeMessengerE2EEInboxMessage(message);
     if (!event) {
       logger("E2EE inbox message ignored: invalid or unsupported direct-message payload", "warn");
