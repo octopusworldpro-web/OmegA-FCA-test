@@ -42,5 +42,19 @@ const { createE2EESendMessageRouter } = require("../dist/index.js");
     /text payloads only/
   );
   assert.equal(legacyCalls.length, 1, "unsupported E2EE payloads must never fall back to MQTT");
+
+  let callbackError;
+  const failingSend = createE2EESendMessageRouter(
+    async () => { throw new Error("legacy path must not run"); },
+    {
+      isE2EEThread: () => true,
+      sendDirectText: async () => { throw new Error("encrypted transport unavailable"); }
+    }
+  );
+  await assert.rejects(
+    failingSend("!ping", "123456789", (error) => { callbackError = error; }),
+    /encrypted transport unavailable/
+  );
+  assert.match(callbackError.message, /encrypted transport unavailable/);
   console.log("E2EE send routing tests passed");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
