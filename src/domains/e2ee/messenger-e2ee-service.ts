@@ -891,10 +891,10 @@ export class MessengerE2EEService extends EventEmitter {
         this.dispatchApplicationPayload(item.messageApp, item.context, item.group);
       }
       if (participantProcessed && incomingId) {
+        this.rememberIncoming(incomingId);
         const participantAck: Record<string, string> = { class: "message", id: incomingId, to: from };
         if (node.attrs.participant) participantAck.participant = String(node.attrs.participant);
         await this.options.socket.sendFrame(marshal(encodeNode("ack", participantAck)));
-        this.rememberIncoming(incomingId);
       }
       return;
     }
@@ -938,10 +938,10 @@ export class MessengerE2EEService extends EventEmitter {
       dispatched.add(hash);
       this.dispatchApplicationPayload(item.messageApp, item.context, item.group);
     }
+    if (incomingId) this.rememberIncoming(incomingId);
     const ackAttrs: Record<string, string> = { class: "message", id: String(node.attrs.id || ""), to: from };
     if (node.attrs.participant) ackAttrs.participant = String(node.attrs.participant);
     await this.options.socket.sendFrame(marshal(encodeNode("ack", ackAttrs)));
-    if (incomingId) this.rememberIncoming(incomingId);
     } finally {
       if (incomingId) this.processingIncoming.delete(incomingId);
     }
