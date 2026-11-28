@@ -282,3 +282,32 @@ Railway deployment `f1072b34-3c9d-45f0-9525-a005aa12c56f` logged `EISDIR: illega
 - The source and regression-test changes passed Node.js 20/22 CI in run `46115370942`, including build, full test suite, typecheck, lint, dependency/security audit, and package dry-run. The beta.7 metadata update still requires a fresh candidate CI run.
 - The earlier Railway EISDIR failure is directly addressed at its FCA path boundary, but successful E2EE startup, Noise ingress, DM callback delivery, GoatBot command handling, and one-reply behavior still require a new deployment and authorized live Messenger Inbox acceptance test.
 - No NPM publish, Railway deploy, session/identity mutation, or GoatBot code change is included in this fix.
+
+## 14. Follow-up fix: activate the authenticated Messenger transport by default
+
+### Confirmed DM startup blocker
+
+The latest Railway logs (2026-11-28) show the E2EE startup message `local Signal runtime initialized for authenticated account`, but do not show `native Messenger Signal transport and messaging service ready`. The same inspected runtime shows normal MQTT/group activity and no Noise/WebSocket or FCA E2EE inbox-stage diagnostics. This is consistent with the source-level activation gate found in `src/domains/e2ee/login-integration.ts`:
+
+- `options.enabled` initialized the local Signal runtime.
+- Facebook CAT fetch, ICDC device registration, authenticated Messenger Noise WebSocket connection, prekey publication, and `MessengerE2EEService` construction were nested exclusively under `if (options.facebook)`.
+- GoatBot's existing FCA provider passes `enabled: true` and the persistent identity fields, but does not pass an `options.facebook` object.
+- Consequently, the service could report E2EE ready while `api.e2ee.messenger` and the DM event source remained absent. The ordinary MQTT group path was unaffected.
+
+This is a stronger, source-confirmed explanation for the observed group-versus-DM split than the earlier callback-only hypothesis. The callback bridge remains necessary, but it cannot forward DMs when the Messenger service was never started.
+
+### FCA-only correction
+
+- When E2EE is explicitly enabled, FCA now activates the authenticated Messenger transport by default using the already-authenticated login session (cookies, user agent, fb_dtsg and FCA CAT request adapter).
+- Optional `options.facebook` values remain supported as overrides for app ID, CAT, device ID, force-registration, or a custom IQ publisher.
+- `facebook: false` is the explicit opt-out for callers that intentionally want local Signal storage without Messenger transport.
+- No GoatBot source, package dependency declaration, Railway variable, session file, identity file, or database state is changed by this FCA fix.
+- Transport initialization remains fail-open for ordinary FCA login: a Messenger E2EE initialization failure is surfaced through the existing E2EE failed status/log path without failing standard FCA authentication.
+
+### Regression coverage and validation
+
+- `test/e2ee-login-integration.test.cjs` now verifies that `enabled: true` with no `facebook` override fetches CAT, registers the device, retries a transient Noise connection failure with refreshed CAT, and returns the connected Noise transport.
+- The local-Signal-only fixture now opts out explicitly with `facebook: false`.
+- Existing custom Facebook override, missing-session failure, and fail-open tests remain in place.
+- Source commit: `6ab5459`; regression-test commit: `f2879de`.
+- CI has not yet been verified for these latest commits. Do not claim this follow-up fix CI-passed or live-DM accepted until the new branch workflow passes and a controlled Railway Inbox test confirms `native Messenger Signal transport and messaging service ready`, followed by `FCA_INBOX_CALLBACK_DELIVERED` and exactly one GoatBot reply.
