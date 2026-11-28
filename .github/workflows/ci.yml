@@ -3,7 +3,7 @@ name: OmegA-FCA CI
 on:
   workflow_dispatch: {}
   push:
-    branches: [main, 'feature/**']
+    branches: [main, 'feature/**', 'investigation/**']
   pull_request:
     branches: [main, 'feature/**']
 
