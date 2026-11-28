@@ -17,10 +17,13 @@ export interface E2EEBootstrap {
   signal: Dynamic;
 }
 interface IdentityMetadata { version: 1; accountIdHash: string; encryptionKey: string; localDeviceId: number; }
-const signalRequire = createRequire(path.join(process.cwd(), "node_modules", "@nirzon-islam", "omega-fca", "package.json"));
-
 function loadSignalModule(override?: unknown): Dynamic {
   if (override) return override;
+  // Resolve from the installed FCA package, not only the host application's
+  // root. This also finds dependencies nested under FCA by npm/pnpm layouts.
+  const signalRequire = createRequire(path.join(
+    process.cwd(), "node_modules", "@nirzon-islam", "omega-fca", "package.json"
+  ));
   try { return signalRequire("@signalapp/libsignal-client"); }
   catch { throw new Error("The optional @signalapp/libsignal-client package is not installed"); }
 }
