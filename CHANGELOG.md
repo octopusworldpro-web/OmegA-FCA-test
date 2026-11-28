@@ -515,3 +515,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## v3.0.31 - 2026-03-07
 - Hotfix / auto bump
+
+
+## 0.2.4-beta.1 — Inbox E2EE routing fix
+
+- Resolve the Signal runtime module from the installed OmegA-FCA package location.
+- Route legacy FCA `sendMessage` calls for threads received through native E2EE Inbox to Messenger's encrypted direct-text transport.
+- Keep ordinary conversations on the existing MQTT send path and refuse plaintext fallback for unsupported E2EE payloads.
+- Add regression tests for encrypted DM replies and non-E2EE compatibility.
+- Live Facebook Inbox acceptance remains pending.
